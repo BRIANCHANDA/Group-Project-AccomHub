@@ -1,0 +1,38 @@
+{
+  "name": "campus-connect-api",
+  "module": "index.ts",
+  "type": "module",
+  "version": "1.0.0",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^22.13.5"
+  },
+  "scripts": {
+    "dev": "bun server/index.ts --watch"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.8",
+    "@hono/zod-openapi": "^0.16.4",
+    "@kinde-oss/kinde-typescript-sdk": "^2.9.1",
+    "@scalar/hono-api-reference": "^0.5.153",
+    "@types/bcrypt": "^5.0.2",
+    "@types/jsonwebtoken": "^9.0.7",
+    "bcrypt": "^5.1.1",
+    "cloudinary": "^2.5.1",
+    "dotenv": "^16.4.7",
+    "drizzle-kit": "^0.25.0",
+    "drizzle-orm": "^0.34.1",
+    "hono": "^4.7.2",
+    "hono-pino": "^0.3.0",
+    "jsonwebtoken": "^9.0.2",
+    "pino": "^9.4.0",
+    "pino-pretty": "^11.2.2",
+    "postgres": "^3.4.4",
+    "stocker": "^1.0.1",
+    "stoker": "^1.0.9",
+    "zod": "^3.24.2"
+  }
+}
