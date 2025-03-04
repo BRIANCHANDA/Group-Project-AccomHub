@@ -100,9 +100,9 @@ bookingRouter.openapi(
                 bookingId: z.number(),
                 propertyId: z.number(),
                 studentId: z.number(),
-                status: z.string(),
-                moveInDate: z.string(),
-                createdAt: z.string(),
+                status: z.string().nullable(),
+                moveInDate: z.string().nullable(),
+                createdAt: z.string().nullable(),
               })
             ),
           },
@@ -137,8 +137,8 @@ bookingRouter.openapi(
               propertyId: z.number(),
               studentId: z.number(),
               status: z.string(),
-              moveInDate: z.string(),
-              createdAt: z.string(),
+              moveInDate: z.string().nullable(),
+              createdAt: z.string().nullable(),
             }),
           },
         },
@@ -166,7 +166,17 @@ bookingRouter.openapi(
       });
     }
 
-    return c.json(booking);
+    return c.json(
+      {
+        bookingId: booking.bookingId,
+        propertyId: booking.propertyId,
+        studentId: booking.studentId,
+        status: booking.status ?? "pending",
+        moveInDate: booking.moveInDate ?? null,
+        createdAt: booking.createdAt ? booking.createdAt.toISOString() : null,
+      },
+      HttpStatusCodes.OK
+    );
   }
 );
 

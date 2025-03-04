@@ -8,9 +8,19 @@ import * as HttpStatusCodes from "stoker/http-status-codes";
 
 const favoriteRouter = createRouter();
 
-// Zod Schema
+// Zod Schemas
 const favoriteSchema = z.object({
-  propertyId: z.number(),
+  propertyId: z.number().int().positive(),
+});
+
+const favoriteResponseSchema = z.object({
+  id: z.number(),
+  property: z.object({
+    id: z.number(),
+    title: z.string(),
+    price: z.number(),
+    mainImage: z.string().optional(),
+  }),
 });
 
 // Add Favorite
@@ -21,27 +31,20 @@ favoriteRouter.openapi(
     path: "/favorites",
     request: {
       body: {
+        required: true,
         content: {
-          "application/json": {
-            schema: favoriteSchema,
-          },
+          "application/json": { schema: favoriteSchema },
         },
       },
     },
     responses: {
       [HttpStatusCodes.CREATED]: {
-        content: {
-          "application/json": {
-            schema: z.object({
-              id: z.number(),
-              property: z.object({
-                id: z.number(),
-                title: z.string(),
-              }),
-            }),
-          },
-        },
-        description: "Favorite added",
+        content: { "application/json": { schema: favoriteResponseSchema } },
+        description: "Favorite added successfully",
+      },
+      [HttpStatusCodes.CONFLICT]: {
+        content: { "application/json": { schema: z.object({ message: z.string() }) } },
+        description: "Property already in favorites",
       },
     },
   }),
@@ -50,23 +53,27 @@ favoriteRouter.openapi(
     const { propertyId } = c.req.valid("json");
 
     try {
-      const [newFavorite] = await db.insert(favorites).values({
-        userId,
-        propertyId,
-      }).returning();
-
-      const property = await db.select()
-        .from(properties)
-        .where(eq(properties.propertyId, propertyId))
-        .limit(1);
+      const [newFavorite] = await db
+        .insert(favorites)
+        .values({ userId, propertyId })
+        .returning({
+          id: favorites.favoriteId,
+          property: sql<{ id: number; title: string; price: number; mainImage?: string }>`
+            (SELECT json_build_object(
+              'id', ${properties.propertyId},
+              'title', ${properties.title},
+              'price', CAST(${properties.monthlyRent} AS DECIMAL),
+              'mainImage', ${properties.mainImage}
+            ) FROM ${properties}
+            WHERE ${properties.propertyId} = ${propertyId}
+          `,
+        });
 
       return c.json({
-        id: newFavorite.favoriteId,
-        property: {
-          id: property[0].propertyId,
-          title: property[0].title,
-        },
+        id: newFavorite.id,
+        property: newFavorite.property,
       }, HttpStatusCodes.CREATED);
+
     } catch (error) {
       throw new HTTPException(HttpStatusCodes.CONFLICT, {
         message: "Property already in favorites",
@@ -83,41 +90,31 @@ favoriteRouter.openapi(
     path: "/favorites",
     responses: {
       [HttpStatusCodes.OK]: {
-        content: {
-          "application/json": {
-            schema: z.array(
-              z.object({
-                id: z.number(),
-                property: z.object({
-                  id: z.number(),
-                  title: z.string(),
-                  price: z.number(),
-                  mainImage: z.string().optional(),
-                }),
-              })
-            ),
-          },
-        },
-        description: "User favorites",
+        content: { "application/json": { schema: z.array(favoriteResponseSchema) } },
+        description: "List of user favorites",
       },
     },
   }),
   async (c) => {
     const userId = c.get("user").id;
-    const userFavorites = await db.select({
-      id: favorites.favoriteId,
-      property: {
-        id: properties.propertyId,
-        title: properties.title,
-        price: sql<number>`CAST(${properties.monthlyRent} AS DECIMAL)`, 
-        mainImage: properties.mainImage ?? "",
-      },
-    })
-    .from(favorites)
-    .where(eq(favorites.userId, userId))
-    .leftJoin(properties, eq(favorites.propertyId, properties.propertyId));
 
-    return c.json(userFavorites, HttpStatusCodes.OK);
+    const userFavorites = await db
+      .select({
+        id: favorites.favoriteId,
+        property: sql<{ id: number; title: string; price: number; mainImage?: string }>`
+          json_build_object(
+            'id', ${properties.propertyId},
+            'title', ${properties.title},
+            'price', CAST(${properties.monthlyRent} AS DECIMAL),
+            'mainImage', ${properties.mainImage}
+          )
+        `,
+      })
+      .from(favorites)
+      .innerJoin(properties, eq(favorites.propertyId, properties.propertyId))
+      .where(eq(favorites.userId, userId));
+
+    return c.json(userFavorites);
   }
 );
 
@@ -129,33 +126,39 @@ favoriteRouter.openapi(
     path: "/favorites/{id}",
     request: {
       params: z.object({
-        id: z.string().transform(Number),
+        id: z.string().pipe(z.coerce.number().int().positive()),
       }),
     },
     responses: {
       [HttpStatusCodes.OK]: {
-        content: {
-          "application/json": {
-            schema: z.object({
-              message: z.string(),
-            }),
-          },
-        },
-        description: "Favorite removed",
+        content: { "application/json": { schema: z.object({ message: z.string() }) } },
+        description: "Favorite removed successfully",
+      },
+      [HttpStatusCodes.NOT_FOUND]: {
+        content: { "application/json": { schema: z.object({ message: z.string() }) } },
+        description: "Favorite not found",
       },
     },
   }),
   async (c) => {
-    const { id } = c.req.valid("param");
     const userId = c.get("user").id;
+    const { id } = c.req.valid("param");
 
-    await db.delete(favorites)
+    const [deleted] = await db
+      .delete(favorites)
       .where(and(
-        eq(favorites.favoriteId, Number(id)),
+        eq(favorites.favoriteId, id),
         eq(favorites.userId, userId)
-      ));
+      ))
+      .returning({ id: favorites.favoriteId });
 
-    return c.json({ message: "Favorite removed successfully" }, HttpStatusCodes.OK);
+    if (!deleted) {
+      throw new HTTPException(HttpStatusCodes.NOT_FOUND, {
+        message: "Favorite not found",
+      });
+    }
+
+    return c.json({ message: "Favorite removed successfully" });
   }
 );
 

@@ -1,10 +1,6 @@
 import dontev from"dotenv/config";
 import dotenv from "dotenv";
-dotenv.config(); // This loads .env automatically
-
-
-
-
+dotenv.config(); 
 import { createRoute, z } from "@hono/zod-openapi";
 import { jwt } from "hono/jwt";
 import { sign } from "jsonwebtoken";

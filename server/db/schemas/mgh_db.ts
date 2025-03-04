@@ -40,7 +40,7 @@ export const properties = pgTable('properties', {
   mainImage: text("main_image"),
   address: text('address').notNull(),
   monthlyRent: decimal('monthly_rent', { precision: 10, scale: 2 }).notNull(),
-  isAvailable: boolean('is_available').default(true),
+  isAvailable: boolean('is_available').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow()
 });
 
@@ -63,8 +63,8 @@ export const propertyImages = pgTable('property_images', {
   imageId: serial('image_id').primaryKey(),
   propertyId: integer('property_id').references(() => properties.propertyId, { onDelete: 'cascade' }).notNull(),
   imageUrl: varchar('image_url', { length: 255 }).notNull(),
-  isPrimary: boolean('is_primary').default(false),
-  uploadedAt: timestamp('uploaded_at').defaultNow()
+  isPrimary: boolean('is_primary').default(false).notNull(),
+  uploadedAt: timestamp('uploaded_at').defaultNow().notNull()
 });
 
 // Bookings
@@ -84,7 +84,7 @@ export const reviews = pgTable('reviews', {
   reviewerId: integer('reviewer_id').references(() => users.userId, { onDelete: 'cascade' }).notNull(),
   rating: integer('rating').$type<1 | 2 | 3 | 4 | 5>(), // Type-safe rating
   comment: text('comment'),
-  createdAt: timestamp('created_at').defaultNow()
+  createdAt: timestamp('created_at').defaultNow().notNull()
 }, (table) => ({
   ratingCheck: check('rating_check', sql`rating BETWEEN 1 AND 5`)
 }));
@@ -117,6 +117,6 @@ export const notifications = pgTable('notifications', {
   title: varchar('title', { length: 255 }).notNull(),
   content: text('content').notNull(),
   type: varchar('type', { length: 50 }),
-  isRead: boolean('is_read').default(false),
-  createdAt: timestamp('created_at').defaultNow()
+  isRead: boolean('is_read').default(false).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull()
 });

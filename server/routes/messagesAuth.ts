@@ -34,7 +34,7 @@ messageRouter
               schema: z.object({
                 id: z.number(),
                 content: z.string(),
-                createdAt: z.string(),
+                createdAt: z.string().nullable(),
               }),
             },
           },
@@ -75,7 +75,7 @@ messageRouter
                   id: z.number(),
                   content: z.string(),
                   sender: z.string(),
-                  createdAt: z.string(),
+                  createdAt: z.string().nullable(),
                 })
               ),
             },
@@ -84,7 +84,7 @@ messageRouter
       },
     }),
     async (c) => {
-      const userId = c.req.param("id");
+      const userId = Number(c.req.param("id"));
 
       const userMessages = await db
         .select({

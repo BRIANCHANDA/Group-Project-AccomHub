@@ -144,22 +144,14 @@ propertyRouter.openapi(
     path: "/properties/{id}",
     request: {
       params: z.object({
-        id: z.string().transform(Number),
+        id: z.string().pipe(z.coerce.number().int().positive()),
       }),
     },
     responses: {
       [HttpStatusCodes.OK]: {
         content: {
           "application/json": {
-            schema: z.object({
-              propertyId: z.number(),
-              title: z.string(),
-              description: z.string().optional(),
-              propertyType: z.string(),
-              address: z.string(),
-              monthlyRent: z.number(),
-              isAvailable: z.boolean(),
-            }),
+            schema: propertySchema, // Your success schema without message
           },
         },
         description: "Property details",
@@ -178,23 +170,29 @@ propertyRouter.openapi(
   }),
   async (c) => {
     const { id } = c.req.valid("param");
-    const property = await findPropertyById(id);
+    
+    try {
+      const [property] = await db.select({
+        propertyId: properties.propertyId,
+        title: properties.title,
+        description: properties.description,
+        propertyType: properties.propertyType,
+        address: properties.address,
+        monthlyRent: properties.monthlyRent,
+        isAvailable: properties.isAvailable,
+      }).from(properties).where(eq(properties.propertyId, id)).limit(1);
 
-    if (!property) {
-      throw new HTTPException(HttpStatusCodes.NOT_FOUND, {
-        message: "Property not found",
-      });
+      if (!property) {
+        throw new HTTPException(HttpStatusCodes.NOT_FOUND, {
+          message: "Property not found",
+        });
+      }
+
+      return c.json(property); // Matches success schema
+    } catch (error) {
+      if (error instanceof HTTPException) throw error;
+      throw new HTTPException(HttpStatusCodes.INTERNAL_SERVER_ERROR);
     }
-
-    return c.json({
-      propertyId: property.propertyId,
-      title: property.title,
-      description: property.description ?? undefined,
-      propertyType: property.propertyType ?? "apartment",
-      address: property.address,
-      monthlyRent: Number(property.monthlyRent),
-      isAvailable: property.isAvailable ?? true,
-    });
   }
 );
 
