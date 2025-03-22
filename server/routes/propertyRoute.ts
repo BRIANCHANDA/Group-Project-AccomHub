@@ -160,7 +160,7 @@ propertyRouter.openapi(
         content: {
           "application/json": {
             schema: z.object({
-              message: z.string(),
+             // message: z.string(),
             }),
           },
         },

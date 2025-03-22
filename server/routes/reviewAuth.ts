@@ -51,12 +51,25 @@ reviewRouter.openapi(
           "application/json": {
             schema: z.object({
               id: z.number(),
-              rating: z.number(),
+              propertyId: z.number(),
+              reviewerId: z.number(),
+              rating: z.number().nullable(),
               comment: z.string(),
+              createdAt: z.string().datetime(),
             }),
           },
         },
         description: "Review created successfully",
+      },
+      [HttpStatusCodes.NOT_FOUND]: {
+        content: {
+          "application/json": {
+            schema: z.object({
+              message: z.string(),
+            }),
+          },
+        },
+        description: "Property not found",
       },
     },
   }),
@@ -77,9 +90,23 @@ reviewRouter.openapi(
 
     const [newReview] = await db.insert(reviews).values({
       ...reviewData,
-      rating: reviewData.rating as 1 | 2 | 3 | 4 | 5
+      rating: reviewData.rating as 1 | 2 | 3 | 4 | 5,
     }).returning();
-    return c.json(newReview, HttpStatusCodes.CREATED);
+    
+    if (!newReview) {
+      throw new HTTPException(HttpStatusCodes.INTERNAL_SERVER_ERROR, {
+        message: "Failed to create review",
+      });
+    }
+
+    return c.json({
+      id: newReview.reviewId,
+      propertyId: newReview.propertyId,
+      reviewerId: newReview.reviewerId,
+      rating: newReview.rating,
+      comment: newReview.comment || "",
+      createdAt: newReview.createdAt.toISOString(),
+    }, HttpStatusCodes.CREATED);
   }
 );
 
@@ -117,20 +144,30 @@ reviewRouter.openapi(
   }),
   async (c) => {
     const { id } = c.req.valid("param");
-    const propertyReviews = await db.select({
+    
+    const results = await db.select({
       id: reviews.reviewId,
       rating: reviews.rating,
       comment: reviews.comment,
-      reviewer: {
-        id: users.userId,
-        name: sql<string>`concat(${users.firstName}, ' ', ${users.lastName})`,
-      },
+      reviewerId: users.userId,
+      firstName: users.firstName,
+      lastName: users.lastName,
     })
     .from(reviews)
-    .where(eq(reviews.propertyId, id))
-    .leftJoin(users, eq(reviews.reviewerId, users.userId));
+    .innerJoin(users, eq(reviews.reviewerId, users.userId))
+    .where(eq(reviews.propertyId, id));
 
-    return c.json(reviews);
+    const formattedReviews = results.map((review) => ({
+      id: review.id,
+      rating: review.rating || 0,
+      comment: review.comment || "",
+      reviewer: {
+        id: review.reviewerId,
+        name: `${review.firstName} ${review.lastName}`,
+      },
+    }));
+
+    return c.json(formattedReviews);
   }
 );
 
@@ -158,17 +195,33 @@ reviewRouter.openapi(
           "application/json": {
             schema: z.object({
               message: z.string(),
+              updatedFields: updateReviewSchema,
             }),
           },
         },
         description: "Review updated",
       },
+      [HttpStatusCodes.FORBIDDEN]: {
+        content: {
+          "application/json": {
+            schema: z.object({
+              message: z.string(),
+            }),
+          },
+        },
+        description: "Unauthorized",
+      },
     },
   }),
   async (c) => {
     const { id } = c.req.valid("param");
-    const updateData = c.req.valid("json");
-    const userId = c.get("user").id; // From authentication middleware
+    const updateData = c.req.valid("json") as {
+      propertyId?: number;
+      reviewerId?: number;
+      rating?: 1 | 2 | 3 | 4 | 5;
+      comment?: string;
+    };
+    const userId = c.get("user").id;
 
     const review = await verifyReviewOwnership(Number(id), userId);
     if (!review) {
@@ -177,14 +230,15 @@ reviewRouter.openapi(
       });
     }
 
-    await db.update(reviews)
-      .set({
-        ...updateData,
-        rating: updateData.rating as 1 | 2 | 3 | 4 | 5
-      })
-      .where(eq(reviews.reviewId, Number(id)));
+    const [updatedReview] = await db.update(reviews)
+      .set(updateData)
+      .where(eq(reviews.reviewId, Number(id)))
+      .returning();
 
-    return c.json({ message: "Review updated successfully" });
+    return c.json({
+      message: "Review updated successfully",
+      updatedFields: updateData,
+    });
   }
 );
 
@@ -209,6 +263,16 @@ reviewRouter.openapi(
           },
         },
         description: "Review deleted",
+      },
+      [HttpStatusCodes.FORBIDDEN]: {
+        content: {
+          "application/json": {
+            schema: z.object({
+              message: z.string(),
+            }),
+          },
+        },
+        description: "Unauthorized",
       },
     },
   }),

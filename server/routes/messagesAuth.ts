@@ -19,6 +19,7 @@ messageRouter
   // Send Message
   .openapi(
     createRoute({
+      tags: ["Messages"],
       method: "post",
       path: "/messages",
       request: {
@@ -60,6 +61,7 @@ messageRouter
   // Get User Messages
   .openapi(
     createRoute({
+      tags: ["Messages"],
       method: "get",
       path: "/users/{id}/messages",
       request: {

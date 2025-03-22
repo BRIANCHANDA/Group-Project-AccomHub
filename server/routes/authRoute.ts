@@ -1,4 +1,3 @@
-import dontev from"dotenv/config";
 import dotenv from "dotenv";
 dotenv.config(); 
 import { createRoute, z } from "@hono/zod-openapi";
@@ -29,7 +28,7 @@ const registerSchema = z.object({
   password: z.string().min(6),
   firstName: z.string().min(2),
   lastName: z.string().min(2),
-  userType: z.enum(["student", "landlord", "admin"]),
+  userType: z.enum(["student", "landlord"]),
   phoneNumber: z.string().optional(),
 });
 
@@ -42,7 +41,7 @@ const authMiddleware = jwt({
 const authRouter = createRouter();
 
 // Helper functions
-const generateToken = (userId: number, userType: "student" | "landlord" | "admin") => {
+const generateToken = (userId: number, userType: "student" | "landlord" ) => {
   return sign({ userId, userType }, JWT_SECRET, { expiresIn: "24h" });
 };
 
@@ -56,7 +55,7 @@ const createUser = async (userData: {
   passwordHash: string;
   firstName: string;
   lastName: string;
-  userType: "student" | "landlord" | "admin";
+  userType: "student" | "landlord" ;
   phoneNumber?: string;
 }) => {
   const [newUser] = await db.insert(users).values(userData).returning({ userId: users.userId, email: users.email });
@@ -117,7 +116,7 @@ authRouter
         });
       }
 
-      const token = generateToken(user.userId, user.userType as "student" | "landlord" | "admin");
+      const token = generateToken(user.userId, user.userType as "student" | "landlord" )
 
       return c.json({
         token,
@@ -186,7 +185,7 @@ authRouter
         passwordHash,
         firstName,
         lastName,
-        userType: userType as "student" | "landlord" | "admin",
+        userType: userType as "student" | "landlord" ,
         phoneNumber,
       });
 

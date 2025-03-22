@@ -28,6 +28,7 @@ const NotificationResponseSchema = z.object({
 // Create Notification
 notificationRouter.openapi(
   createRoute({
+    tags:["Notifications"],
     method: "post",
     path: "/notifications",
     request: {
@@ -89,6 +90,7 @@ notificationRouter.openapi(
 // Get User Notifications
 notificationRouter.openapi(
   createRoute({
+    tags:["Notifications"],
     method: "get",
     path: "/users/{userId}/notifications",
     request: {
