@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const LoginPage = () => {
@@ -16,7 +16,7 @@ const LoginPage = () => {
   };
 
   // Handle form submission
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e: { preventDefault: () => void; }) => {
     e.preventDefault();
     setError('');
     
@@ -28,17 +28,40 @@ const LoginPage = () => {
     
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-      const mockUserType = 'student';
+    try {
+      // Make API call to login endpoint
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
       
-      if (mockUserType === 'student') {
-        navigate('/student-view');
-      } else if (mockUserType === 'landlord') {
-        navigate('/landlord-view');
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed');
       }
-    }, 1500);
+      
+      // Handle successful login
+      // Store the token in localStorage
+      localStorage.setItem('authToken', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      
+      // Redirect based on user type
+      if (data.user.userType === 'student') {
+        navigate('/studentdashboard');
+      } else if (data.user.userType === 'landlord') {
+        navigate('/landlord-view');
+      } else if (data.user.userType === 'admin') {
+        navigate('/admin-view');
+      }
+    } catch (err) {
+      setError(err.message || 'An error occurred during sign in');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -73,7 +96,7 @@ const LoginPage = () => {
           <div className="avatar-container">
             <div className="avatar">
               <img 
-                src="/api/placeholder/120/120" 
+                src="/OIP.jpeg" 
                 alt="User avatar" 
                 className="avatar-image"
               />
@@ -156,8 +179,9 @@ const LoginPage = () => {
         </div>
       </footer>
 
-      {/* CSS Styles - Improved for full screen width */}
-      <style jsx>{`
+      {/* CSS Styles */}
+      <style>
+         {`
         /* Global Styles with Full Width Support */
         * {
           box-sizing: border-box;
@@ -178,7 +202,7 @@ const LoginPage = () => {
           display: flex;
           flex-direction: column;
           min-height: 100vh;
-          min-width: 100vw;
+          minWidth: 100vw;
           width: 100%;
           background-color: #f8f9fa;
           color: #333;

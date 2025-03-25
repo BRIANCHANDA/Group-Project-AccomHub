@@ -67,7 +67,7 @@ const RegistrationForm = () => {
     return newErrors;
   };
   
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     const validationErrors = validate();
@@ -75,16 +75,48 @@ const RegistrationForm = () => {
     if (Object.keys(validationErrors).length === 0) {
       setIsLoading(true);
       
-      // Simulate API call with timeout
-      setTimeout(() => {
-        // In a real application, this would be an API call
-        console.log('Registration data:', formData);
+      try {
+        // Prepare the data for the API
+        const registerData = {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          password: formData.password,
+          userType: formData.userType,
+          ...(formData.phoneNumber && { phoneNumber: formData.phoneNumber })
+        };
         
-        // Simulate success
+        // Make the API call to the registration endpoint
+        const response = await fetch('/api/auth/register', {
+          method: 'post',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(registerData),
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          // Handle error response
+          throw new Error(data.message || 'Registration failed');
+        }
+        
+        // If registration was successful
         setIsLoading(false);
         alert('Registration successful! Please log in with your credentials.');
         navigate('/login');
-      }, 1500);
+      } catch (error) {
+        setIsLoading(false);
+        
+        // Handle specific errors
+        if (error.message.includes('Email already exists')) {
+          setErrors((prev) => ({ ...prev, email: 'This email is already registered' }));
+          setFormError('An account with this email already exists');
+        } else {
+          setFormError(`Registration failed: ${error.message}`);
+        }
+      }
     } else {
       setErrors(validationErrors);
       setFormError('Please correct the errors in the form');
@@ -446,7 +478,7 @@ const RegistrationForm = () => {
         }
         
         .input-group {
-          margin-bottom: 0.5rem;
+          margin-bottom: -2rem;
         }
         
         .input-label {
@@ -454,7 +486,7 @@ const RegistrationForm = () => {
           color: #374151;
           font-size: 0.95rem;
           font-weight: 500;
-          margin-bottom: 0.5rem;
+          margin-bottom: 0.50rem;
         }
         
         .input-field, .select-field {

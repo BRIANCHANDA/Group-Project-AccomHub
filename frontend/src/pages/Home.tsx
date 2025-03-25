@@ -199,7 +199,7 @@ const HomePage = () => {
       display: 'flex',
       width: '100%',
       flexDirection: 'row',
-      '@media (max-width: 480px)': {
+      '@media (maxWidth: 480px)': {
         flexDirection: 'column'
       }
     },
@@ -210,7 +210,7 @@ const HomePage = () => {
       border: '1px solid #d1d5db',
       fontSize: 'clamp(0.875rem, 2vw, 1rem)',
       outline: 'none',
-      '@media (min-width: 481px)': {
+      '@media (minWidth: 481px)': {
         borderRadius: '0.375rem 0 0 0.375rem'
       }
     },
@@ -224,10 +224,10 @@ const HomePage = () => {
       fontSize: 'clamp(0.875rem, 2vw, 1rem)',
       fontWeight: '500',
       whiteSpace: 'nowrap',
-      '@media (min-width: 481px)': {
+      '@media (minWidth: 481px)': {
         borderRadius: '0 0.375rem 0.375rem 0'
       },
-      '@media (max-width: 480px)': {
+      '@media (maxWidth: 480px)': {
         marginTop: '0.5rem'
       }
     },

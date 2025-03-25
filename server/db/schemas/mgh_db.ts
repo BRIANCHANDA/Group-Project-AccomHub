@@ -37,7 +37,6 @@ export const properties = pgTable('properties', {
   title: varchar('title', { length: 255 }).notNull(),
   description: text('description'),
   propertyType: propertyTypeEnum('property_type'),
-  mainImage: text("main_image"),
   address: text('address').notNull(),
   monthlyRent: decimal('monthly_rent', { precision: 10, scale: 2 }).notNull(),
   isAvailable: boolean('is_available').default(true).notNull(),
