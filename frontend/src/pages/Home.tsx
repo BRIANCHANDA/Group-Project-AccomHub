@@ -8,7 +8,7 @@ const HomePage = () => {
   const [menuOpen, setMenuOpen] = useState(false);
 
   // Navigation handlers with improved error handling
-  const handleNavigation = (path) => {
+  const handleNavigation = (path: string) => {
     if (path === 'signin') {
       navigate('/login');
     } else if (path === 'register') {
@@ -30,10 +30,10 @@ const HomePage = () => {
   };
 
   // Extracted reusable hover effect for cleaner code
-  const getHoverStyle = (itemName, baseStyle) => ({
+  const getHoverStyle = (itemName: string | null, baseStyle: any) => ({
     ...baseStyle,
     ...(itemName === 'navItem' 
-      ? { borderBottom: hoveredItem === itemName ? '2px solid #6d28d9' : '2px solid transparent' }
+      ? { borderBottom: hoveredItem === itemName ? '2px solidrgb(50, 1, 129)' : '2px solid transparent' }
       : {}),
     ...(itemName === 'buttonOutline' 
       ? { backgroundColor: hoveredItem === itemName ? '#f3f4f6' : 'transparent' }
@@ -44,7 +44,7 @@ const HomePage = () => {
     ...(itemName === 'ctaButton' 
       ? { backgroundColor: hoveredItem === itemName ? '#f9fafb' : '#ffffff' }
       : {}),
-    ...(itemName.startsWith('property') 
+    ...(itemName?.startsWith('property') 
       ? { transform: hoveredItem === itemName ? 'translateY(-5px)' : 'none' }
       : {})
   });
@@ -64,7 +64,7 @@ const HomePage = () => {
       width: '100%',
       minHeight: '100vh',
       display: 'flex',
-      flexDirection: 'column',
+      flexDirection: 'column' as const,
       backgroundColor: '#ffffff',
       fontFamily: 'Arial, sans-serif',
       overflowX: 'hidden' // Prevent horizontal scrolling
@@ -87,12 +87,12 @@ const HomePage = () => {
     logo: {
       fontSize: 'clamp(1.2rem, 4vw, 1.5rem)',
       fontWeight: 'bold',
-      color: '#333333',
+      color: 'rgb(48, 0, 126)',
       flex: '1'
     },
     mobileMenuButton: {
       display: 'none',
-      backgroundColor: 'transparent',
+      backgroundColor: 'rgb(48, 0, 126)',
       border: 'none',
       fontSize: '1.5rem',
       cursor: 'pointer',
@@ -117,7 +117,7 @@ const HomePage = () => {
     },
     navItem: {
       fontSize: 'clamp(0.875rem, 1vw, 1rem)',
-      color: '#333333',
+      color: 'rgb(48, 0, 126)',
       cursor: 'pointer',
       textDecoration: 'none',
       padding: '0.5rem 0',
@@ -134,7 +134,7 @@ const HomePage = () => {
       border: '1px solid #d1d5db',
       borderRadius: '0.375rem',
       backgroundColor: 'transparent',
-      color: '#333333',
+      color: 'rgb(48, 0, 126)',
       fontSize: 'clamp(0.875rem, 1vw, 1rem)',
       cursor: 'pointer',
       transition: 'background-color 0.3s, transform 0.2s',
@@ -149,7 +149,7 @@ const HomePage = () => {
       padding: 'clamp(0.4rem, 1vw, 0.5rem) clamp(0.75rem, 2vw, 1.25rem)',
       border: 'none',
       borderRadius: '0.375rem',
-      backgroundColor: '#6d28d9',
+      backgroundColor: 'rgb(48, 0, 126)',
       color: '#ffffff',
       fontSize: 'clamp(0.875rem, 1vw, 1rem)',
       cursor: 'pointer',
@@ -175,7 +175,7 @@ const HomePage = () => {
     title: {
       fontSize: 'clamp(1.5rem, 5vw, 3rem)',
       fontWeight: 'bold',
-      color: '#1f2937',
+      color: 'rgb(48, 0, 126)',
       marginBottom: 'clamp(0.75rem, 2vw, 1rem)',
       letterSpacing: '-0.025em',
       lineHeight: '1.2',
@@ -217,7 +217,7 @@ const HomePage = () => {
     searchButton: {
       padding: 'clamp(0.5rem, 2vw, 0.75rem) clamp(1rem, 3vw, 1.5rem)',
       backgroundColor: '#6d28d9',
-      color: '#ffffff',
+      color: 'rgb(48, 0, 126)',
       border: 'none',
       borderRadius: '0.375rem',
       cursor: 'pointer',
@@ -243,7 +243,7 @@ const HomePage = () => {
     sectionTitle: {
       fontSize: 'clamp(1.25rem, 4vw, 2rem)',
       fontWeight: 'bold',
-      color: '#1f2937',
+      color: 'rgb(48, 0, 126)',
       marginBottom: 'clamp(1.5rem, 4vw, 2rem)',
       textAlign: 'center',
       maxWidth: '90%'
@@ -264,7 +264,7 @@ const HomePage = () => {
       maxWidth: 'min(1200px, 90%)'
     },
     featureCard: {
-      backgroundColor: '#ffffff',
+      backgroundColor: 'rgb(239, 237, 245)',
       borderRadius: '0.5rem',
       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
       padding: 'clamp(1rem, 3vw, 1.5rem)',
@@ -290,7 +290,7 @@ const HomePage = () => {
     featureTitle: {
       fontSize: 'clamp(1rem, 3vw, 1.25rem)',
       fontWeight: 'bold',
-      color: '#1f2937',
+      color: 'rgb(48, 0, 126)',
       marginBottom: 'clamp(0.4rem, 1vw, 0.5rem)'
     },
     featureDescription: {
@@ -471,7 +471,7 @@ const HomePage = () => {
               key={item}
               style={{
                 ...styles.navItem,
-                borderBottom: hoveredItem === item ? '2px solid #6d28d9' : '2px solid transparent',
+                borderBottom: hoveredItem === item ? '2px solidrgb(42, 0, 110)' : '2px solid transparent',
                 width: window.innerWidth > 768 ? 'auto' : '100%',
                 padding: window.innerWidth > 768 ? '0.5rem 0' : '0.75rem 0'
               }}

@@ -16,6 +16,7 @@ export const users = pgTable('users', {
   lastName: varchar('last_name', { length: 100 }).notNull(),
   userType: userTypeEnum('user_type').notNull(),
   phoneNumber: varchar('phone_number', { length: 20 }),
+  approved: boolean('approved').default(false).notNull(),  // Added approved field
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow()
 });
@@ -42,8 +43,6 @@ export const properties = pgTable('properties', {
   isAvailable: boolean('is_available').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow()
 });
-
- 
 
 // Property Details
 export const propertyDetails = pgTable('property_details', {

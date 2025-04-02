@@ -53,7 +53,7 @@ const LoginPage = () => {
       if (data.user.userType === 'student') {
         navigate('/studentdashboard');
       } else if (data.user.userType === 'landlord') {
-        navigate('/landlord-view');
+        navigate('/LandlordDashboard');
       } else if (data.user.userType === 'admin') {
         navigate('/admin-view');
       }
@@ -258,7 +258,7 @@ const LoginPage = () => {
         .logo {
           font-size: 1.5rem;
           font-weight: 700;
-          color: #6d28d9;
+          color:rgb(48, 0, 126);
           margin: 0;
         }
         
@@ -297,8 +297,8 @@ const LoginPage = () => {
         
         .nav-button {
           background-color: transparent;
-          color: #6d28d9;
-          border: 1px solid #6d28d9;
+          color:purple;
+          border:rgb(48, 0, 126);
           border-radius: 4px;
           padding: 0.4rem 1rem;
           font-size: 0.9rem;
@@ -315,7 +315,7 @@ const LoginPage = () => {
         }
         
         .nav-button:hover {
-          background-color: #6d28d9;
+          background-color: rgb(48, 0, 126);
           color: white;
         }
         
@@ -537,7 +537,7 @@ const LoginPage = () => {
         
         .input-field:focus {
           outline: none;
-          border-color: #6d28d9;
+          border-color:rgb(48, 0, 126);
           box-shadow: 0 0 0 3px rgba(109, 40, 217, 0.1);
         }
         
@@ -551,7 +551,7 @@ const LoginPage = () => {
         }
         
         .forgot-password-link {
-          color: #6d28d9;
+          color:rgb(48, 0, 126);
           font-size: 0.875rem;
           text-decoration: none;
           transition: color 0.2s;
@@ -564,7 +564,7 @@ const LoginPage = () => {
         }
         
         .forgot-password-link:hover {
-          color: #5b21b6;
+          color:rgb(48, 0, 126);
           text-decoration: underline;
         }
         
@@ -575,7 +575,7 @@ const LoginPage = () => {
         .submit-button {
           width: 100%;
           padding: 0.875rem;
-          background-color: #6d28d9;
+          background-color:rgb(48, 0, 126);
           color: white;
           border: none;
           border-radius: 6px;
@@ -594,7 +594,7 @@ const LoginPage = () => {
         }
         
         .submit-button:hover {
-          background-color: #5b21b6;
+          background-color:rgb(48, 0, 126);
         }
         
         .submit-button.loading {
@@ -630,7 +630,7 @@ const LoginPage = () => {
         
         .sign-in-link {
           font-size: 0.9rem;
-          color: #6d28d9;
+          color: rgb(48, 0, 126);
           font-weight: 600;
           margin-left: 0.25rem;
           cursor: pointer;
@@ -645,7 +645,7 @@ const LoginPage = () => {
         }
         
         .sign-in-link:hover {
-          color: #5b21b6;
+          color: purple;
           text-decoration: underline;
         }
         

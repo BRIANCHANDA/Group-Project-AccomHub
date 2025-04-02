@@ -3,7 +3,8 @@ import LoginPage from './pages/Login'
 import WelcomePage from './pages/Home'
 import RegisterPage from './pages/register'
 import StudentDashboard from './pages/StudentView'
-//import PropertyDashboard from './pages/landlordsView'
+import LandlordDashboard from './pages/landlordsView'
+import AdminDashboard from './pages/Admin'
 
 
 function App() {
@@ -14,6 +15,9 @@ function App() {
         <Route path ='/Home' element={<WelcomePage />} />
         <Route path ='/Register' element={<RegisterPage />} />
         <Route path="/StudentDashboard" element={<StudentDashboard />} />
+        <Route path="/LandlordDashboard" element={<LandlordDashboard/>}/>
+        <Route path='AdminDashboard' element={<AdminDashboard/>}/>
+        
         
         
       </Routes>

@@ -30,8 +30,9 @@ const routes = [
   { path: "/api/notifications", router: notificationsRouter },
 ] as const;
 
-routes.forEach((route) => {
-  app.route("/api", route);  // Add '/api' prefix
+routes.forEach(({ path, router }) => {
+  app.route(path, router);
 });
+
 export type AppType = typeof routes[number]['router'];
 export default app;

@@ -14,11 +14,11 @@ const RegistrationForm = () => {
     userType: ''
   });
   
-  const [errors, setErrors] = useState({});
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [formError, setFormError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     
@@ -34,7 +34,7 @@ const RegistrationForm = () => {
   };
   
   const validate = () => {
-    const newErrors = {};
+    const newErrors: { [key: string]: string } = {};
     
     if (!formData.firstName || formData.firstName.length < 2) {
       newErrors.firstName = 'First name must be at least 2 characters';
@@ -67,7 +67,7 @@ const RegistrationForm = () => {
     return newErrors;
   };
   
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: { preventDefault: () => void; }) => {
     e.preventDefault();
     setFormError('');
     const validationErrors = validate();
@@ -110,11 +110,12 @@ const RegistrationForm = () => {
         setIsLoading(false);
         
         // Handle specific errors
-        if (error.message.includes('Email already exists')) {
+        if (error instanceof Error && error.message.includes('Email already exists')) {
           setErrors((prev) => ({ ...prev, email: 'This email is already registered' }));
           setFormError('An account with this email already exists');
         } else {
-          setFormError(`Registration failed: ${error.message}`);
+          const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+          setFormError(`Registration failed: ${errorMessage}`);
         }
       }
     } else {
@@ -293,7 +294,7 @@ const RegistrationForm = () => {
       </footer>
 
       {/* CSS Styles */}
-      <style jsx>{`
+      <style>{`
         /* Global Styles */
         * {
           box-sizing: border-box;
@@ -348,7 +349,7 @@ const RegistrationForm = () => {
         .logo {
           font-size: 1.8rem;
           font-weight: 700;
-          color: #6d28d9;
+          color:rgb(48, 0, 126);
           margin: 0;
         }
         
@@ -366,8 +367,8 @@ const RegistrationForm = () => {
         
         .nav-button {
           background-color: transparent;
-          color: #6d28d9;
-          border: 1px solid #6d28d9;
+          colorrgb(48, 0, 126);
+          border: 1px solidrgb(48, 0, 126);
           border-radius: 4px;
           padding: 0.5rem 1.25rem;
           font-size: 1rem;
@@ -377,7 +378,7 @@ const RegistrationForm = () => {
         }
         
         .nav-button:hover {
-          background-color: #6d28d9;
+          background-color:rgb(48, 0, 126);
           color: white;
         }
         
@@ -500,7 +501,7 @@ const RegistrationForm = () => {
         
         .input-field:focus, .select-field:focus {
           outline: none;
-          border-color: #6d28d9;
+          border-color:rgb(48, 0, 126);
           box-shadow: 0 0 0 3px rgba(109, 40, 217, 0.1);
         }
         
@@ -534,7 +535,7 @@ const RegistrationForm = () => {
         .submit-button {
           width: 100%;
           padding: 1rem;
-          background-color: #6d28d9;
+          background-color: rgb(48, 0, 126);
           color: white;
           border: none;
           border-radius: 6px;
@@ -546,7 +547,7 @@ const RegistrationForm = () => {
         }
         
         .submit-button:hover {
-          background-color: #5b21b6;
+          background-color:rgb(29, 2, 71);
         }
         
         .submit-button.loading {
@@ -569,7 +570,7 @@ const RegistrationForm = () => {
         
         .sign-in-link {
           font-size: 1rem;
-          color: #6d28d9;
+          color:rgb(48, 0, 126);
           font-weight: 600;
           margin-left: 0.375rem;
           cursor: pointer;
@@ -577,7 +578,7 @@ const RegistrationForm = () => {
         }
         
         .sign-in-link:hover {
-          color: #5b21b6;
+          color:rgb(29, 0, 77);
           text-decoration: underline;
         }
         

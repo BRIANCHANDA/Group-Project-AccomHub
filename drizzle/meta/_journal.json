@@ -15,6 +15,13 @@
       "when": 1742693611361,
       "tag": "0001_dazzling_reavers",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1743364782135,
+      "tag": "0002_right_wild_pack",
+      "breakpoints": true
     }
   ]
 }
