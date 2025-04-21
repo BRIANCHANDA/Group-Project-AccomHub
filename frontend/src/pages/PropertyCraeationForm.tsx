@@ -10,8 +10,38 @@ interface PropertyType {
 interface PropertyCreationFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (propertyId: string) => void;
+  onSubmit: (propertyId: string, propertyData?: any) => void; // Updated to include propertyData
   landlordId: string;
+}
+
+interface PropertyDetails {
+  bedrooms: number;
+  bathrooms: number;
+  furnished: boolean;
+  squareFootage: string;
+  amenities: string[];
+}
+
+interface PropertyDataType {
+  title: string;
+  description: string;
+  propertyType: string;
+  address: string;
+  monthlyRent: string;
+  isAvailable: boolean;
+  details: PropertyDetails;
+}
+
+interface ImageFile {
+  file: File;
+  preview: string;
+  isPrimary: boolean;
+}
+
+// Define form stages
+enum FormStage {
+  PROPERTY_DETAILS = 'property_details',
+  IMAGE_UPLOAD = 'image_upload',
 }
 
 const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: PropertyCreationFormProps) => {
@@ -29,19 +59,20 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
       squareFootage: '',
       amenities: [''],
     },
-    images: []
   };
 
   const [propertyData, setPropertyData] = useState(initialPropertyData);
+  const [formStage, setFormStage] = useState<FormStage>(FormStage.PROPERTY_DETAILS);
+  const [propertyId, setPropertyId] = useState<string | null>(null);
   const [previewImages, setPreviewImages] = useState<string[]>([]);
+  const [images, setImages] = useState<ImageFile[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
   const [isLoadingPropertyTypes, setIsLoadingPropertyTypes] = useState(true);
   const [loadError, setLoadError] = useState('');
-
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [landlordIdError, setLandlordIdError] = useState<string>('');
-
 
   useEffect(() => {
     if (isOpen && !landlordId) {
@@ -56,7 +87,12 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
     const fetchPropertyTypes = async () => {
       try {
         setIsLoadingPropertyTypes(true);
-        const response = await fetch('/api/auth/property-types');
+        const response = await fetch('/api/properties/property-types', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
         
         if (!response.ok) {
           throw new Error('Failed to fetch property types');
@@ -92,7 +128,7 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
     }
   }, [isOpen]);
 
-  const validateForm = () => {
+  const validatePropertyForm = () => {
     const newErrors: { [key: string]: string } = {};
     if (!propertyData.title.trim()) newErrors.title = 'Property title is required';
     if (!propertyData.address.trim()) newErrors.address = 'Address is required';
@@ -100,6 +136,17 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
       newErrors.monthlyRent = 'Valid monthly rent is required';
     }
     if (!propertyData.propertyType) newErrors.propertyType = 'Property type is required';
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const validateImageForm = () => {
+    const newErrors: { [key: string]: string } = {};
+    
+    if (images.length === 0) {
+      newErrors.images = 'At least one property image is required';
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -142,25 +189,6 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
     }));
   };
 
-  interface PropertyDetails {
-    bedrooms: number;
-    bathrooms: number;
-    furnished: boolean;
-    squareFootage: string;
-    amenities: string[];
-  }
-
-  interface PropertyDataType {
-    title: string;
-    description: string;
-    propertyType: string;
-    address: string;
-    monthlyRent: string;
-    isAvailable: boolean;
-    details: PropertyDetails;
-    images: any[];
-  }
-
   const addArrayItem = (type: keyof Pick<PropertyDetails, 'amenities'>) => {
     setPropertyData((prev: PropertyDataType) => ({
       ...prev,
@@ -183,48 +211,71 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
     }));
   };
 
-  interface ImageFile {
-    file: File;
-    preview: string;
-    isPrimary: boolean;
-  }
+  // Updated file size limit in MB
+  const MAX_FILE_SIZE_MB = 5;
+  const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     
-    // Validate file size and type
-    const validFiles = files.filter(file => {
-      const isValidType = ['image/jpeg', 'image/png', 'image/gif'].includes(file.type);
-      const isValidSize = file.size <= 10 * 1024 * 1024; // 10MB
-      return isValidType && isValidSize;
-    });
-
-    if (validFiles.length !== files.length) {
-      alert('Some files were skipped. Only images under 10MB are accepted.');
+    // Clear any existing image errors
+    if (errors.images) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.images;
+        return newErrors;
+      });
     }
     
-    const newPreviewImages: string[] = validFiles.map(file => URL.createObjectURL(file));
+    // Validate file size and type with clear feedback
+    const validFiles: File[] = [];
+    const invalidFiles: {file: File, reason: string}[] = [];
     
-    setPreviewImages((prev: string[]) => [...prev, ...newPreviewImages]);
-    setPropertyData(prev => ({
-      ...prev,
-      images: [...prev.images, ...validFiles.map((file, i) => ({
-        file,
-        preview: newPreviewImages[i],
-        isPrimary: prev.images.length === 0 && i === 0
-      } as ImageFile))]
-    }));
+    files.forEach(file => {
+      const isValidType = ['image/jpeg', 'image/png', 'image/gif'].includes(file.type);
+      const isValidSize = file.size <= MAX_FILE_SIZE_BYTES;
+      
+      if (!isValidType) {
+        invalidFiles.push({file, reason: 'Invalid file type. Only JPEG, PNG, and GIF are accepted.'});
+      } else if (!isValidSize) {
+        invalidFiles.push({file, reason: `File too large (${(file.size / (1024 * 1024)).toFixed(2)}MB). Max size is ${MAX_FILE_SIZE_MB}MB.`});
+      } else {
+        validFiles.push(file);
+      }
+    });
+
+    if (invalidFiles.length > 0) {
+      const invalidMessages = invalidFiles.map(item => 
+        `${item.file.name}: ${item.reason}`
+      );
+      alert(`Some files were skipped:\n${invalidMessages.join('\n')}`);
+    }
+    
+    if (validFiles.length === 0) return;
+    
+    // Create preview URLs
+    validFiles.forEach(file => {
+      try {
+        const previewUrl = URL.createObjectURL(file);
+        setPreviewImages(prev => [...prev, previewUrl]);
+        
+        setImages(prev => [...prev, {
+          file,
+          preview: previewUrl,
+          isPrimary: prev.length === 0
+        }]);
+      } catch (error) {
+        console.error('Error creating preview:', error);
+      }
+    });
   };
 
   const setImageAsPrimary = (index: number): void => {
-    setPropertyData((prev: PropertyDataType) => ({
-      ...prev,
-      images: prev.images.map((img: ImageFile, i: number) => ({
-        ...img,
-        isPrimary: i === index
-      }))
-    }));
+    setImages(prev => prev.map((img, i) => ({
+      ...img,
+      isPrimary: i === index
+    })));
   };
 
   interface RemoveImageProps {
@@ -232,56 +283,25 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
   }
 
   const removeImage = ({ index }: RemoveImageProps): void => {
-    URL.revokeObjectURL(previewImages[index]); 
-    setPreviewImages((prev: string[]) => prev.filter((_, i) => i !== index));
-    setPropertyData((prev: PropertyDataType) => {
-      const newImages: ImageFile[] = prev.images.filter((_, i) => i !== index);
-      if (prev.images[index]?.isPrimary && newImages.length > 0) {
+    if (previewImages[index] && previewImages[index].startsWith('blob:')) {
+      URL.revokeObjectURL(previewImages[index]); 
+    }
+    
+    setPreviewImages(prev => prev.filter((_, i) => i !== index));
+    setImages(prev => {
+      const newImages = prev.filter((_, i) => i !== index);
+      if (prev[index]?.isPrimary && newImages.length > 0) {
         newImages[0].isPrimary = true;
       }
-      return { ...prev, images: newImages };
+      return newImages;
     });
   };
 
-  interface FileReaderResult {
-    result: string | ArrayBuffer | null;
-  }
-
-  const convertToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve: (value: string) => void, reject: (error: Error) => void) => {
-      const reader: FileReader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (error: ProgressEvent<FileReader>) => reject(new Error('File reading failed'));
-    });
-  };
-
-  interface PropertyCreationPayload {
-    title: string;
-    description: string;
-    propertyType: string;
-    address: string;
-    monthlyRent: number;
-    isAvailable: boolean;
-    landlordId: string;
-  }
-
-  interface PropertyDetailsPayload {
-    bedrooms: number;
-    bathrooms: number;
-    furnished: boolean;
-    squareFootage: number;
-    amenities: string[];
-  }
-
-  interface ErrorResponse {
-    message: string;
-  }
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
+  // Create property and get propertyId
+  const handleCreateProperty = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
-    if (!validateForm()) {
+    if (!validatePropertyForm()) {
       return;
     }
     
@@ -289,13 +309,35 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
       alert('Error: No landlord ID provided');
       return;
     }
-
+  
+    // Set loading state
     setIsSubmitting(true);
-
+  
     try {
-      // Create Property
-      const propertyRes = await fetch('/api/auth/properties', {
+      // Step 1: Create a draft property to get an ID
+      const draftRes = await fetch('/api/properties/draft', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          landlordId: parseInt(landlordId)
+        })
+      });
+  
+      if (!draftRes.ok) {
+        const errorData = await draftRes.json();
+        throw new Error(errorData.message || 'Failed to create draft property');
+      }
+      
+      const draftData = await draftRes.json();
+      const newPropertyId = draftData.propertyId;
+      setPropertyId(newPropertyId.toString());
+      
+      // Add explicit debugging
+      console.log('Draft property created with ID:', newPropertyId);
+  
+      // Step 2: Update the draft property with complete information
+      const updateRes = await fetch(`/api/properties/properties/${newPropertyId}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: propertyData.title,
@@ -303,62 +345,40 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
           propertyType: propertyData.propertyType,
           address: propertyData.address,
           monthlyRent: parseFloat(propertyData.monthlyRent),
-          isAvailable: propertyData.isAvailable,
-          landlordId: landlordId
+          isAvailable: propertyData.isAvailable
         })
       });
-
-      if (!propertyRes.ok) {
-        const errorData = await propertyRes.json();
-        throw new Error(errorData.message || 'Failed to create property');
+  
+      if (!updateRes.ok) {
+        const errorData = await updateRes.json();
+        throw new Error(errorData.message || 'Failed to update property details');
       }
       
-      const { propertyId } = await propertyRes.json();
-
-      // Upload Images
-      if (propertyData.images.length > 0) {
-        await Promise.all(propertyData.images.map(async (img) => {
-          const base64 = await convertToBase64(img.file);
-          const imageRes = await fetch('/api/auth/property-images', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              propertyId,
-              image: base64,
-              isPrimary: img.isPrimary
-            })
-          });
-          
-          if (!imageRes.ok) {
-            const errorData = await imageRes.json();
-            throw new Error(errorData.message || 'Image upload failed');
-          }
-        }));
+      // Step 3: Update Property Details
+      try {
+        const detailsRes = await fetch(`/api/property-details/properties/${newPropertyId}/details`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bedrooms: parseInt(String(propertyData.details.bedrooms)) || 0,
+            bathrooms: parseFloat(String(propertyData.details.bathrooms)) || 0,
+            furnished: propertyData.details.furnished,
+            squareFootage: parseFloat(propertyData.details.squareFootage) || 0,
+            amenities: propertyData.details.amenities.filter(a => a.trim() !== '')
+          })
+        });
+  
+        if (!detailsRes.ok) {
+          const errorData = await detailsRes.json();
+          throw new Error(errorData.message || 'Failed to update details');
+        }
+        
+        // Property created successfully, move to image upload stage
+        setFormStage(FormStage.IMAGE_UPLOAD);
+      } catch (detailsError) {
+        console.error('Failed to update property details:', detailsError);
+        alert('There was an issue updating property details. Please try again.');
       }
-
-      // Update Property Details
-      const detailsRes = await fetch(`/api/auth/properties/${propertyId}/details`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bedrooms: parseInt(String(propertyData.details.bedrooms)),
-          bathrooms: parseFloat(String(propertyData.details.bathrooms)), // Allow for half bathrooms
-          furnished: propertyData.details.furnished,
-          squareFootage: parseFloat(propertyData.details.squareFootage) || 0,
-          amenities: propertyData.details.amenities.filter(a => a.trim() !== '')
-        })
-      });
-
-      if (!detailsRes.ok) {
-        const errorData = await detailsRes.json();
-        throw new Error(errorData.message || 'Failed to update details');
-      }
-
-      // Clean up object URLs
-      previewImages.forEach(url => URL.revokeObjectURL(url));
-      
-      onSubmit(propertyId);
-      onClose();
     } catch (error) {
       console.error('Form submission error:', error);
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
@@ -368,12 +388,159 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
     }
   };
 
+  // Upload images to server
+  const uploadImages = async (): Promise<boolean> => {
+    if (!propertyId) {
+      alert('Error: Property ID not found');
+      return false;
+    }
+    
+    setIsSubmitting(true);
+    setUploadProgress(0);
+    
+    try {
+      const totalImages = images.length;
+      if (totalImages === 0) {
+        return false;
+      }
+      
+      console.log('Uploading images with propertyId:', propertyId);
+      
+      let successCount = 0;
+      let failedImages: string[] = [];
+      
+      for (let i = 0; i < totalImages; i++) {
+        const img = images[i];
+        try {
+          setUploadProgress(Math.floor((i / totalImages) * 90));
+          
+          // Create FormData to send the raw file
+          const formData = new FormData();
+          formData.append('propertyId', propertyId);
+          formData.append('image', img.file);
+          formData.append('isPrimary', img.isPrimary.toString());
+          
+          // Debug log to see what's being sent
+          console.log(`Uploading image ${i+1}:`, {
+            propertyId,
+            isPrimary: img.isPrimary,
+            fileName: img.file.name,
+            fileSize: img.file.size
+          });
+          
+          const imageRes = await fetch('/api/property-images/property-images', {
+            method: 'POST',
+            body: formData
+          });
+          
+          if (!imageRes.ok) {
+            const errorData = await imageRes.json();
+            console.error('Image upload response:', await imageRes.clone().text());
+            throw new Error(errorData.message || 'Image upload failed');
+          }
+          
+          successCount++;
+        } catch (error) {
+          console.error(`Failed to upload image ${i+1}:`, error);
+          failedImages.push(`Image ${i+1}`);
+        }
+      }
+      
+      // Inform user if some images failed
+      if (failedImages.length > 0) {
+        console.warn(`${failedImages.length} images failed to upload`);
+        if (successCount === 0) {
+          alert('Error: All images failed to upload. Please try again.');
+          return false;
+        } else {
+          alert(`Warning: ${failedImages.length} out of ${totalImages} images failed to upload.`);
+        }
+      }
+      
+      setUploadProgress(100);
+      
+      // Clean up object URLs
+      previewImages.forEach(url => {
+        if (url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      });
+      
+      return successCount > 0;
+    } catch (error) {
+      console.error('Image upload process failed:', error);
+      alert(`Error uploading images: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmitImages = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    
+    if (!validateImageForm()) {
+      return;
+    }
+    
+    const imagesUploaded = await uploadImages();
+    if (imagesUploaded && propertyId) {
+      const completePropertyData = {
+        id: propertyId,
+        location: propertyData.address,
+        price: `K${propertyData.monthlyRent}`,
+        status: propertyData.isAvailable ? "Available" : "Not Available",
+        details: {
+          bedrooms: propertyData.details.bedrooms,
+          bathrooms: propertyData.details.bathrooms,
+          furnished: propertyData.details.furnished,
+          squareFootage: propertyData.details.squareFootage,
+          amenities: propertyData.details.amenities
+        },
+        description: propertyData.description,
+        propertyType: propertyData.propertyType
+      };
+      
+      onSubmit(propertyId, completePropertyData);
+
+
+      
+      onClose();
+    }
+  };
+
   const handleReset = () => {
     // Clean up object URLs
-    previewImages.forEach(url => URL.revokeObjectURL(url));
+    previewImages.forEach(url => {
+      if (url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+      }
+    });
     setPreviewImages([]);
+    setImages([]);
     setPropertyData(initialPropertyData);
     setErrors({});
+    setFormStage(FormStage.PROPERTY_DETAILS);
+    setPropertyId(null);
+  };
+  
+  const handleCancel = () => {
+    // If property was created but not completed, delete it
+    if (propertyId && formStage === FormStage.IMAGE_UPLOAD) {
+      // Optional: add API call to delete the property
+      fetch(`/api/properties/properties/${propertyId}`, {
+        method: 'DELETE'
+      }).catch(err => console.error('Failed to delete property:', err));
+    }
+    
+    // Clean up object URLs
+    previewImages.forEach(url => {
+      if (url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+      }
+    });
+    
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -382,10 +549,10 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
     <div className="property-form-modal">
       <div className="modal-content">
         <div className="modal-header">
-          <h2>Add New Property</h2>
+          <h2>{formStage === FormStage.PROPERTY_DETAILS ? 'Add New Property' : 'Upload Property Images'}</h2>
           <button 
             type="button"
-            onClick={onClose} 
+            onClick={handleCancel} 
             className="close-btn"
             aria-label="Close"
           >
@@ -393,291 +560,354 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} noValidate>
-          {/* Basic Information Section */}
-          <fieldset className="form-section">
-            <legend>Basic Information</legend>
-            
-            <div className="form-grid">
-              <div className="form-group">
-                <label htmlFor="property-title">Property Title*</label>
-                <input
-                  id="property-title"
-                  type="text"
-                  name="title"
-                  value={propertyData.title}
-                  onChange={handleChange}
-                  required
-                  className={errors.title ? 'input-error' : ''}
-                />
-                {errors.title && <span className="error-message">{errors.title}</span>}
-              </div>
+        {landlordIdError && (
+          <div className="error-banner">
+            {landlordIdError}
+          </div>
+        )}
+
+        {formStage === FormStage.PROPERTY_DETAILS ? (
+          <form onSubmit={handleCreateProperty} noValidate>
+            {/* Basic Information Section */}
+            <fieldset className="form-section">
+              <legend>Basic Information</legend>
               
-              <div className="form-group">
-                <label htmlFor="property-type">Property Type*</label>
-                {isLoadingPropertyTypes ? (
-                  <div className="loading-spinner">Loading property types...</div>
-                ) : (
-                  <>
-                    <select
-                      id="property-type"
-                      name="propertyType"
-                      value={propertyData.propertyType}
-                      onChange={handleChange}
-                      required
-                      className={errors.propertyType ? 'input-error' : ''}
-                      disabled={propertyTypes.length === 0}
-                    >
-                      <option value="">Select a property type</option>
-                      {propertyTypes.map((type) => (
-                        <option key={type.id} value={type.value}>
-                          {type.name}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.propertyType && (
-                      <span className="error-message">{errors.propertyType}</span>
-                    )}
-                    {loadError && (
-                      <span className="error-message">{loadError}</span>
-                    )}
-                  </>
-                )}
-              </div>
-
-              <div className="form-group full-width">
-                <label htmlFor="property-address">Address*</label>
-                <input
-                  id="property-address"
-                  type="text"
-                  name="address"
-                  value={propertyData.address}
-                  onChange={handleChange}
-                  required
-                  className={errors.address ? 'input-error' : ''}
-                  placeholder="Enter complete address"
-                />
-                {errors.address && <span className="error-message">{errors.address}</span>}
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="monthly-rent">Monthly Rent ($)*</label>
-                <input
-                  id="monthly-rent"
-                  type="number"
-                  name="monthlyRent"
-                  value={propertyData.monthlyRent}
-                  onChange={handleChange}
-                  step="0.01"
-                  min="0"
-                  required
-                  className={errors.monthlyRent ? 'input-error' : ''}
-                />
-                {errors.monthlyRent && <span className="error-message">{errors.monthlyRent}</span>}
-              </div>
-
-              <div className="form-group checkbox-group">
-                <label htmlFor="is-available">
+              <div className="form-grid">
+                <div className="form-group">
+                  <label htmlFor="property-title">Property Title*</label>
                   <input
-                    id="is-available"
-                    type="checkbox"
-                    name="isAvailable"
-                    checked={propertyData.isAvailable}
-                    onChange={handleChange}
-                  />
-                  Available for Rent
-                </label>
-              </div>
-
-              <div className="form-group full-width">
-                <label htmlFor="property-description">Description</label>
-                <textarea
-                  id="property-description"
-                  name="description"
-                  value={propertyData.description}
-                  onChange={handleChange}
-                  rows={4}
-                  placeholder="Describe the property, including key features, neighborhood, etc."
-                />
-              </div>
-            </div>
-          </fieldset>
-
-          {/* Property Details Section */}
-          <fieldset className="form-section">
-            <legend>Property Details</legend>
-            
-            <div className="details-grid">
-              <div className="form-group">
-                <label htmlFor="property-bedrooms">Bedrooms</label>
-                <input
-                  id="property-bedrooms"
-                  type="number"
-                  name="details.bedrooms"
-                  value={propertyData.details.bedrooms}
-                  onChange={handleChange}
-                  min="0"
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="property-bathrooms">Bathrooms</label>
-                <input
-                  id="property-bathrooms"
-                  type="number"
-                  name="details.bathrooms"
-                  value={propertyData.details.bathrooms}
-                  onChange={handleChange}
-                  min="0"
-                  step="0.5"
-                />
-                <small>Use 0.5 for half bathrooms</small>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="property-sqft">Square Footage</label>
-                <input
-                  id="property-sqft"
-                  type="number"
-                  name="details.squareFootage"
-                  value={propertyData.details.squareFootage}
-                  onChange={handleChange}
-                  min="0"
-                  placeholder="e.g. 800"
-                />
-              </div>
-
-              <div className="form-group checkbox-group">
-                <label htmlFor="property-furnished">
-                  <input
-                    id="property-furnished"
-                    type="checkbox"
-                    name="details.furnished"
-                    checked={propertyData.details.furnished}
-                    onChange={handleChange}
-                  />
-                  Furnished
-                </label>
-              </div>
-            </div>
-
-            <div className="amenities-section">
-              <div className="amenities-header">
-                <h4>Amenities</h4>
-                <button 
-                  type="button" 
-                  onClick={() => addArrayItem('amenities')}
-                  className="add-btn"
-                >
-                  <Plus size={16} /> Add Amenity
-                </button>
-              </div>
-              
-              {propertyData.details.amenities.map((amenity, index) => (
-                <div key={index} className="amenity-input">
-                  <input
+                    id="property-title"
                     type="text"
-                    value={amenity}
-                    onChange={(e) => handleArrayChange('amenities', index, e.target.value)}
-                    placeholder="Enter amenity (e.g., Parking, Gym, Pool)"
+                    name="title"
+                    value={propertyData.title}
+                    onChange={handleChange}
+                    required
+                    className={errors.title ? 'input-error' : ''}
                   />
+                  {errors.title && <span className="error-message">{errors.title}</span>}
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="property-type">Property Type*</label>
+                  {isLoadingPropertyTypes ? (
+                    <div className="loading-spinner">Loading property types...</div>
+                  ) : (
+                    <>
+                      <select
+                        id="property-type"
+                        name="propertyType"
+                        value={propertyData.propertyType}
+                        onChange={handleChange}
+                        required
+                        className={errors.propertyType ? 'input-error' : ''}
+                        disabled={propertyTypes.length === 0}
+                      >
+                        <option value="">Select a property type</option>
+                        {propertyTypes.map((type) => (
+                          <option key={type.id} value={type.value}>
+                            {type.name}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.propertyType && (
+                        <span className="error-message">{errors.propertyType}</span>
+                      )}
+                      {loadError && (
+                        <span className="error-message">{loadError}</span>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                <div className="form-group full-width">
+                  <label htmlFor="property-address">Address*</label>
+                  <input
+                    id="property-address"
+                    type="text"
+                    name="address"
+                    value={propertyData.address}
+                    onChange={handleChange}
+                    required
+                    className={errors.address ? 'input-error' : ''}
+                    placeholder="Enter complete address"
+                  />
+                  {errors.address && <span className="error-message">{errors.address}</span>}
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="monthly-rent">Monthly Rent (K)*</label>
+                  <input
+                    id="monthly-rent"
+                    type="number"
+                    name="monthlyRent"
+                    value={propertyData.monthlyRent}
+                    onChange={handleChange}
+                    step="0.01"
+                    min="0"
+                    required
+                    className={errors.monthlyRent ? 'input-error' : ''}
+                  />
+                  {errors.monthlyRent && <span className="error-message">{errors.monthlyRent}</span>}
+                </div>
+
+                <div className="form-group checkbox-group">
+                  <label htmlFor="is-available">
+                    <input
+                      id="is-available"
+                      type="checkbox"
+                      name="isAvailable"
+                      checked={propertyData.isAvailable}
+                      onChange={handleChange}
+                    />
+                    Available for Rent
+                  </label>
+                </div>
+
+                <div className="form-group full-width">
+                  <label htmlFor="property-description">Description</label>
+                  <textarea
+                    id="property-description"
+                    name="description"
+                    value={propertyData.description}
+                    onChange={handleChange}
+                    rows={4}
+                    placeholder="Describe the property, including key features, neighborhood, etc."
+                  />
+                </div>
+              </div>
+            </fieldset>
+
+            {/* Property Details Section */}
+            <fieldset className="form-section">
+              <legend>Property Details</legend>
+              
+              <div className="details-grid">
+                <div className="form-group">
+                  <label htmlFor="property-bedrooms">Bedrooms</label>
+                  <input
+                    id="property-bedrooms"
+                    type="number"
+                    name="details.bedrooms"
+                    value={propertyData.details.bedrooms}
+                    onChange={handleChange}
+                    min="0"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="property-bathrooms">Bathrooms</label>
+                  <input
+                    id="property-bathrooms"
+                    type="number"
+                    name="details.bathrooms"
+                    value={propertyData.details.bathrooms}
+                    onChange={handleChange}
+                    min="0"
+                    step="0.5"
+                  />
+                  <small>Use 0.5 for half bathrooms</small>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="property-sqft">Square Footage</label>
+                  <input
+                    id="property-sqft"
+                    type="number"
+                    name="details.squareFootage"
+                    value={propertyData.details.squareFootage}
+                    onChange={handleChange}
+                    min="0"
+                    placeholder="e.g. 800"
+                  />
+                </div>
+
+                <div className="form-group checkbox-group">
+                  <label htmlFor="property-furnished">
+                    <input
+                      id="property-furnished"
+                      type="checkbox"
+                      name="details.furnished"
+                      checked={propertyData.details.furnished}
+                      onChange={handleChange}
+                    />
+                    Furnished
+                  </label>
+                </div>
+              </div>
+
+              <div className="amenities-section">
+                <div className="amenities-header">
+                  <h4>Amenities</h4>
                   <button 
                     type="button" 
-                    onClick={() => removeArrayItem('amenities', index)}
-                    className="remove-btn"
-                    disabled={propertyData.details.amenities.length <= 1}
-                    aria-label="Remove amenity"
+                    onClick={() => addArrayItem('amenities')}
+                    className="add-btn"
                   >
-                    <Minus size={16} />
+                    <Plus size={16} /> Add Amenity
                   </button>
                 </div>
-              ))}
-            </div>
-          </fieldset>
-
-          {/* Image Upload Section */}
-          <fieldset className="form-section">
-            <legend>Property Images</legend>
-            
-            <div className="image-upload">
-              <input
-                type="file"
-                id="image-upload"
-                multiple
-                accept="image/jpeg,image/png,image/gif"
-                onChange={handleImageChange}
-                disabled={isSubmitting}
-              />
-              <label htmlFor="image-upload" className="upload-label">
-                <Upload size={24} />
-                <p>Click to upload images</p>
-                <small>PNG, JPG, GIF up to 10MB</small>
-              </label>
-            </div>
-
-            {previewImages.length > 0 && (
-              <div className="image-previews">
-                <p>Uploaded Images ({previewImages.length})</p>
-                <p className="help-text">Click an image to set as primary listing photo</p>
-                <div className="preview-grid">
-                  {previewImages.map((src, index) => (
-                    <div key={index} className={`preview-item ${propertyData.images[index]?.isPrimary ? 'is-primary' : ''}`}>
-                      <img
-                        src={src}
-                        alt={`Property preview ${index + 1}`}
-                        onClick={() => setImageAsPrimary(index)}
-                      />
-                      {propertyData.images[index]?.isPrimary && (
-                        <span className="primary-badge">Primary</span>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => removeImage({ index })}
-                        className="delete-btn"
-                        aria-label="Remove image"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                
+                {propertyData.details.amenities.map((amenity, index) => (
+                  <div key={index} className="amenity-input">
+                    <input
+                      type="text"
+                      value={amenity}
+                      onChange={(e) => handleArrayChange('amenities', index, e.target.value)}
+                      placeholder="Enter amenity (e.g., Parking, Gym, Pool)"
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => removeArrayItem('amenities', index)}
+                      className="remove-btn"
+                      disabled={propertyData.details.amenities.length <= 1}
+                      aria-label="Remove amenity"
+                    >
+                      <Minus size={16} />
+                    </button>
+                  </div>
+                ))}
               </div>
-            )}
-          </fieldset>
+            </fieldset>
 
-          {/* Form Footer */}
-          <div className="form-footer">
-            <div className="footer-buttons">
-              <button
-                type="button"
-                onClick={handleReset}
-                disabled={isSubmitting}
-                className="reset-btn"
-              >
-                Reset Form
-              </button>
-              <div className="action-buttons">
+            {/* Form Footer for Property Details */}
+            <div className="form-footer">
+              <div className="footer-buttons">
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={handleReset}
                   disabled={isSubmitting}
-                  className="cancel-btn"
+                  className="reset-btn"
                 >
-                  Cancel
+                  Reset Form
                 </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="submit-btn"
-                >
-                  {isSubmitting ? 'Creating...' : 'Create Property'}
-                </button>
+                <div className="action-buttons">
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    disabled={isSubmitting}
+                    className="cancel-btn"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="submit-btn"
+                  >
+                    {isSubmitting ? 'Creating Property...' : 'Next: Add Images'}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        </form>
+          </form>
+        ) : (
+          <form onSubmit={handleSubmitImages} noValidate>
+            {/* Image Upload Section */}
+            <fieldset className="form-section">
+              <legend>Property Images*</legend>
+              
+              {propertyId && (
+                <div className="property-id-info">
+                  <p><strong>Property ID:</strong> {propertyId}</p>
+                  <p>Images will be associated with this property.</p>
+                </div>
+              )}
+              
+              <div className="image-upload">
+                <input
+                  type="file"
+                  id="image-upload"
+                  multiple
+                  accept="image/jpeg,image/png,image/gif"
+                  onChange={handleImageChange}
+                  disabled={isSubmitting}
+                />
+                <label htmlFor="image-upload" className="upload-label">
+                  <Upload size={24} />
+                  <p>Click to upload images</p>
+                  <small>PNG, JPG, GIF up to {MAX_FILE_SIZE_MB}MB</small>
+                </label>
+              </div>
+              
+              {errors.images && <span className="error-message block-error">{errors.images}</span>}
+
+              {previewImages.length > 0 && (
+                <div className="image-previews">
+                  <p>Uploaded Images ({previewImages.length})</p>
+                  <p className="help-text">Click an image to set as primary listing photo</p>
+                  <div className="preview-grid">
+                    {previewImages.map((src, index) => (
+                      <div key={index} className={`preview-item ${images[index]?.isPrimary ? 'is-primary' : ''}`}>
+                        <img
+                          src={src}
+                          alt={`Property preview ${index + 1}`}
+                          onClick={() => setImageAsPrimary(index)}
+                        />
+                        {images[index]?.isPrimary && (
+                          <span className="primary-badge">Primary</span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeImage({ index })}
+                          className="delete-btn"
+                          aria-label="Remove image"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {isSubmitting && uploadProgress > 0 && (
+                <div className="upload-progress">
+                  <div className="progress-bar">
+                    <div 
+                      className="progress-fill" 
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
+                  <p className="progress-text">Uploading images: {uploadProgress}%</p>
+                </div>
+              )}
+            </fieldset>
+
+            {/* Form Footer for Image Upload */}
+            <div className="form-footer">
+              <div className="footer-buttons">
+                <button
+                  type="button"
+                  onClick={() => setFormStage(FormStage.PROPERTY_DETAILS)}
+                  disabled={isSubmitting}
+                  className="back-btn"
+                >
+                  Back to Details
+                </button>
+                <div className="action-buttons">
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    disabled={isSubmitting}
+                    className="cancel-btn"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || images.length === 0}
+                    className="submit-btn"
+                  >
+                    {isSubmitting ? 'Uploading Images...' : 'Upload Images & Complete'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </form>
+        )}
       </div>
-      <style jsx>{`
+    
+          <style jsx>{`
         .property-form-modal {
           position: fixed;
           top: 0;
@@ -689,417 +919,435 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
           align-items: center;
           justify-content: center;
           z-index: 1000;
-          padding: 1rem;
+          padding: 20px;
         }
-
+        
         .modal-content {
           background: white;
           border-radius: 8px;
-          width: 90%;
+          width: 100%;
           max-width: 800px;
           max-height: 90vh;
           overflow-y: auto;
-          padding: 2rem;
-          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
+          box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
         }
-
+        
         .modal-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 2rem;
-          padding-bottom: 1rem;
-          border-bottom: 1px solid #eee;
+          padding: 16px 24px;
+          border-bottom: 1px solid #e2e8f0;
         }
-
+        
         .modal-header h2 {
-          font-size: 1.5rem;
-          font-weight: 600;
-          color: #1f2937;
           margin: 0;
+          color: rgb(48, 0, 126);
+          font-size: 1.5rem;
         }
-
+        
         .close-btn {
           background: none;
           border: none;
           cursor: pointer;
-          padding: 0.5rem;
-          color: #6b7280;
-          border-radius: 4px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: background-color 0.2s;
+          color: #666;
+          padding: 4px;
         }
-
+        
         .close-btn:hover {
-          background-color: #f3f4f6;
-          color: #1f2937;
+          color: #333;
         }
-
+        
+        .error-banner {
+          background-color: #fee2e2;
+          color: #b91c1c;
+          padding: 12px 16px;
+          margin: 0;
+          text-align: center;
+          font-weight: 500;
+        }
+        
         .form-section {
-          margin-bottom: 2rem;
-          border: 1px solid #e5e7eb;
-          padding: 1.5rem;
-          border-radius: 8px;
-          background-color: #f9fafb;
+          border: none;
+          padding: 20px 24px;
+          margin: 0 0 12px 0;
         }
-
-        legend {
+        
+        .form-section legend {
           font-weight: 600;
-          padding: 0 0.5rem;
-          color: #4b5563;
+          color: rgb(48, 0, 126);
+          font-size: 1.1rem;
+          padding: 0 8px;
         }
-
-        .form-grid, .details-grid {
+        
+        .form-grid {
           display: grid;
-          gap: 1rem;
-          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-          margin-top: 1rem;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
         }
-
-        .full-width {
+        
+        .details-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 16px;
+        }
+        
+        .form-group {
+          margin-bottom: 12px;
+        }
+        
+        .form-group.full-width {
           grid-column: 1 / -1;
         }
-
-        .form-group {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-
+        
         .form-group label {
+          display: block;
+          margin-bottom: 6px;
           font-weight: 500;
-          color: #4b5563;
+          color: #333;
         }
-
-        input, select, textarea {
-          padding: 0.75rem;
-          border: 1px solid #d1d5db;
-          border-radius: 4px;
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
           width: 100%;
-          transition: border-color 0.2s;
-          font-size: 0.95rem;
+          padding: 10px;
+          border: 1px solid #ccc;
+          border-radius: 4px;
+          font-size: 1rem;
         }
-
-        input:focus, select:focus, textarea:focus {
-          outline: none;
-          border-color: #3b82f6;
-          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        
+        .form-group textarea {
+          resize: vertical;
+          min-height: 100px;
         }
-
-        .input-error {
-          border-color: #ef4444;
+        
+        .checkbox-group {
+          display: flex;
+          align-items: center;
         }
-
-        .input-error:focus {
-          box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
-        }
-
-        .error-message {
-          color: #ef4444;
-          font-size: 0.8rem;
-          margin-top: 0.25rem;
-        }
-
-        small {
-          color: #6b7280;
-          font-size: 0.75rem;
-        }
-
+        
         .checkbox-group label {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          gap: 8px;
           cursor: pointer;
         }
-
-        .checkbox-group input[type="checkbox"] {
+        
+        .checkbox-group input {
           width: auto;
+          margin-right: 6px;
         }
-
-        .loading-spinner {
-          padding: 0.75rem;
-          color: #6b7280;
-          background-color: #f3f4f6;
-          border-radius: 4px;
-          font-size: 0.9rem;
-          text-align: center;
+        
+        .input-error {
+          border-color: #dc2626 !important;
         }
-
+        
+        .error-message {
+          color: #dc2626;
+          font-size: 0.85rem;
+          margin-top: 4px;
+          display: block;
+        }
+        
+        .block-error {
+          margin: 12px 0;
+        }
+        
         .amenities-section {
-          margin-top: 1.5rem;
+          margin-top: 16px;
+          border-top: 1px solid #e2e8f0;
+          padding-top: 16px;
         }
-
+        
         .amenities-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 1rem;
+          margin-bottom: 12px;
         }
-
+        
         .amenities-header h4 {
           margin: 0;
-          color: #4b5563;
+          font-weight: 600;
+          color: #333;
         }
-
+        
         .add-btn {
           display: flex;
           align-items: center;
-          gap: 0.25rem;
-          color: #3b82f6;
-          background: none;
-          border: 1px solid #3b82f6;
+          gap: 4px;
+          background: rgb(48, 0, 126);
+          color: white;
+          border: none;
           border-radius: 4px;
-          padding: 0.25rem 0.5rem;
+          padding: 6px 12px;
           cursor: pointer;
-          font-size: 0.85rem;
-          transition: background-color 0.2s;
+          font-size: 0.9rem;
         }
-
+        
         .add-btn:hover {
-          background-color: rgba(59, 130, 246, 0.1);
+          background: rgba(48, 0, 126, 0.9);
         }
-
+        
         .amenity-input {
           display: flex;
-          gap: 0.5rem;
-          margin-bottom: 0.5rem;
           align-items: center;
+          gap: 8px;
+          margin-bottom: 8px;
         }
-
+        
         .remove-btn {
-          background: none;
-          border: none;
+          background: #f3f4f6;
+          border: 1px solid #d1d5db;
+          border-radius: 4px;
+          padding: 6px;
           cursor: pointer;
-          color: #6b7280;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 0.25rem;
-          border-radius: 4px;
         }
-
-        .remove-btn:hover {
-          color: #ef4444;
-          background-color: rgba(239, 68, 68, 0.1);
-        }
-
+        
         .remove-btn:disabled {
-          color: #d1d5db;
+          opacity: 0.5;
           cursor: not-allowed;
         }
-
-        .help-text {
-          color: #6b7280;
-          font-size: 0.85rem;
-          margin-top: 0;
-        }
-
-        .image-upload {
-          border: 2px dashed #d1d5db;
-          border-radius: 8px;
-          padding: 2rem;
-          text-align: center;
-          margin: 1rem 0;
-          transition: border-color 0.2s;
-        }
-
-        .image-upload:hover {
-          border-color: #3b82f6;
-        }
-
-        #image-upload {
-          display: none;
-        }
-
-        .upload-label {
-          cursor: pointer;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.5rem;
-          color: #6b7280;
-        }
-
-        .upload-label p {
-          margin: 0.5rem 0 0 0;
-          font-weight: 500;
-        }
-
-        .preview-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-          gap: 1rem;
-          margin-top: 1rem;
-        }
-
-        .preview-item {
-          position: relative;
-          aspect-ratio: 1;
-          border-radius: 4px;
-          overflow: hidden;
-          transition: transform 0.2s;
-        }
-
-        .preview-item:hover {
-          transform: scale(1.02);
-        }
-
-        .preview-item img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          border-radius: 4px;
-          border: 2px solid #e5e7eb;
-          cursor: pointer;
-          transition: border-color 0.2s;
-        }
-
-        .preview-item.is-primary img {
-          border-color: #3b82f6;
-        }
-
-        .primary-badge {
-          position: absolute;
-          top: 0;
-          right: 0;
-          background: #3b82f6;
-          color: white;
-          padding: 0.25rem 0.5rem;
-          font-size: 0.75rem;
-          border-radius: 0 0 0 4px;
-        }
-
-        .delete-btn {
-          position: absolute;
-          top: 0.25rem;
-          left: 0.25rem;
-          background: #ef4444;
-          color: white;
-          border: none;
-          border-radius: 50%;
-          width: 1.5rem;
-          height: 1.5rem;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          opacity: 0;
-          transition: opacity 0.2s;
-        }
-
-        .preview-item:hover .delete-btn {
-          opacity: 1;
-        }
-
+        
         .form-footer {
-          margin-top: 2rem;
-          padding-top: 1.5rem;
-          border-top: 1px solid #e5e7eb;
+          padding: 16px 24px;
+          border-top: 1px solid #e2e8f0;
+          background: #f8fafc;
         }
-
+        
         .footer-buttons {
           display: flex;
           justify-content: space-between;
           align-items: center;
         }
-
+        
         .action-buttons {
           display: flex;
-          gap: 1rem;
+          gap: 12px;
         }
-
-        .reset-btn {
-  background: none;
-  border: none;
-  color: #6b7280;
-  cursor: pointer;
-  font-size: 0.95rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 4px;
-  transition: background-color 0.2s;
-}
-
-.reset-btn:hover {
-  background-color: #f3f4f6;
-  color: #4b5563;
-}
-
-.reset-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.cancel-btn {
-  padding: 0.75rem 1.25rem;
-  border: 1px solid #d1d5db;
-  background-color: white;
-  color: #4b5563;
-  border-radius: 4px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.cancel-btn:hover {
-  background-color: #f3f4f6;
-}
-
-.cancel-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.submit-btn {
-  padding: 0.75rem 1.25rem;
-  border: none;
-  background-color: #3b82f6;
-  color: white;
-  font-weight: 500;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.submit-btn:hover {
-  background-color: #2563eb;
-}
-
-.submit-btn:disabled {
-  background-color: #93c5fd;
-  cursor: not-allowed;
-}
-
-@media (max-width: 640px) {
-  .modal-content {
-    padding: 1.5rem;
-    width: 95%;
-  }
-
-  .form-section {
-    padding: 1rem;
-  }
-
-  .footer-buttons {
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .action-buttons {
-    width: 100%;
-  }
-
-  .cancel-btn, .submit-btn {
-    flex: 1;
-  }
-}
-`}</style>
         
-      </div>
-    
+        .reset-btn, .back-btn {
+          background: #f3f4f6;
+          border: 1px solid #d1d5db;
+          color: #4b5563;
+          border-radius: 4px;
+          padding: 10px 16px;
+          cursor: pointer;
+          font-weight: 500;
+        }
+        
+        .cancel-btn {
+          background: white;
+          border: 1px solid #d1d5db;
+          color: #4b5563;
+          border-radius: 4px;
+          padding: 10px 16px;
+          cursor: pointer;
+          font-weight: 500;
+        }
+        
+        .submit-btn {
+          background: rgb(48, 0, 126);
+          color: white;
+          border: none;
+          border-radius: 4px;
+          padding: 10px 16px;
+          cursor: pointer;
+          font-weight: 500;
+        }
+        
+        .submit-btn:hover {
+          background: rgba(48, 0, 126, 0.9);
+        }
+        
+        .submit-btn:disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
+        }
+        
+        .image-upload {
+          border: 2px dashed #cbd5e1;
+          border-radius: 6px;
+          padding: 24px;
+          text-align: center;
+          margin-bottom: 20px;
+        }
+        
+        .image-upload input {
+          display: none;
+        }
+        
+        .upload-label {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          cursor: pointer;
+          color: #64748b;
+        }
+        
+        .upload-label p {
+          margin: 8px 0 4px;
+          font-weight: 500;
+        }
+        
+        .upload-label small {
+          font-size: 0.8rem;
+        }
+        
+        .property-id-info {
+          background: #f0f9ff;
+          border-radius: 4px;
+          padding: 12px 16px;
+          margin-bottom: 16px;
+          border-left: 4px solid rgb(48, 0, 126);
+        }
+        
+        .property-id-info p {
+          margin: 0;
+          font-size: 0.9rem;
+          line-height: 1.4;
+        }
+        
+        .property-id-info p:first-child {
+          margin-bottom: 4px;
+        }
+        
+        .image-previews {
+          margin-top: 20px;
+        }
+        
+        .image-previews p {
+          margin: 0 0 8px;
+          font-weight: 500;
+        }
+        
+        .help-text {
+          font-size: 0.85rem;
+          color: #64748b;
+          font-weight: normal !important;
+          margin-bottom: 12px !important;
+        }
+        
+        .preview-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+          gap: 12px;
+        }
+        
+        .preview-item {
+          position: relative;
+          border-radius: 4px;
+          overflow: hidden;
+          aspect-ratio: 1;
+          border: 2px solid transparent;
+        }
+        
+        .preview-item.is-primary {
+          border-color: rgb(48, 0, 126);
+        }
+        
+        .preview-item img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          cursor: pointer;
+        }
+        
+        .primary-badge {
+          position: absolute;
+          top: 4px;
+          left: 4px;
+          background: rgb(48, 0, 126);
+          color: white;
+          font-size: 0.75rem;
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
+        
+        .delete-btn {
+          position: absolute;
+          top: 4px;
+          right: 4px;
+          background: rgba(0, 0, 0, 0.6);
+          color: white;
+          border: none;
+          border-radius: 50%;
+          width: 24px;
+          height: 24px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          opacity: 0.8;
+        }
+        
+        .delete-btn:hover {
+          opacity: 1;
+        }
+        
+        .upload-progress {
+          margin-top: 16px;
+        }
+        
+        .progress-bar {
+          width: 100%;
+          height: 8px;
+          background-color: #e2e8f0;
+          border-radius: 4px;
+          overflow: hidden;
+          margin-bottom: 8px;
+        }
+        
+        .progress-fill {
+          height: 100%;
+          background-color: rgb(48, 0, 126);
+          transition: width 0.3s ease;
+        }
+        
+        .progress-text {
+          font-size: 0.9rem;
+          text-align: center;
+          margin: 0;
+          color: #64748b;
+        }
+        
+        .loading-spinner {
+          padding: 10px;
+          color: #64748b;
+          font-style: italic;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 640px) {
+          .form-grid, 
+          .details-grid {
+            grid-template-columns: 1fr;
+          }
+          
+          .footer-buttons {
+            flex-direction: column;
+            gap: 12px;
+          }
+          
+          .action-buttons {
+            width: 100%;
+          }
+          
+          .action-buttons button {
+            flex: 1;
+          }
+          
+          .reset-btn, .back-btn {
+            width: 100%;
+          }
+        }
+      `}</style>
+    </div>
   );
 };
 
 export default PropertyCreationForm;
-

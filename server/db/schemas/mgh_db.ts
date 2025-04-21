@@ -1,4 +1,3 @@
-// src/db/schemas.ts
 import { sql } from 'drizzle-orm';
 import { pgTable, serial, integer, varchar, text, decimal, boolean, timestamp, pgEnum, jsonb, unique, date, check } from 'drizzle-orm/pg-core';
 
@@ -16,7 +15,7 @@ export const users = pgTable('users', {
   lastName: varchar('last_name', { length: 100 }).notNull(),
   userType: userTypeEnum('user_type').notNull(),
   phoneNumber: varchar('phone_number', { length: 20 }),
-  approved: boolean('approved').default(false).notNull(),  // Added approved field
+  approved: boolean('approved').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow()
 });
@@ -39,6 +38,8 @@ export const properties = pgTable('properties', {
   description: text('description'),
   propertyType: propertyTypeEnum('property_type'),
   address: text('address').notNull(),
+  latitude: decimal('latitude', { precision: 10, scale: 7 }),  // Added latitude field
+  longitude: decimal('longitude', { precision: 10, scale: 7 }), // Added longitude field
   monthlyRent: decimal('monthly_rent', { precision: 10, scale: 2 }).notNull(),
   isAvailable: boolean('is_available').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow()
@@ -80,7 +81,7 @@ export const reviews = pgTable('reviews', {
   reviewId: serial('review_id').primaryKey(),
   propertyId: integer('property_id').references(() => properties.propertyId, { onDelete: 'cascade' }).notNull(),
   reviewerId: integer('reviewer_id').references(() => users.userId, { onDelete: 'cascade' }).notNull(),
-  rating: integer('rating').$type<1 | 2 | 3 | 4 | 5>(), // Type-safe rating
+  rating: integer('rating').$type<1 | 2 | 3 | 4 | 5>(),
   comment: text('comment'),
   createdAt: timestamp('created_at').defaultNow().notNull()
 }, (table) => ({

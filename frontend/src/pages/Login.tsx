@@ -51,13 +51,19 @@ const LoginPage = () => {
       
       // Redirect based on user type
       if (data.user.userType === 'student') {
-        navigate('/studentdashboard');
+        navigate('/studentdashboard', {
+          state: { studentId: data.user.id }
+        });
       } else if (data.user.userType === 'landlord') {
-        navigate('/LandlordDashboard');
+        navigate('/LandlordDashboard', {
+          state: { landlordId: data.user.id }
+        });
       } else if (data.user.userType === 'admin') {
-        navigate('/admin-view');
+        navigate('/admin-view', {
+          state: { adminId: data.user.id }
+        });
       }
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message || 'An error occurred during sign in');
     } finally {
       setIsLoading(false);
@@ -645,7 +651,7 @@ const LoginPage = () => {
         }
         
         .sign-in-link:hover {
-          color: purple;
+          color: 'rgb(48, 0, 126);
           text-decoration: underline;
         }
         

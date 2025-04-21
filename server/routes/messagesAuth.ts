@@ -91,7 +91,6 @@ messageRouter
       const userMessages = await db
         .select({
           id: messages.messageId,
-          content: messages.content,
           sender: users.firstName,
           createdAt: messages.createdAt,
         })

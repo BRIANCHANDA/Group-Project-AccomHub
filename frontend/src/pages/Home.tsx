@@ -1,14 +1,46 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const HomePage = () => {
   const navigate = useNavigate();
   const [hoveredItem, setHoveredItem] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scrollPosition, setScrollPosition] = useState(0);
+  const [activeColorScheme, setActiveColorScheme] = useState(0);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  
+  // Color schemes that will rotate
+  const colorSchemes = [
+    { primary: '#30007e', secondary: '#6d28d9', accent: '#ddd6fe', background: '#efedff' },
+    { primary: '#0e4429', secondary: '#10b981', accent: '#d1fae5', background: '#ecfdf5' },
+    { primary: '#4c1d95', secondary: '#8b5cf6', accent: '#e0e7ff', background: '#ede9fe' },
+    { primary: '#1e3a8a', secondary: '#3b82f6', accent: '#dbeafe', background: '#eff6ff' },
+  ];
+  
+  // Get current color scheme
+  const colors = colorSchemes[activeColorScheme];
 
+  // Handle scroll events to change header appearance and trigger animations
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrollPosition(window.scrollY);
+    };
+
+    // Color scheme rotation on interval
+    const colorInterval = setInterval(() => {
+      setActiveColorScheme((prev) => (prev + 1) % colorSchemes.length);
+    }, 10000); // Change color scheme every 10 seconds
+    
+    window.addEventListener('scroll', handleScroll);
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      clearInterval(colorInterval);
+    };
+  }, []);
+  
   // Navigation handlers with improved error handling
-  const handleNavigation = (path: string) => {
+  const handleNavigation = (path) => {
     if (path === 'signin') {
       navigate('/login');
     } else if (path === 'register') {
@@ -29,23 +61,52 @@ const HomePage = () => {
     setMenuOpen(false);
   };
 
-  // Extracted reusable hover effect for cleaner code
-  const getHoverStyle = (itemName: string | null, baseStyle: any) => ({
+  // Animation and style utilities
+  const getHoverStyle = (itemName, baseStyle) => ({
     ...baseStyle,
+    transition: 'all 0.3s ease',
     ...(itemName === 'navItem' 
-      ? { borderBottom: hoveredItem === itemName ? '2px solidrgb(50, 1, 129)' : '2px solid transparent' }
+      ? { 
+          borderBottom: hoveredItem === itemName 
+            ? `2px solid ${colors.primary}` 
+            : '2px solid transparent',
+          transform: hoveredItem === itemName ? 'translateY(-2px)' : 'none'
+        }
       : {}),
     ...(itemName === 'buttonOutline' 
-      ? { backgroundColor: hoveredItem === itemName ? '#f3f4f6' : 'transparent' }
+      ? { 
+          backgroundColor: hoveredItem === itemName ? '#f3f4f6' : 'transparent',
+          transform: hoveredItem === itemName ? 'scale(1.05)' : 'scale(1)'
+        }
       : {}),
     ...(itemName === 'buttonFilled' 
-      ? { backgroundColor: hoveredItem === itemName ? '#5b21b6' : '#6d28d9' }
+      ? { 
+          backgroundColor: hoveredItem === itemName ? colors.secondary : colors.primary,
+          transform: hoveredItem === itemName ? 'scale(1.05)' : 'scale(1)'
+        }
       : {}),
     ...(itemName === 'ctaButton' 
-      ? { backgroundColor: hoveredItem === itemName ? '#f9fafb' : '#ffffff' }
+      ? { 
+          backgroundColor: hoveredItem === itemName ? '#f9fafb' : '#ffffff',
+          transform: hoveredItem === itemName ? 'scale(1.05)' : 'scale(1)',
+          boxShadow: hoveredItem === itemName ? '0 10px 15px -3px rgba(0, 0, 0, 0.2)' : 'none'
+        }
       : {}),
     ...(itemName?.startsWith('property') 
-      ? { transform: hoveredItem === itemName ? 'translateY(-5px)' : 'none' }
+      ? { 
+          transform: hoveredItem === itemName ? 'translateY(-8px)' : 'none',
+          boxShadow: hoveredItem === itemName
+            ? '0 15px 30px -5px rgba(0, 0, 0, 0.15), 0 10px 15px -5px rgba(0, 0, 0, 0.1)'
+            : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+        }
+      : {}),
+    ...(itemName?.startsWith('feature') 
+      ? { 
+          transform: hoveredItem === itemName ? 'translateY(-8px) scale(1.03)' : 'none',
+          boxShadow: hoveredItem === itemName
+            ? '0 15px 30px -5px rgba(0, 0, 0, 0.15), 0 10px 15px -5px rgba(0, 0, 0, 0.1)'
+            : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+        }
       : {})
   });
 
@@ -64,42 +125,63 @@ const HomePage = () => {
       width: '100%',
       minHeight: '100vh',
       display: 'flex',
-      flexDirection: 'column' as const,
+      flexDirection: 'column',
       backgroundColor: '#ffffff',
       fontFamily: 'Arial, sans-serif',
-      overflowX: 'hidden' // Prevent horizontal scrolling
+      overflowX: 'hidden', // Prevent horizontal scrolling
+      transition: 'background-color 1s ease'
     },
     
-    // Header styles
+    // Header styles with dynamic scroll behavior
     header: {
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
       padding: '1rem 5%',
-      backgroundColor: '#ffffff',
-      borderBottom: '1px solid #f0f0f0',
+      backgroundColor: scrollPosition > 50 ? '#ffffff' : 'rgba(255, 255, 255, 0.95)',
+      backdropFilter: scrollPosition > 50 ? 'none' : 'blur(8px)',
+      borderBottom: scrollPosition > 50 ? `1px solid ${colors.accent}` : 'none',
       position: 'sticky',
       top: 0,
       zIndex: 1000,
       flexWrap: 'wrap',
-      gap: '0.5rem'
+      gap: '0.5rem',
+      transition: 'all 0.3s ease',
+      boxShadow: scrollPosition > 50 
+        ? '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+        : 'none'
     },
     logo: {
       fontSize: 'clamp(1.2rem, 4vw, 1.5rem)',
       fontWeight: 'bold',
-      color: 'rgb(48, 0, 126)',
-      flex: '1'
+      color: colors.primary,
+      flex: '1',
+      transition: 'color 0.5s ease',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.5rem'
+    },
+    logoIcon: {
+      fontSize: '1.8rem',
+      animation: 'pulse 2s infinite ease-in-out',
+      display: 'inline-block',
+      '@keyframes pulse': {
+        '0%': { transform: 'scale(1)' },
+        '50%': { transform: 'scale(1.1)' },
+        '100%': { transform: 'scale(1)' }
+      }
     },
     mobileMenuButton: {
       display: 'none',
-      backgroundColor: 'rgb(48, 0, 126)',
+      backgroundColor: colors.primary,
       border: 'none',
       fontSize: '1.5rem',
       cursor: 'pointer',
       padding: '0.5rem',
       '@media (max-width: 768px)': {
         display: 'block'
-      }
+      },
+      transition: 'transform 0.3s ease'
     },
     nav: {
       display: 'flex',
@@ -112,34 +194,42 @@ const HomePage = () => {
         alignItems: 'flex-start',
         width: '100%',
         padding: '1rem 0',
-        gap: '1rem'
+        gap: '1rem',
+        animation: menuOpen ? 'slideDown 0.3s ease-in-out' : 'none',
+        '@keyframes slideDown': {
+          '0%': { opacity: 0, transform: 'translateY(-20px)' },
+          '100%': { opacity: 1, transform: 'translateY(0)' }
+        }
       }
     },
     navItem: {
       fontSize: 'clamp(0.875rem, 1vw, 1rem)',
-      color: 'rgb(48, 0, 126)',
+      color: colors.primary,
       cursor: 'pointer',
       textDecoration: 'none',
       padding: '0.5rem 0',
-      transition: 'border-bottom 0.2s ease',
+      transition: 'all 0.3s ease',
+      position: 'relative',
       '@media (max-width: 768px)': {
         width: '100%', 
         padding: '0.75rem 0'
       }
     },
     
-    // Button styles
+    // Button styles with enhanced animations
     buttonOutline: {
       padding: 'clamp(0.4rem, 1vw, 0.5rem) clamp(0.75rem, 2vw, 1.25rem)',
-      border: '1px solid #d1d5db',
+      border: `1px solid ${colors.secondary}`,
       borderRadius: '0.375rem',
       backgroundColor: 'transparent',
-      color: 'rgb(48, 0, 126)',
+      color: colors.primary,
       fontSize: 'clamp(0.875rem, 1vw, 1rem)',
       cursor: 'pointer',
-      transition: 'background-color 0.3s, transform 0.2s',
+      transition: 'all 0.3s ease',
       display: 'inline-block',
       textAlign: 'center',
+      position: 'relative',
+      overflow: 'hidden',
       '@media (max-width: 768px)': {
         width: '100%',
         marginTop: '0.5rem'
@@ -149,20 +239,21 @@ const HomePage = () => {
       padding: 'clamp(0.4rem, 1vw, 0.5rem) clamp(0.75rem, 2vw, 1.25rem)',
       border: 'none',
       borderRadius: '0.375rem',
-      backgroundColor: 'rgb(48, 0, 126)',
+      backgroundColor: colors.primary,
       color: '#ffffff',
       fontSize: 'clamp(0.875rem, 1vw, 1rem)',
       cursor: 'pointer',
-      transition: 'background-color 0.3s, transform 0.2s',
+      transition: 'all 0.3s ease',
       display: 'inline-block',
       textAlign: 'center',
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
       '@media (max-width: 768px)': {
         width: '100%',
         marginTop: '0.5rem'
       }
     },
     
-    // Hero section styles
+    // Hero section styles with dynamic background
     hero: {
       display: 'flex',
       flexDirection: 'column',
@@ -170,30 +261,52 @@ const HomePage = () => {
       justifyContent: 'center',
       padding: 'clamp(2rem, 5vw, 4rem) clamp(1rem, 3vw, 2rem)',
       textAlign: 'center',
-      backgroundColor: '#f9fafb'
+      background: `linear-gradient(135deg, ${colors.background} 0%, #f9fafb 100%)`,
+      position: 'relative',
+      overflow: 'hidden',
+      transition: 'background 0.5s ease'
+    },
+    heroBubble: {
+      position: 'absolute',
+      borderRadius: '50%',
+      background: colors.accent,
+      opacity: '0.4',
+      filter: 'blur(40px)',
+      zIndex: '0',
+      animation: 'float 8s infinite ease-in-out'
     },
     title: {
       fontSize: 'clamp(1.5rem, 5vw, 3rem)',
       fontWeight: 'bold',
-      color: 'rgb(48, 0, 126)',
+      color: colors.primary,
       marginBottom: 'clamp(0.75rem, 2vw, 1rem)',
       letterSpacing: '-0.025em',
       lineHeight: '1.2',
-      maxWidth: '90%'
+      maxWidth: '90%',
+      position: 'relative',
+      zIndex: '1',
+      transition: 'color 0.5s ease',
+      textShadow: '0 2px 10px rgba(255, 255, 255, 0.5)'
     },
     subtitle: {
       fontSize: 'clamp(0.875rem, 3vw, 1.25rem)',
       color: '#4b5563',
       marginBottom: 'clamp(1.5rem, 4vw, 2rem)',
       maxWidth: 'min(800px, 90%)',
-      lineHeight: '1.5'
+      lineHeight: '1.5',
+      position: 'relative',
+      zIndex: '1'
     },
     
-    // Search box styles
+    // Search box styles with focus animation
     searchContainer: {
       width: '100%',
       maxWidth: 'min(700px, 90%)',
-      marginBottom: 'clamp(1.5rem, 5vw, 3rem)'
+      marginBottom: 'clamp(1.5rem, 5vw, 3rem)',
+      position: 'relative',
+      zIndex: '1',
+      transition: 'transform 0.3s ease',
+      transform: isSearchFocused ? 'scale(1.02)' : 'scale(1)'
     },
     searchForm: {
       display: 'flex',
@@ -201,29 +314,36 @@ const HomePage = () => {
       flexDirection: 'row',
       '@media (maxWidth: 480px)': {
         flexDirection: 'column'
-      }
+      },
+      boxShadow: isSearchFocused 
+        ? '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+        : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+      borderRadius: '0.375rem',
+      transition: 'box-shadow 0.3s ease'
     },
     searchInput: {
       flex: '1',
       padding: 'clamp(0.5rem, 2vw, 0.75rem) clamp(0.75rem, 2vw, 1rem)',
       borderRadius: '0.375rem',
-      border: '1px solid #d1d5db',
+      border: `1px solid ${isSearchFocused ? colors.secondary : '#d1d5db'}`,
       fontSize: 'clamp(0.875rem, 2vw, 1rem)',
       outline: 'none',
+      transition: 'all 0.3s ease',
       '@media (minWidth: 481px)': {
         borderRadius: '0.375rem 0 0 0.375rem'
       }
     },
     searchButton: {
       padding: 'clamp(0.5rem, 2vw, 0.75rem) clamp(1rem, 3vw, 1.5rem)',
-      backgroundColor: '#6d28d9',
-      color: 'rgb(48, 0, 126)',
+      backgroundColor: colors.primary,
+      color: 'white',
       border: 'none',
       borderRadius: '0.375rem',
       cursor: 'pointer',
       fontSize: 'clamp(0.875rem, 2vw, 1rem)',
       fontWeight: '500',
       whiteSpace: 'nowrap',
+      transition: 'all 0.3s ease',
       '@media (minWidth: 481px)': {
         borderRadius: '0 0.375rem 0.375rem 0'
       },
@@ -232,39 +352,56 @@ const HomePage = () => {
       }
     },
     
-    // Section styles
+    // Section styles with animated backgrounds
     featuresSection: {
       padding: 'clamp(2rem, 5vw, 4rem) clamp(1rem, 3vw, 2rem)',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      backgroundColor: '#ffffff'
+      backgroundColor: '#ffffff',
+      position: 'relative',
+      overflow: 'hidden'
     },
     sectionTitle: {
       fontSize: 'clamp(1.25rem, 4vw, 2rem)',
       fontWeight: 'bold',
-      color: 'rgb(48, 0, 126)',
+      color: colors.primary,
       marginBottom: 'clamp(1.5rem, 4vw, 2rem)',
       textAlign: 'center',
-      maxWidth: '90%'
+      maxWidth: '90%',
+      transition: 'color 0.5s ease',
+      position: 'relative'
+    },
+    sectionTitleUnderline: {
+      content: '""',
+      display: 'block',
+      width: '80px',
+      height: '4px',
+      backgroundColor: colors.secondary,
+      margin: '0.5rem auto 0',
+      borderRadius: '2px',
+      transition: 'background-color 0.5s ease'
     },
     sectionContent: {
       fontSize: 'clamp(0.875rem, 3vw, 1.2rem)',
       color: '#4b5563',
       maxWidth: 'min(800px, 90%)',
-      margin: '0 auto clamp(1.5rem, 4vw, 2rem)'
+      margin: '0 auto clamp(1.5rem, 4vw, 2rem)',
+      lineHeight: '1.5',
+      position: 'relative'
     },
     
-    // Features grid styles
+    // Features grid styles with dynamic animations
     featuresGrid: {
       display: 'grid',
       gridTemplateColumns: 'repeat(auto-fit, minmax(min(250px, 100%), 1fr))',
       gap: 'clamp(1rem, 3vw, 2rem)',
       width: '100%',
-      maxWidth: 'min(1200px, 90%)'
+      maxWidth: 'min(1200px, 90%)',
+      position: 'relative'
     },
     featureCard: {
-      backgroundColor: 'rgb(239, 237, 245)',
+      backgroundColor: colors.background,
       borderRadius: '0.5rem',
       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
       padding: 'clamp(1rem, 3vw, 1.5rem)',
@@ -272,37 +409,50 @@ const HomePage = () => {
       flexDirection: 'column',
       alignItems: 'center',
       textAlign: 'center',
-      transition: 'transform 0.3s, box-shadow 0.3s',
+      transition: 'all 0.5s ease',
       height: '100%',
-      justifyContent: 'flex-start'
+      justifyContent: 'flex-start',
+      position: 'relative',
+      overflow: 'hidden'
     },
     featureIcon: {
       width: 'clamp(40px, 10vw, 50px)',
       height: 'clamp(40px, 10vw, 50px)',
-      backgroundColor: '#ddd6fe',
+      backgroundColor: colors.accent,
       borderRadius: '50%',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       marginBottom: 'clamp(0.75rem, 2vw, 1rem)',
-      fontSize: 'clamp(1.25rem, 3vw, 1.5rem)'
+      fontSize: 'clamp(1.25rem, 3vw, 1.5rem)',
+      transition: 'all 0.5s ease',
+      position: 'relative',
+      zIndex: '2'
     },
     featureTitle: {
       fontSize: 'clamp(1rem, 3vw, 1.25rem)',
       fontWeight: 'bold',
-      color: 'rgb(48, 0, 126)',
-      marginBottom: 'clamp(0.4rem, 1vw, 0.5rem)'
+      color: colors.primary,
+      marginBottom: 'clamp(0.4rem, 1vw, 0.5rem)',
+      transition: 'color 0.5s ease',
+      position: 'relative',
+      zIndex: '2'
     },
     featureDescription: {
       color: '#4b5563',
       lineHeight: '1.5',
-      fontSize: 'clamp(0.875rem, 2vw, 1rem)'
+      fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+      position: 'relative',
+      zIndex: '2'
     },
     
-    // Property listings styles
+    // Property listings styles with enhanced cards
     recentListingsSection: {
       padding: 'clamp(2rem, 5vw, 4rem) clamp(1rem, 3vw, 2rem)',
-      backgroundColor: '#f9fafb'
+      background: `linear-gradient(135deg, #f9fafb 0%, ${colors.background} 100%)`,
+      transition: 'background 0.5s ease',
+      position: 'relative',
+      overflow: 'hidden'
     },
     propertiesGrid: {
       display: 'grid',
@@ -310,7 +460,8 @@ const HomePage = () => {
       gap: 'clamp(1rem, 3vw, 2rem)',
       width: '100%',
       maxWidth: 'min(1200px, 90%)',
-      margin: '0 auto'
+      margin: '0 auto',
+      position: 'relative'
     },
     propertyCard: {
       backgroundColor: '#ffffff',
@@ -318,39 +469,61 @@ const HomePage = () => {
       overflow: 'hidden',
       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
       cursor: 'pointer',
-      transition: 'transform 0.3s, box-shadow 0.3s',
+      transition: 'all 0.4s ease',
       height: '100%',
       display: 'flex',
-      flexDirection: 'column'
+      flexDirection: 'column',
+      position: 'relative'
+    },
+    propertyImageWrapper: {
+      position: 'relative',
+      overflow: 'hidden',
+      height: 'clamp(150px, 30vw, 200px)',
     },
     propertyImage: {
       width: '100%',
       height: 'clamp(150px, 30vw, 200px)',
       backgroundColor: '#e5e7eb',
-      objectFit: 'cover'
+      objectFit: 'cover',
+      transition: 'transform 0.6s ease'
+    },
+    propertyImageOverlay: {
+      position: 'absolute',
+      inset: '0',
+      backgroundColor: 'rgba(0, 0, 0, 0.2)',
+      opacity: '0',
+      transition: 'opacity 0.4s ease'
     },
     propertyDetails: {
       padding: 'clamp(1rem, 3vw, 1.5rem)',
       display: 'flex',
       flexDirection: 'column',
-      flex: '1'
+      flex: '1',
+      position: 'relative',
+      zIndex: '1'
     },
     propertyTitle: {
       fontSize: 'clamp(1rem, 3vw, 1.25rem)',
       fontWeight: 'bold',
       color: '#1f2937',
-      marginBottom: 'clamp(0.4rem, 1vw, 0.5rem)'
+      marginBottom: 'clamp(0.4rem, 1vw, 0.5rem)',
+      transition: 'color 0.3s ease'
     },
     propertyLocation: {
-      color: '#6d28d9',
+      color: colors.secondary,
       fontSize: 'clamp(0.75rem, 2vw, 0.875rem)',
-      marginBottom: 'clamp(0.4rem, 1vw, 0.5rem)'
+      marginBottom: 'clamp(0.4rem, 1vw, 0.5rem)',
+      transition: 'color 0.5s ease',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.25rem'
     },
     propertyPrice: {
       fontSize: 'clamp(0.95rem, 2.5vw, 1.125rem)',
       fontWeight: 'bold',
       color: '#1f2937',
-      marginBottom: 'clamp(0.4rem, 1vw, 0.5rem)'
+      marginBottom: 'clamp(0.4rem, 1vw, 0.5rem)',
+      transition: 'color 0.3s ease'
     },
     propertyFeatures: {
       display: 'flex',
@@ -360,37 +533,68 @@ const HomePage = () => {
       fontSize: 'clamp(0.75rem, 2vw, 0.875rem)',
       flexWrap: 'wrap'
     },
+    propertyTag: {
+      position: 'absolute',
+      top: '10px',
+      right: '10px',
+      backgroundColor: colors.primary,
+      color: 'white',
+      padding: '0.25rem 0.5rem',
+      borderRadius: '0.25rem',
+      fontSize: '0.75rem',
+      fontWeight: 'bold',
+      zIndex: '2',
+      transition: 'background-color 0.5s ease'
+    },
     
-    // CTA section styles
+    // CTA section styles with dynamic background
     ctaSection: {
       padding: 'clamp(2rem, 5vw, 4rem) clamp(1rem, 3vw, 2rem)',
-      backgroundColor: '#6d28d9',
+      backgroundColor: colors.primary,
       color: '#ffffff',
-      textAlign: 'center'
+      textAlign: 'center',
+      position: 'relative',
+      overflow: 'hidden',
+      transition: 'background-color 0.5s ease'
+    },
+    ctaBackground: {
+      position: 'absolute',
+      inset: '0',
+      background: `radial-gradient(circle at 20% 30%, ${colors.secondary}22 0%, transparent 50%), 
+                  radial-gradient(circle at 80% 60%, ${colors.secondary}22 0%, transparent 50%)`,
+      opacity: '0.6',
+      transition: 'background 0.5s ease'
     },
     ctaTitle: {
       fontSize: 'clamp(1.25rem, 4vw, 2rem)',
       fontWeight: 'bold',
       marginBottom: 'clamp(0.75rem, 2vw, 1rem)',
       maxWidth: '90%',
-      margin: '0 auto'
+      margin: '0 auto',
+      position: 'relative',
+      zIndex: '1'
     },
     ctaDescription: {
       fontSize: 'clamp(0.875rem, 3vw, 1.125rem)',
       maxWidth: 'min(700px, 90%)',
       margin: '0 auto clamp(1.5rem, 4vw, 2rem)',
-      lineHeight: '1.5'
+      lineHeight: '1.5',
+      position: 'relative',
+      zIndex: '1'
     },
     ctaButton: {
       padding: 'clamp(0.5rem, 2vw, 0.75rem) clamp(1.5rem, 4vw, 2rem)',
       backgroundColor: '#ffffff',
-      color: '#6d28d9',
+      color: colors.secondary,
       border: 'none',
       borderRadius: '0.375rem',
       fontSize: 'clamp(0.875rem, 2vw, 1rem)',
       fontWeight: '500',
       cursor: 'pointer',
-      transition: 'background-color 0.3s, transform 0.2s'
+      transition: 'all 0.3s ease',
+      position: 'relative',
+      zIndex: '1',
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
     },
     
     // Footer styles
@@ -398,7 +602,8 @@ const HomePage = () => {
       marginTop: 'auto',
       backgroundColor: '#1f2937',
       padding: 'clamp(2rem, 5vw, 3rem) clamp(1rem, 3vw, 2rem)',
-      color: '#ffffff'
+      color: '#ffffff',
+      position: 'relative'
     },
     footerContent: {
       display: 'flex',
@@ -406,7 +611,9 @@ const HomePage = () => {
       alignItems: 'center',
       maxWidth: 'min(1200px, 90%)',
       margin: '0 auto',
-      textAlign: 'center'
+      textAlign: 'center',
+      position: 'relative',
+      zIndex: '1'
     },
     footerLinks: {
       display: 'flex',
@@ -420,7 +627,18 @@ const HomePage = () => {
       textDecoration: 'none',
       cursor: 'pointer',
       transition: 'color 0.3s',
-      fontSize: 'clamp(0.875rem, 2vw, 1rem)'
+      fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+      position: 'relative',
+      '&:after': {
+        content: '""',
+        position: 'absolute',
+        width: '0',
+        height: '2px',
+        bottom: '-4px',
+        left: '0',
+        backgroundColor: colors.secondary,
+        transition: 'width 0.3s ease'
+      }
     },
     footerCopyright: {
       color: '#9ca3af',
@@ -432,14 +650,30 @@ const HomePage = () => {
   const commonSectionStyle = {
     padding: 'clamp(2rem, 5vw, 4rem) clamp(1rem, 3vw, 2rem)', 
     textAlign: 'center', 
-    backgroundColor: '#f9fafb'
+    backgroundColor: '#f9fafb',
+    position: 'relative',
+    overflow: 'hidden'
   };
+
+  // Animation effect for staggered entrance
+  const getAnimationDelay = (index) => ({
+    animation: 'fadeInUp 0.6s ease forwards',
+    animationDelay: `${0.1 + (index * 0.1)}s`,
+    opacity: '0',
+    '@keyframes fadeInUp': {
+      '0%': { opacity: 0, transform: 'translateY(20px)' },
+      '100%': { opacity: 1, transform: 'translateY(0)' }
+    }
+  });
 
   return (
     <div style={styles.container}>
       {/* Header with Navigation */}
       <header style={styles.header}>
-        <div style={styles.logo}>ZIT AccommoHub</div>
+        <div style={styles.logo}>
+          <span style={styles.logoIcon}>🏠</span>
+          ZIT AccommoHub
+        </div>
         
         {/* Mobile menu toggle button */}
         <button 
@@ -450,12 +684,16 @@ const HomePage = () => {
             fontSize: '1.5rem',
             cursor: 'pointer',
             padding: '0.5rem',
+            transform: menuOpen ? 'rotate(90deg)' : 'rotate(0)',
+            transition: 'transform 0.3s ease'
           }}
           onClick={() => setMenuOpen(!menuOpen)}
           aria-label="Toggle menu"
         >
-          ☰
+          {menuOpen ? '✕' : '☰'}
         </button>
+        
+        {/* Navigation Menu */}
         
         <nav style={{
           ...styles.nav,

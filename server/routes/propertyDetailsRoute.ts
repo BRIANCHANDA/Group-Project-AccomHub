@@ -2,9 +2,9 @@ import { createRoute, z } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 import { eq, type SQLWrapper } from "drizzle-orm";
 import { propertyDetails } from "../db/schemas/mgh_db";
-import { db } from "../db";
 import { createRouter } from "../libs/create-app";
 import * as HttpStatusCodes from "stoker/http-status-codes";
+import { db } from "../db";
 
 const propertyDetailRouter = createRouter();
 
@@ -44,7 +44,16 @@ propertyDetailRouter.openapi(
       [HttpStatusCodes.OK]: {
         content: {
           "application/json": {
-            schema: propertyDetailSchema,
+            schema: z.object({
+              propertyId: z.number(),
+              bedrooms: z.number().nullable(),
+              bathrooms: z.number().nullable(),
+              amenities: z.array(z.string()).nullable(),
+              detailId: z.number(),
+              furnished: z.boolean().nullable(),
+              squareMeters: z.string().nullable(),
+              rules: z.array(z.string()).nullable(),
+            }),
           },
         },
         description: "Property details retrieved successfully",
@@ -99,7 +108,16 @@ propertyDetailRouter.openapi(
           "application/json": {
             schema: z.object({
               message: z.string(),
-              details: propertyDetailSchema,
+              details: z.object({
+                propertyId: z.number(),
+                bedrooms: z.number().nullable(),
+                bathrooms: z.number().nullable(),
+                amenities: z.array(z.string()).nullable(),
+                detailId: z.number(),
+                furnished: z.boolean().nullable(),
+                squareMeters: z.string().nullable(),
+                rules: z.array(z.string()).nullable(),
+              }),
             }),
           },
         },
@@ -115,28 +133,78 @@ propertyDetailRouter.openapi(
         },
         description: "Property not found",
       },
+      [HttpStatusCodes.CREATED]: {
+        content: {
+          "application/json": {
+            schema: z.object({
+              message: z.string(),
+              details: z.object({
+                propertyId: z.number(),
+                bedrooms: z.number().nullable(),
+                bathrooms: z.number().nullable(),
+                amenities: z.array(z.string()).nullable(),
+                detailId: z.number(),
+                furnished: z.boolean().nullable(),
+                squareMeters: z.string().nullable(),
+                rules: z.array(z.string()).nullable(),
+              }),
+            }),
+          },
+        },
+        description: "Property details created successfully",
+      },
     },
   }),
   async (c) => {
-    const { id } = c.req.valid("param");
-    const updateData = c.req.valid("json");
-
-    const [updatedDetail] = await db
-      .update(propertyDetails)
-      .set(updateData)
-      .where(eq(propertyDetails.propertyId, id))
-      .returning();
-
-    if (!updatedDetail) {
-      throw new HTTPException(HttpStatusCodes.NOT_FOUND, {
-        message: "Property details not found",
+    try {
+      const { id } = c.req.valid("param");
+      const updateData = c.req.valid("json");
+      
+      // First check if the property exists
+      const existingDetail = await findPropertyDetailById(id);
+      
+      let result;
+      
+      if (existingDetail) {
+        // Update existing property details
+        [result] = await db
+          .update(propertyDetails)
+          .set(updateData)
+          .where(eq(propertyDetails.propertyId, id))
+          .returning();
+          
+        return c.json({
+          message: "Property details updated successfully",
+          details: result,
+        });
+      } else {
+        // Create new property details if they don't exist
+        [result] = await db
+          .insert(propertyDetails)
+          .values({
+            propertyId: id,
+            ...updateData
+          })
+          .returning();
+          
+        return c.json({
+          message: "Property details created successfully",
+          details: result,
+        }, HttpStatusCodes.CREATED);
+      }
+    } catch (error) {
+      console.error("Property details operation error:", error);
+      
+      // Re-throw the error if it's already an HTTPException
+      if (error instanceof HTTPException) {
+        throw error;
+      }
+      
+      // Otherwise throw a generic server error
+      throw new HTTPException(HttpStatusCodes.INTERNAL_SERVER_ERROR, {
+        message: "An error occurred while processing property details",
       });
     }
-
-    return c.json({
-      message: "Property details updated successfully",
-      details: updatedDetail,
-    });
   }
 );
 
