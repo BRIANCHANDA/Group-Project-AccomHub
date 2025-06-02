@@ -1,5 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { X, Upload, Plus, Minus } from 'lucide-react';
+import { X, Upload, MapPin } from 'lucide-react';
+import { toast } from 'react-toastify'; // Optional: for user feedback
+import './amenities.css';
+import './propertyCreation.css';
+
+interface GeocodedLocation {
+  latitude: number | null;
+  longitude: number | null;
+  formattedAddress: string;
+  status: 'success' | 'error' | 'loading' | 'idle';
+  error?: string;
+}
 
 interface PropertyType {
   id: string;
@@ -10,7 +21,7 @@ interface PropertyType {
 interface PropertyCreationFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (propertyId: string, propertyData?: any) => void; // Updated to include propertyData
+  onSubmit: (propertyId: string, propertyData?: any) => void;
   landlordId: string;
 }
 
@@ -30,6 +41,11 @@ interface PropertyDataType {
   monthlyRent: string;
   isAvailable: boolean;
   details: PropertyDetails;
+  location?: {
+    latitude: number | null;
+    longitude: number | null;
+    formattedAddress: string;
+  };
 }
 
 interface ImageFile {
@@ -38,11 +54,28 @@ interface ImageFile {
   isPrimary: boolean;
 }
 
-// Define form stages
 enum FormStage {
   PROPERTY_DETAILS = 'property_details',
   IMAGE_UPLOAD = 'image_upload',
 }
+
+const AVAILABLE_AMENITIES = [
+  'Parking',
+  'Gym',
+  'Pool',
+  'WiFi',
+  'Air Conditioning',
+  'Heating',
+  'Washer/Dryer',
+  'Dishwasher',
+  'Balcony',
+  'Pet Friendly',
+  'Security System',
+  'Elevator',
+  'Doorman',
+  'Furnished',
+  'Fireplace',
+];
 
 const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: PropertyCreationFormProps) => {
   const initialPropertyData: PropertyDataType = {
@@ -57,7 +90,7 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
       bathrooms: 1,
       furnished: false,
       squareFootage: '',
-      amenities: [''],
+      amenities: [],
     },
   };
 
@@ -73,6 +106,18 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
   const [loadError, setLoadError] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
   const [landlordIdError, setLandlordIdError] = useState<string>('');
+  const [geocodedLocation, setGeocodedLocation] = useState<GeocodedLocation>({
+    latitude: null,
+    longitude: null,
+    formattedAddress: '',
+    status: 'idle',
+  });
+  const [showLocationWindow, setShowLocationWindow] = useState(false);
+  const [addressDebounceTimer, setAddressDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const [amenityInput, setAmenityInput] = useState<string>('');
+  const [amenitySuggestions, setAmenitySuggestions] = useState<string[]>([]);
+  const [activeAmenityIndex, setActiveAmenityIndex] = useState<number>(-1);
+  const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
 
   useEffect(() => {
     if (isOpen && !landlordId) {
@@ -82,7 +127,6 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
     }
   }, [isOpen, landlordId]);
 
-  // Fetch property types from database
   useEffect(() => {
     const fetchPropertyTypes = async () => {
       try {
@@ -90,33 +134,31 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
         const response = await fetch('/api/properties/property-types', {
           method: 'GET',
           headers: {
-            'Content-Type': 'application/json'
-          }
+            'Content-Type': 'application/json',
+          },
         });
-        
+
         if (!response.ok) {
-          throw new Error('Failed to fetch property types');
+          throw new Error('');
         }
-        
+
         const data = await response.json();
         setPropertyTypes(data);
-        
-        // Set the default property type to the first item if available
+
         if (data.length > 0 && !propertyData.propertyType) {
           setPropertyData(prev => ({
             ...prev,
-            propertyType: data[0].value
+            propertyType: data[0].value,
           }));
         }
       } catch (error) {
         console.error('Error fetching property types:', error);
-        setLoadError('Failed to load property types. Please try again later.');
-        // Fallback to default property types if fetch fails
+        setLoadError('');
         setPropertyTypes([
           { id: '1', name: 'Apartment', value: 'apartment' },
           { id: '2', name: 'House', value: 'house' },
           { id: '3', name: 'Shared Room', value: 'shared_room' },
-          { id: '4', name: 'Single Room', value: 'single_room' }
+          { id: '4', name: 'Single Room', value: 'single_room' },
         ]);
       } finally {
         setIsLoadingPropertyTypes(false);
@@ -128,6 +170,103 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (addressDebounceTimer) {
+      clearTimeout(addressDebounceTimer);
+    }
+
+    if (propertyData.address && propertyData.address.trim().length > 3) {
+      const timer = setTimeout(() => {
+        geocodeAddress(propertyData.address);
+      }, 1000) as NodeJS.Timeout;
+
+      setAddressDebounceTimer(timer);
+    } else {
+      setGeocodedLocation({
+        latitude: null,
+        longitude: null,
+        formattedAddress: '',
+        status: 'idle',
+      });
+      setShowLocationWindow(false);
+    }
+
+    return () => {
+      if (addressDebounceTimer) {
+        clearTimeout(addressDebounceTimer);
+      }
+    };
+  }, [propertyData.address]);
+
+  const geocodeAddress = async (address: string) => {
+    if (!address.trim()) {
+      setGeocodedLocation({
+        latitude: null,
+        longitude: null,
+        formattedAddress: '',
+        status: 'idle',
+        error: 'Address is required',
+      });
+      return;
+    }
+
+    setGeocodedLocation(prev => ({ ...prev, status: 'loading' }));
+    setShowLocationWindow(true);
+
+    try {
+      const response = await fetch(`/api/properties/geocoding?address=${encodeURIComponent(address)}`, {
+        method: 'GET',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Geocoding failed: ${response.statusText}`);
+      }
+
+      const data: { latitude: number | null; longitude: number | null; formattedAddress?: string; success: boolean; error?: string } = await response.json();
+
+      if (data.success && data.latitude !== null && data.longitude !== null) {
+        const newLocation = {
+          latitude: data.latitude,
+          longitude: data.longitude,
+          formattedAddress: data.formattedAddress || address,
+          status: 'success' as const,
+        };
+
+        setGeocodedLocation(newLocation);
+
+        setPropertyData(prev => ({
+          ...prev,
+          location: {
+            latitude: newLocation.latitude,
+            longitude: newLocation.longitude,
+            formattedAddress: newLocation.formattedAddress,
+          },
+        }));
+      } else {
+        const errorMsg = data.error || 'No results found for this address';
+        setGeocodedLocation({
+          latitude: null,
+          longitude: null,
+          formattedAddress: '',
+          status: 'error',
+          error: errorMsg,
+        });
+        toast.error(errorMsg); // Optional: User feedback
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to geocode address';
+      console.error('Geocoding error:', error);
+      setGeocodedLocation({
+        latitude: null,
+        longitude: null,
+        formattedAddress: '',
+        status: 'error',
+        error: errorMsg,
+      });
+      toast.error(errorMsg); // Optional: User feedback
+    }
+  };
+
   const validatePropertyForm = () => {
     const newErrors: { [key: string]: string } = {};
     if (!propertyData.title.trim()) newErrors.title = 'Property title is required';
@@ -136,18 +275,20 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
       newErrors.monthlyRent = 'Valid monthly rent is required';
     }
     if (!propertyData.propertyType) newErrors.propertyType = 'Property type is required';
-    
+    if (geocodedLocation.status !== 'success' || geocodedLocation.latitude === null || geocodedLocation.longitude === null) {
+      newErrors.address = 'Valid geocoded address is required';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const validateImageForm = () => {
     const newErrors: { [key: string]: string } = {};
-    
     if (images.length === 0) {
       newErrors.images = 'At least one property image is required';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -155,21 +296,20 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
-    
+
     if (name.includes('.')) {
       const [parent, child] = name.split('.') as [keyof typeof initialPropertyData, string];
       setPropertyData(prev => ({
         ...prev,
-        [parent]: { ...(typeof prev[parent] === 'object' ? prev[parent] : {}), [child]: type === 'checkbox' ? checked : value }
+        [parent]: { ...(typeof prev[parent] === 'object' ? prev[parent] : {}), [child]: type === 'checkbox' ? checked : value },
       }));
     } else {
       setPropertyData(prev => ({
         ...prev,
-        [name]: type === 'checkbox' ? checked : value
+        [name]: type === 'checkbox' ? checked : value,
       }));
     }
 
-    // Clear error for this field if it exists
     if (errors[name]) {
       setErrors(prev => {
         const newErrors = { ...prev };
@@ -179,47 +319,85 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
     }
   };
 
-  const handleArrayChange = (type: 'amenities', index: number, value: string) => {
+  const handleAmenityInput = (value: string) => {
+    setAmenityInput(value);
+
+    const amenities = value
+      .split(/[, ]+/)
+      .map(item => item.trim())
+      .filter(item => item);
+
     setPropertyData(prev => ({
       ...prev,
       details: {
         ...prev.details,
-        [type]: prev.details[type].map((item, i) => i === index ? value : item)
-      }
+        amenities,
+      },
     }));
+
+    const lastWord = value.split(/[, ]+/).pop()?.trim() || '';
+    if (lastWord) {
+      const filteredSuggestions = AVAILABLE_AMENITIES.filter(
+        amenity =>
+          amenity.toLowerCase().includes(lastWord.toLowerCase()) &&
+          !amenities.includes(amenity)
+      );
+      setAmenitySuggestions(filteredSuggestions);
+      setShowSuggestions(true);
+      setActiveAmenityIndex(-1);
+    } else {
+      setAmenitySuggestions([]);
+      setShowSuggestions(false);
+    }
   };
 
-  const addArrayItem = (type: keyof Pick<PropertyDetails, 'amenities'>) => {
-    setPropertyData((prev: PropertyDataType) => ({
-      ...prev,
-      details: {
-        ...prev.details,
-        [type]: [...prev.details[type], '']
-      }
-    }));
+  const handleAmenityKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions) return;
+
+    switch (e.key) {
+      case 'ArrowUp':
+        e.preventDefault();
+        setActiveAmenityIndex(prev => (prev <= 0 ? amenitySuggestions.length - 1 : prev - 1));
+        break;
+
+      case 'ArrowDown':
+        e.preventDefault();
+        setActiveAmenityIndex(prev => (prev >= amenitySuggestions.length - 1 ? 0 : prev + 1));
+        break;
+
+      case 'Enter':
+        e.preventDefault();
+        if (activeAmenityIndex >= 0 && amenitySuggestions[activeAmenityIndex]) {
+          const selectedAmenity = amenitySuggestions[activeAmenityIndex];
+          const words = amenityInput.split(/[, ]+/);
+          words.pop();
+          const newInput = [...words, selectedAmenity].join(', ') + ', ';
+          handleAmenityInput(newInput);
+        }
+        break;
+
+      case 'Escape':
+        setShowSuggestions(false);
+        setAmenitySuggestions([]);
+        setActiveAmenityIndex(-1);
+        break;
+    }
   };
 
-  const removeArrayItem = (type: keyof Pick<PropertyDetails, 'amenities'>, index: number) => {
-    if (propertyData.details[type].length <= 1) return;
-    
-    setPropertyData(prev => ({
-      ...prev,
-      details: {
-        ...prev.details,
-        [type]: prev.details[type].filter((_, i) => i !== index)
-      }
-    }));
+  const handleAmenitySelect = (amenity: string) => {
+    const words = amenityInput.split(/[, ]+/);
+    words.pop();
+    const newInput = [...words, amenity].join(', ') + ', ';
+    handleAmenityInput(newInput);
   };
 
-  // Updated file size limit in MB
   const MAX_FILE_SIZE_MB = 5;
   const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
-    
-    // Clear any existing image errors
+
     if (errors.images) {
       setErrors(prev => {
         const newErrors = { ...prev };
@@ -227,44 +405,46 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
         return newErrors;
       });
     }
-    
-    // Validate file size and type with clear feedback
+
     const validFiles: File[] = [];
-    const invalidFiles: {file: File, reason: string}[] = [];
-    
+    const invalidFiles: { file: File; reason: string }[] = [];
+
     files.forEach(file => {
       const isValidType = ['image/jpeg', 'image/png', 'image/gif'].includes(file.type);
       const isValidSize = file.size <= MAX_FILE_SIZE_BYTES;
-      
+
       if (!isValidType) {
-        invalidFiles.push({file, reason: 'Invalid file type. Only JPEG, PNG, and GIF are accepted.'});
+        invalidFiles.push({ file, reason: 'Invalid file type. Only JPEG, PNG, and GIF are accepted.' });
       } else if (!isValidSize) {
-        invalidFiles.push({file, reason: `File too large (${(file.size / (1024 * 1024)).toFixed(2)}MB). Max size is ${MAX_FILE_SIZE_MB}MB.`});
+        invalidFiles.push({
+          file,
+          reason: `File too large (${(file.size / (1024 * 1024)).toFixed(2)}MB). Max size is ${MAX_FILE_SIZE_MB}MB.`,
+        });
       } else {
         validFiles.push(file);
       }
     });
 
     if (invalidFiles.length > 0) {
-      const invalidMessages = invalidFiles.map(item => 
-        `${item.file.name}: ${item.reason}`
-      );
+      const invalidMessages = invalidFiles.map(item => `${item.file.name}: ${item.reason}`);
       alert(`Some files were skipped:\n${invalidMessages.join('\n')}`);
     }
-    
+
     if (validFiles.length === 0) return;
-    
-    // Create preview URLs
+
     validFiles.forEach(file => {
       try {
         const previewUrl = URL.createObjectURL(file);
         setPreviewImages(prev => [...prev, previewUrl]);
-        
-        setImages(prev => [...prev, {
-          file,
-          preview: previewUrl,
-          isPrimary: prev.length === 0
-        }]);
+
+        setImages(prev => [
+          ...prev,
+          {
+            file,
+            preview: previewUrl,
+            isPrimary: prev.length === 0,
+          },
+        ]);
       } catch (error) {
         console.error('Error creating preview:', error);
       }
@@ -274,7 +454,7 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
   const setImageAsPrimary = (index: number): void => {
     setImages(prev => prev.map((img, i) => ({
       ...img,
-      isPrimary: i === index
+      isPrimary: i === index,
     })));
   };
 
@@ -284,9 +464,9 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
 
   const removeImage = ({ index }: RemoveImageProps): void => {
     if (previewImages[index] && previewImages[index].startsWith('blob:')) {
-      URL.revokeObjectURL(previewImages[index]); 
+      URL.revokeObjectURL(previewImages[index]);
     }
-    
+
     setPreviewImages(prev => prev.filter((_, i) => i !== index));
     setImages(prev => {
       const newImages = prev.filter((_, i) => i !== index);
@@ -297,45 +477,40 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
     });
   };
 
-  // Create property and get propertyId
   const handleCreateProperty = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
+
     if (!validatePropertyForm()) {
       return;
     }
-    
+
     if (!landlordId) {
       alert('Error: No landlord ID provided');
       return;
     }
-  
-    // Set loading state
+
     setIsSubmitting(true);
-  
+
     try {
-      // Step 1: Create a draft property to get an ID
       const draftRes = await fetch('/api/properties/draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          landlordId: parseInt(landlordId)
-        })
+          landlordId: parseInt(landlordId),
+        }),
       });
-  
+
       if (!draftRes.ok) {
         const errorData = await draftRes.json();
         throw new Error(errorData.message || 'Failed to create draft property');
       }
-      
+
       const draftData = await draftRes.json();
       const newPropertyId = draftData.propertyId;
       setPropertyId(newPropertyId.toString());
-      
-      // Add explicit debugging
+
       console.log('Draft property created with ID:', newPropertyId);
-  
-      // Step 2: Update the draft property with complete information
+
       const updateRes = await fetch(`/api/properties/properties/${newPropertyId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -345,16 +520,21 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
           propertyType: propertyData.propertyType,
           address: propertyData.address,
           monthlyRent: parseFloat(propertyData.monthlyRent),
-          isAvailable: propertyData.isAvailable
-        })
+          isAvailable: propertyData.isAvailable,
+          ...(propertyData.location &&
+            propertyData.location.latitude !== null &&
+            propertyData.location.longitude !== null && {
+              latitude: propertyData.location.latitude,
+              longitude: propertyData.location.longitude,
+            }),
+        }),
       });
-  
+
       if (!updateRes.ok) {
         const errorData = await updateRes.json();
         throw new Error(errorData.message || 'Failed to update property details');
       }
-      
-      // Step 3: Update Property Details
+
       try {
         const detailsRes = await fetch(`/api/property-details/properties/${newPropertyId}/details`, {
           method: 'PUT',
@@ -364,16 +544,15 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
             bathrooms: parseFloat(String(propertyData.details.bathrooms)) || 0,
             furnished: propertyData.details.furnished,
             squareFootage: parseFloat(propertyData.details.squareFootage) || 0,
-            amenities: propertyData.details.amenities.filter(a => a.trim() !== '')
-          })
+            amenities: propertyData.details.amenities.filter(a => a.trim() !== ''),
+          }),
         });
-  
+
         if (!detailsRes.ok) {
           const errorData = await detailsRes.json();
           throw new Error(errorData.message || 'Failed to update details');
         }
-        
-        // Property created successfully, move to image upload stage
+
         setFormStage(FormStage.IMAGE_UPLOAD);
       } catch (detailsError) {
         console.error('Failed to update property details:', detailsError);
@@ -388,65 +567,61 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
     }
   };
 
-  // Upload images to server
   const uploadImages = async (): Promise<boolean> => {
     if (!propertyId) {
       alert('Error: Property ID not found');
       return false;
     }
-    
+
     setIsSubmitting(true);
     setUploadProgress(0);
-    
+
     try {
       const totalImages = images.length;
       if (totalImages === 0) {
         return false;
       }
-      
+
       console.log('Uploading images with propertyId:', propertyId);
-      
+
       let successCount = 0;
       let failedImages: string[] = [];
-      
+
       for (let i = 0; i < totalImages; i++) {
         const img = images[i];
         try {
           setUploadProgress(Math.floor((i / totalImages) * 90));
-          
-          // Create FormData to send the raw file
+
           const formData = new FormData();
           formData.append('propertyId', propertyId);
           formData.append('image', img.file);
           formData.append('isPrimary', img.isPrimary.toString());
-          
-          // Debug log to see what's being sent
-          console.log(`Uploading image ${i+1}:`, {
+
+          console.log(`Uploading image ${i + 1}:`, {
             propertyId,
             isPrimary: img.isPrimary,
             fileName: img.file.name,
-            fileSize: img.file.size
+            fileSize: img.file.size,
           });
-          
+
           const imageRes = await fetch('/api/property-images/property-images', {
             method: 'POST',
-            body: formData
+            body: formData,
           });
-          
+
           if (!imageRes.ok) {
             const errorData = await imageRes.json();
             console.error('Image upload response:', await imageRes.clone().text());
             throw new Error(errorData.message || 'Image upload failed');
           }
-          
+
           successCount++;
         } catch (error) {
-          console.error(`Failed to upload image ${i+1}:`, error);
-          failedImages.push(`Image ${i+1}`);
+          console.error(`Failed to upload image ${i + 1}:`, error);
+          failedImages.push(`Image ${i + 1}`);
         }
       }
-      
-      // Inform user if some images failed
+
       if (failedImages.length > 0) {
         console.warn(`${failedImages.length} images failed to upload`);
         if (successCount === 0) {
@@ -456,16 +631,15 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
           alert(`Warning: ${failedImages.length} out of ${totalImages} images failed to upload.`);
         }
       }
-      
+
       setUploadProgress(100);
-      
-      // Clean up object URLs
+
       previewImages.forEach(url => {
         if (url.startsWith('blob:')) {
           URL.revokeObjectURL(url);
         }
       });
-      
+
       return successCount > 0;
     } catch (error) {
       console.error('Image upload process failed:', error);
@@ -478,39 +652,42 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
 
   const handleSubmitImages = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
+
     if (!validateImageForm()) {
       return;
     }
-    
+
     const imagesUploaded = await uploadImages();
     if (imagesUploaded && propertyId) {
       const completePropertyData = {
         id: propertyId,
         location: propertyData.address,
         price: `K${propertyData.monthlyRent}`,
-        status: propertyData.isAvailable ? "Available" : "Not Available",
+        status: propertyData.isAvailable ? 'Available' : 'Not Available',
         details: {
           bedrooms: propertyData.details.bedrooms,
           bathrooms: propertyData.details.bathrooms,
           furnished: propertyData.details.furnished,
           squareFootage: propertyData.details.squareFootage,
-          amenities: propertyData.details.amenities
+          amenities: propertyData.details.amenities,
         },
         description: propertyData.description,
-        propertyType: propertyData.propertyType
+        propertyType: propertyData.propertyType,
+        coordinates: propertyData.location
+          ? {
+              latitude: propertyData.location.latitude,
+              longitude: propertyData.location.longitude,
+              formattedAddress: propertyData.location.formattedAddress,
+            }
+          : undefined,
       };
-      
+
       onSubmit(propertyId, completePropertyData);
-
-
-      
       onClose();
     }
   };
 
   const handleReset = () => {
-    // Clean up object URLs
     previewImages.forEach(url => {
       if (url.startsWith('blob:')) {
         URL.revokeObjectURL(url);
@@ -522,25 +699,37 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
     setErrors({});
     setFormStage(FormStage.PROPERTY_DETAILS);
     setPropertyId(null);
+    setGeocodedLocation({
+      latitude: null,
+      longitude: null,
+      formattedAddress: '',
+      status: 'idle',
+    });
+    setShowLocationWindow(false);
+    setAmenityInput('');
+    setAmenitySuggestions([]);
+    setShowSuggestions(false);
+    setActiveAmenityIndex(-1);
   };
-  
+
   const handleCancel = () => {
-    // If property was created but not completed, delete it
     if (propertyId && formStage === FormStage.IMAGE_UPLOAD) {
-      // Optional: add API call to delete the property
       fetch(`/api/properties/properties/${propertyId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
       }).catch(err => console.error('Failed to delete property:', err));
     }
-    
-    // Clean up object URLs
+
     previewImages.forEach(url => {
       if (url.startsWith('blob:')) {
         URL.revokeObjectURL(url);
       }
     });
-    
+
     onClose();
+  };
+
+  const closeLocationWindow = () => {
+    setShowLocationWindow(false);
   };
 
   if (!isOpen) return null;
@@ -550,9 +739,9 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
       <div className="modal-content">
         <div className="modal-header">
           <h2>{formStage === FormStage.PROPERTY_DETAILS ? 'Add New Property' : 'Upload Property Images'}</h2>
-          <button 
+          <button
             type="button"
-            onClick={handleCancel} 
+            onClick={handleCancel}
             className="close-btn"
             aria-label="Close"
           >
@@ -568,10 +757,9 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
 
         {formStage === FormStage.PROPERTY_DETAILS ? (
           <form onSubmit={handleCreateProperty} noValidate>
-            {/* Basic Information Section */}
             <fieldset className="form-section">
               <legend>Basic Information</legend>
-              
+
               <div className="form-grid">
                 <div className="form-group">
                   <label htmlFor="property-title">Property Title*</label>
@@ -586,7 +774,7 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
                   />
                   {errors.title && <span className="error-message">{errors.title}</span>}
                 </div>
-                
+
                 <div className="form-group">
                   <label htmlFor="property-type">Property Type*</label>
                   {isLoadingPropertyTypes ? (
@@ -619,7 +807,7 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
                   )}
                 </div>
 
-                <div className="form-group full-width">
+                <div className="form-group full-width address-input-container">
                   <label htmlFor="property-address">Address*</label>
                   <input
                     id="property-address"
@@ -632,6 +820,49 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
                     placeholder="Enter complete address"
                   />
                   {errors.address && <span className="error-message">{errors.address}</span>}
+
+                  {showLocationWindow && (
+                    <div className="location-window">
+                      <div className="location-header">
+                        <MapPin size={16} />
+                        <span>Location Coordinates</span>
+                        <button
+                          type="button"
+                          onClick={closeLocationWindow}
+                          className="close-location-btn"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                      <div className="location-content">
+                        {geocodedLocation.status === 'loading' && (
+                          <div className="location-loading">Detecting location...</div>
+                        )}
+
+                        {geocodedLocation.status === 'error' && (
+                          <div className="location-error">
+                            {geocodedLocation.error || 'Failed to detect location'}
+                          </div>
+                        )}
+
+                        {geocodedLocation.status === 'success' && geocodedLocation.latitude !== null && geocodedLocation.longitude !== null && (
+                          <>
+                            <div className="location-item">
+                              <span className="location-label">Latitude:</span>
+                              <span className="location-value">{geocodedLocation.latitude.toFixed(6)}</span>
+                            </div>
+                            <div className="location-item">
+                              <span className="location-label">Longitude:</span>
+                              <span className="location-value">{geocodedLocation.longitude.toFixed(6)}</span>
+                            </div>
+                            <div className="location-address">
+                              {geocodedLocation.formattedAddress}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="form-group">
@@ -650,19 +881,6 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
                   {errors.monthlyRent && <span className="error-message">{errors.monthlyRent}</span>}
                 </div>
 
-                <div className="form-group checkbox-group">
-                  <label htmlFor="is-available">
-                    <input
-                      id="is-available"
-                      type="checkbox"
-                      name="isAvailable"
-                      checked={propertyData.isAvailable}
-                      onChange={handleChange}
-                    />
-                    Available for Rent
-                  </label>
-                </div>
-
                 <div className="form-group full-width">
                   <label htmlFor="property-description">Description</label>
                   <textarea
@@ -677,10 +895,9 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
               </div>
             </fieldset>
 
-            {/* Property Details Section */}
             <fieldset className="form-section">
               <legend>Property Details</legend>
-              
+
               <div className="details-grid">
                 <div className="form-group">
                   <label htmlFor="property-bedrooms">Bedrooms</label>
@@ -707,69 +924,39 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
                   />
                   <small>Use 0.5 for half bathrooms</small>
                 </div>
-
-                <div className="form-group">
-                  <label htmlFor="property-sqft">Square Footage</label>
-                  <input
-                    id="property-sqft"
-                    type="number"
-                    name="details.squareFootage"
-                    value={propertyData.details.squareFootage}
-                    onChange={handleChange}
-                    min="0"
-                    placeholder="e.g. 800"
-                  />
-                </div>
-
-                <div className="form-group checkbox-group">
-                  <label htmlFor="property-furnished">
-                    <input
-                      id="property-furnished"
-                      type="checkbox"
-                      name="details.furnished"
-                      checked={propertyData.details.furnished}
-                      onChange={handleChange}
-                    />
-                    Furnished
-                  </label>
-                </div>
               </div>
 
               <div className="amenities-section">
-                <div className="amenities-header">
-                  <h4>Amenities</h4>
-                  <button 
-                    type="button" 
-                    onClick={() => addArrayItem('amenities')}
-                    className="add-btn"
-                  >
-                    <Plus size={16} /> Add Amenity
-                  </button>
-                </div>
-                
-                {propertyData.details.amenities.map((amenity, index) => (
-                  <div key={index} className="amenity-input">
+                <div className="form-group">
+                  <label htmlFor="amenities">Amenities</label>
+                  <div className="amenity-input-wrapper">
                     <input
+                      id="amenities"
                       type="text"
-                      value={amenity}
-                      onChange={(e) => handleArrayChange('amenities', index, e.target.value)}
-                      placeholder="Enter amenity (e.g., Parking, Gym, Pool)"
+                      value={amenityInput}
+                      onChange={(e) => handleAmenityInput(e.target.value)}
+                      onKeyDown={handleAmenityKeyDown}
+                      placeholder="Enter amenities (e.g., Parking, Gym, Pool)"
+                      className="amenity-input"
                     />
-                    <button 
-                      type="button" 
-                      onClick={() => removeArrayItem('amenities', index)}
-                      className="remove-btn"
-                      disabled={propertyData.details.amenities.length <= 1}
-                      aria-label="Remove amenity"
-                    >
-                      <Minus size={16} />
-                    </button>
+                    {showSuggestions && amenitySuggestions.length > 0 && (
+                      <ul className="amenity-suggestions">
+                        {amenitySuggestions.map((suggestion, index) => (
+                          <li
+                            key={suggestion}
+                            className={`suggestion-item ${index === activeAmenityIndex ? 'active' : ''}`}
+                            onClick={() => handleAmenitySelect(suggestion)}
+                          >
+                            {suggestion}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
-                ))}
+                </div>
               </div>
             </fieldset>
 
-            {/* Form Footer for Property Details */}
             <div className="form-footer">
               <div className="footer-buttons">
                 <button
@@ -802,17 +989,16 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
           </form>
         ) : (
           <form onSubmit={handleSubmitImages} noValidate>
-            {/* Image Upload Section */}
             <fieldset className="form-section">
               <legend>Property Images*</legend>
-              
+
               {propertyId && (
                 <div className="property-id-info">
                   <p><strong>Property ID:</strong> {propertyId}</p>
                   <p>Images will be associated with this property.</p>
                 </div>
               )}
-              
+
               <div className="image-upload">
                 <input
                   type="file"
@@ -828,7 +1014,7 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
                   <small>PNG, JPG, GIF up to {MAX_FILE_SIZE_MB}MB</small>
                 </label>
               </div>
-              
+
               {errors.images && <span className="error-message block-error">{errors.images}</span>}
 
               {previewImages.length > 0 && (
@@ -859,12 +1045,12 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
                   </div>
                 </div>
               )}
-              
+
               {isSubmitting && uploadProgress > 0 && (
                 <div className="upload-progress">
                   <div className="progress-bar">
-                    <div 
-                      className="progress-fill" 
+                    <div
+                      className="progress-fill"
                       style={{ width: `${uploadProgress}%` }}
                     ></div>
                   </div>
@@ -873,7 +1059,6 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
               )}
             </fieldset>
 
-            {/* Form Footer for Image Upload */}
             <div className="form-footer">
               <div className="footer-buttons">
                 <button
@@ -906,446 +1091,6 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
           </form>
         )}
       </div>
-    
-          <style jsx>{`
-        .property-form-modal {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0, 0, 0, 0.6);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-          padding: 20px;
-        }
-        
-        .modal-content {
-          background: white;
-          border-radius: 8px;
-          width: 100%;
-          max-width: 800px;
-          max-height: 90vh;
-          overflow-y: auto;
-          box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-        }
-        
-        .modal-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 16px 24px;
-          border-bottom: 1px solid #e2e8f0;
-        }
-        
-        .modal-header h2 {
-          margin: 0;
-          color: rgb(48, 0, 126);
-          font-size: 1.5rem;
-        }
-        
-        .close-btn {
-          background: none;
-          border: none;
-          cursor: pointer;
-          color: #666;
-          padding: 4px;
-        }
-        
-        .close-btn:hover {
-          color: #333;
-        }
-        
-        .error-banner {
-          background-color: #fee2e2;
-          color: #b91c1c;
-          padding: 12px 16px;
-          margin: 0;
-          text-align: center;
-          font-weight: 500;
-        }
-        
-        .form-section {
-          border: none;
-          padding: 20px 24px;
-          margin: 0 0 12px 0;
-        }
-        
-        .form-section legend {
-          font-weight: 600;
-          color: rgb(48, 0, 126);
-          font-size: 1.1rem;
-          padding: 0 8px;
-        }
-        
-        .form-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 16px;
-        }
-        
-        .details-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-          gap: 16px;
-        }
-        
-        .form-group {
-          margin-bottom: 12px;
-        }
-        
-        .form-group.full-width {
-          grid-column: 1 / -1;
-        }
-        
-        .form-group label {
-          display: block;
-          margin-bottom: 6px;
-          font-weight: 500;
-          color: #333;
-        }
-        
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-          width: 100%;
-          padding: 10px;
-          border: 1px solid #ccc;
-          border-radius: 4px;
-          font-size: 1rem;
-        }
-        
-        .form-group textarea {
-          resize: vertical;
-          min-height: 100px;
-        }
-        
-        .checkbox-group {
-          display: flex;
-          align-items: center;
-        }
-        
-        .checkbox-group label {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          cursor: pointer;
-        }
-        
-        .checkbox-group input {
-          width: auto;
-          margin-right: 6px;
-        }
-        
-        .input-error {
-          border-color: #dc2626 !important;
-        }
-        
-        .error-message {
-          color: #dc2626;
-          font-size: 0.85rem;
-          margin-top: 4px;
-          display: block;
-        }
-        
-        .block-error {
-          margin: 12px 0;
-        }
-        
-        .amenities-section {
-          margin-top: 16px;
-          border-top: 1px solid #e2e8f0;
-          padding-top: 16px;
-        }
-        
-        .amenities-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 12px;
-        }
-        
-        .amenities-header h4 {
-          margin: 0;
-          font-weight: 600;
-          color: #333;
-        }
-        
-        .add-btn {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          background: rgb(48, 0, 126);
-          color: white;
-          border: none;
-          border-radius: 4px;
-          padding: 6px 12px;
-          cursor: pointer;
-          font-size: 0.9rem;
-        }
-        
-        .add-btn:hover {
-          background: rgba(48, 0, 126, 0.9);
-        }
-        
-        .amenity-input {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin-bottom: 8px;
-        }
-        
-        .remove-btn {
-          background: #f3f4f6;
-          border: 1px solid #d1d5db;
-          border-radius: 4px;
-          padding: 6px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        
-        .remove-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        
-        .form-footer {
-          padding: 16px 24px;
-          border-top: 1px solid #e2e8f0;
-          background: #f8fafc;
-        }
-        
-        .footer-buttons {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-        
-        .action-buttons {
-          display: flex;
-          gap: 12px;
-        }
-        
-        .reset-btn, .back-btn {
-          background: #f3f4f6;
-          border: 1px solid #d1d5db;
-          color: #4b5563;
-          border-radius: 4px;
-          padding: 10px 16px;
-          cursor: pointer;
-          font-weight: 500;
-        }
-        
-        .cancel-btn {
-          background: white;
-          border: 1px solid #d1d5db;
-          color: #4b5563;
-          border-radius: 4px;
-          padding: 10px 16px;
-          cursor: pointer;
-          font-weight: 500;
-        }
-        
-        .submit-btn {
-          background: rgb(48, 0, 126);
-          color: white;
-          border: none;
-          border-radius: 4px;
-          padding: 10px 16px;
-          cursor: pointer;
-          font-weight: 500;
-        }
-        
-        .submit-btn:hover {
-          background: rgba(48, 0, 126, 0.9);
-        }
-        
-        .submit-btn:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-        }
-        
-        .image-upload {
-          border: 2px dashed #cbd5e1;
-          border-radius: 6px;
-          padding: 24px;
-          text-align: center;
-          margin-bottom: 20px;
-        }
-        
-        .image-upload input {
-          display: none;
-        }
-        
-        .upload-label {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          cursor: pointer;
-          color: #64748b;
-        }
-        
-        .upload-label p {
-          margin: 8px 0 4px;
-          font-weight: 500;
-        }
-        
-        .upload-label small {
-          font-size: 0.8rem;
-        }
-        
-        .property-id-info {
-          background: #f0f9ff;
-          border-radius: 4px;
-          padding: 12px 16px;
-          margin-bottom: 16px;
-          border-left: 4px solid rgb(48, 0, 126);
-        }
-        
-        .property-id-info p {
-          margin: 0;
-          font-size: 0.9rem;
-          line-height: 1.4;
-        }
-        
-        .property-id-info p:first-child {
-          margin-bottom: 4px;
-        }
-        
-        .image-previews {
-          margin-top: 20px;
-        }
-        
-        .image-previews p {
-          margin: 0 0 8px;
-          font-weight: 500;
-        }
-        
-        .help-text {
-          font-size: 0.85rem;
-          color: #64748b;
-          font-weight: normal !important;
-          margin-bottom: 12px !important;
-        }
-        
-        .preview-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-          gap: 12px;
-        }
-        
-        .preview-item {
-          position: relative;
-          border-radius: 4px;
-          overflow: hidden;
-          aspect-ratio: 1;
-          border: 2px solid transparent;
-        }
-        
-        .preview-item.is-primary {
-          border-color: rgb(48, 0, 126);
-        }
-        
-        .preview-item img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          cursor: pointer;
-        }
-        
-        .primary-badge {
-          position: absolute;
-          top: 4px;
-          left: 4px;
-          background: rgb(48, 0, 126);
-          color: white;
-          font-size: 0.75rem;
-          padding: 2px 6px;
-          border-radius: 4px;
-        }
-        
-        .delete-btn {
-          position: absolute;
-          top: 4px;
-          right: 4px;
-          background: rgba(0, 0, 0, 0.6);
-          color: white;
-          border: none;
-          border-radius: 50%;
-          width: 24px;
-          height: 24px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          opacity: 0.8;
-        }
-        
-        .delete-btn:hover {
-          opacity: 1;
-        }
-        
-        .upload-progress {
-          margin-top: 16px;
-        }
-        
-        .progress-bar {
-          width: 100%;
-          height: 8px;
-          background-color: #e2e8f0;
-          border-radius: 4px;
-          overflow: hidden;
-          margin-bottom: 8px;
-        }
-        
-        .progress-fill {
-          height: 100%;
-          background-color: rgb(48, 0, 126);
-          transition: width 0.3s ease;
-        }
-        
-        .progress-text {
-          font-size: 0.9rem;
-          text-align: center;
-          margin: 0;
-          color: #64748b;
-        }
-        
-        .loading-spinner {
-          padding: 10px;
-          color: #64748b;
-          font-style: italic;
-        }
-        
-        /* Responsive adjustments */
-        @media (max-width: 640px) {
-          .form-grid, 
-          .details-grid {
-            grid-template-columns: 1fr;
-          }
-          
-          .footer-buttons {
-            flex-direction: column;
-            gap: 12px;
-          }
-          
-          .action-buttons {
-            width: 100%;
-          }
-          
-          .action-buttons button {
-            flex: 1;
-          }
-          
-          .reset-btn, .back-btn {
-            width: 100%;
-          }
-        }
-      `}</style>
     </div>
   );
 };

@@ -1,11 +1,12 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql, SQL, type DrizzleTypeError } from "drizzle-orm";
 import { createRouter } from "../libs/create-app";
 import { users } from "../db/schemas/mgh_db";
 import { db } from "../db";
 import { jwt } from "hono/jwt";
 import { HTTPException } from "hono/http-exception";
 import * as HttpStatusCodes from "stoker/http-status-codes";
+import type { PgSelectBase } from "drizzle-orm/pg-core";
 
 const JWT_SECRET = "Wg4m8v2Lp9qRjT3cNwXyZ6bBdFhJkMnQ";
 const userRouter = createRouter();
@@ -29,7 +30,7 @@ const updateUserSchema = z.object({
   phoneNumber: z.string().optional(),
 });
 
-// Get all users (with pagination & filtering)
+/// Update the existing /users endpoint
 userRouter.openapi(
   createRoute({
     tags: ["Users"],
@@ -42,38 +43,75 @@ userRouter.openapi(
       [HttpStatusCodes.OK]: {
         content: {
           "application/json": {
-            schema: z.array(
-              z.object({
-                userId: z.number(),
-                email: z.string(),
-                firstName: z.string(),
-                lastName: z.string(),
-                userType: z.enum(["student", "landlord", "admin"]),
-                phoneNumber: z.string().nullable(),
-                createdAt: z.string(),
-              })
-            ),
+            schema: z.object({
+              users: z.array(
+                z.object({
+                  userId: z.number(),
+                  email: z.string(),
+                  firstName: z.string(),
+                  lastName: z.string(),
+                  userType: z.enum(["student", "landlord", "admin"]),
+                  phoneNumber: z.string().nullable(),
+                  createdAt: z.string(),
+                })
+              ),
+              counts: z.object({
+                total: z.number(),
+                student: z.number(),
+                landlord: z.number(),
+                admin: z.number(),
+              }),
+            }),
           },
         },
-        description: "List of users",
+        description: "List of users with counts",
       },
     },
   }),
   async (c) => {
     const { userType, page = "1", limit = "10" } = c.req.valid("query");
     const offset = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Get paginated users
+    const baseQuery = userType 
+      ? db.select().from(users).where(eq(users.userType, userType))
+      : db.select().from(users);
+      
+    const paginatedUsers = await baseQuery.limit(parseInt(limit)).offset(offset);
 
-    const query = userType ? db.select().from(users).where(eq(users.userType, userType)) : db.select().from(users);
-    const allUsers = await query.limit(parseInt(limit)).offset(offset);
+    // Get total counts
+    const totalResult = await db.select({
+      total: sql<number>`count(*)::int`,
+      student: sql<number>`count(*) filter (where user_type = 'student')::int`,
+      landlord: sql<number>`count(*) filter (where user_type = 'landlord')::int`,
+      admin: sql<number>`count(*) filter (where user_type = 'admin')::int`,
+    }).from(users);
 
-    const formattedUsers = allUsers.map(user => ({
+    const counts = totalResult[0] || {
+      total: 0,
+      student: 0,
+      landlord: 0,
+      admin: 0
+    };
+
+    // Format response
+    const formattedUsers = paginatedUsers.map(user => ({
       ...user,
       createdAt: user.createdAt ? user.createdAt.toISOString() : new Date().toISOString(),
     }));
 
-    return c.json(formattedUsers, HttpStatusCodes.OK);
+    return c.json({
+      users: formattedUsers,
+      counts: {
+        total: counts.total || 0,
+        student: counts.student || 0,
+        landlord: counts.landlord || 0,
+        admin: counts.admin || 0,
+      }
+    }, HttpStatusCodes.OK);
   }
 );
+
 
 // Get a single user by ID
 userRouter.openapi(
@@ -183,4 +221,8 @@ userRouter.openapi(
   }
 );
 
+
+
 export default userRouter;
+
+

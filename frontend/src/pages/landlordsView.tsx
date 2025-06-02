@@ -1,23 +1,52 @@
 import React, { useState, useEffect } from "react";
-import { Bell, PlusCircle, Trash, Home, Users, Bed, Bath, Square } from "lucide-react";
+import { Bell, PlusCircle, Trash, Home, Users, Bed, Bath, Square, Settings, Moon, Sun, MessageSquare } from "lucide-react";
 import PropertyCreationForm from "./PropertyCraeationForm";
 import NotificationPanel from "./NotificationPannel";
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
+import "./landloard.css";
+
 
 const Dashboard = () => {
-  // Primary color: rgb(48, 0, 126) - Deep Purple
-  // Using this consistently across the dashboard
-  const PRIMARY_COLOR = "rgb(48, 0, 126)";
-  const PRIMARY_LIGHT = "rgba(48, 0, 126, 0.1)";
-  const PRIMARY_MEDIUM = "rgba(48, 0, 126, 0.3)";
+  // Theme colors
+ const THEME = {
+  light: {
+    PRIMARY_COLOR: "rgb(29, 78, 216)",
+    PRIMARY_LIGHT: "rgba(29, 78, 216, 0.15)",
+    PRIMARY_MEDIUM: "rgba(29, 78, 216, 0.5)",
+    BACKGROUND: "#f9fafb",
+    CARD_BACKGROUND: "white",
+    TEXT_PRIMARY: "black",
+    TEXT_SECONDARY: "#4b5563",
+    TEXT_TERTIARY: "#6b7280",
+    BORDER: "#e5e7eb"
+  },
+  dark: {
+    PRIMARY_COLOR: "rgb(59, 130, 246)",
+    PRIMARY_LIGHT: "rgba(59, 130, 246, 0.15)",
+    PRIMARY_MEDIUM: "rgba(59, 130, 246, 0.5)",
+    BACKGROUND: "#111827",
+    CARD_BACKGROUND: "#1f2937",
+    TEXT_PRIMARY: "white",
+    TEXT_SECONDARY: "#d1d5db",
+    TEXT_TERTIARY: "#9ca3af",
+    BORDER: "#374151"
+  }
+};
 
   const navigate = useNavigate();
   const location = useLocation();
-  
-  // Get landlordId from location state (from login page)
+
+  // Get landlordId from location state
   const landlordId = location.state?.landlordId;
   const [landlordName, setLandlordName] = useState("Landlord");
-  
+
+  // Theme state - default to light
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [showThemeMenu, setShowThemeMenu] = useState(false);
+
+  // Current theme colors
+  const currentTheme = isDarkMode ? THEME.dark : THEME.light;
+
   // Enhanced Property interface to match the API response
   interface PropertyDetails {
     bedrooms?: number;
@@ -27,7 +56,7 @@ const Dashboard = () => {
     amenities?: string[];
     rules?: string[];
   }
-  
+
   interface Property {
     id: string | number;
     title?: string;
@@ -42,7 +71,7 @@ const Dashboard = () => {
   }
 
   const [properties, setProperties] = useState<Property[]>([]);
-  
+
   interface Notification {
     id: string;
     [key: string]: any; // Add other properties as needed
@@ -54,6 +83,41 @@ const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Load theme preference from localStorage on mount
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('landlordDashboardTheme');
+    if (savedTheme === 'dark') {
+      setIsDarkMode(true);
+    }
+  }, []);
+
+  // Apply theme to document body when theme changes
+  useEffect(() => {
+    document.body.style.backgroundColor = currentTheme.BACKGROUND;
+    document.body.style.color = currentTheme.TEXT_PRIMARY;
+
+    // Save theme preference to localStorage
+    localStorage.setItem('landlordDashboardTheme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode, currentTheme]);
+
+  // Toggle theme function
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
+    setShowThemeMenu(false);
+  };
+
+  // Handle settings icon click
+  const handleSettingsClick = () => {
+    setShowThemeMenu(!showThemeMenu);
+    // Close other panels if open
+    if (showNotifications) setShowNotifications(false);
+  };
+
+  // Handle navigation to inquiries page
+  const handleInquiriesClick = () => {
+    navigate('/inquiries', { state: { landlordId } });
+  };
+
   // Fetch data when component mounts
   useEffect(() => {
     // Check if user is logged in
@@ -62,10 +126,10 @@ const Dashboard = () => {
       navigate('/login', { state: { message: "Please login to access your dashboard" } });
       return;
     }
-    
+
     // Fetch landlord properties
     fetchProperties();
-    
+
     // Fetch notifications
     fetchNotifications();
   }, [landlordId, navigate]);
@@ -79,7 +143,7 @@ const Dashboard = () => {
         throw new Error('Failed to fetch properties');
       }
       const data = await response.json();
-      
+
       // Map API response to our Property interface
       const mappedProperties = data.properties.map((prop: any) => ({
         id: prop.id.toString(),
@@ -93,9 +157,9 @@ const Dashboard = () => {
         propertyType: prop.propertyType,
         details: prop.details
       }));
-      
+
       setProperties(mappedProperties);
-      
+
       // If landlord info is included in response
       if (data.landlordName) {
         setLandlordName(data.landlordName);
@@ -132,11 +196,11 @@ const Dashboard = () => {
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to delete property');
       }
-      
+
       // Update UI after successful deletion
       setProperties(properties.filter((property) => property.id !== id));
     } catch (error) {
@@ -147,8 +211,9 @@ const Dashboard = () => {
 
   const handleNotificationToggle = () => {
     setShowNotifications(!showNotifications);
-    // Close property form if open
+    // Close property form and theme menu if open
     if (showPropertyForm) setShowPropertyForm(false);
+    if (showThemeMenu) setShowThemeMenu(false);
   };
 
   const handleNotificationAction = async (id: any, action: any) => {
@@ -161,11 +226,11 @@ const Dashboard = () => {
         },
         body: JSON.stringify({ action }),
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to process notification');
       }
-      
+
       // Update UI after successful action
       setNotifications(notifications.filter((notification) => notification.id !== id));
     } catch (error) {
@@ -175,8 +240,9 @@ const Dashboard = () => {
 
   const handleAddPropertyClick = () => {
     setShowPropertyForm(true);
-    // Close notifications if open
+    // Close notifications and theme menu if open
     if (showNotifications) setShowNotifications(false);
+    if (showThemeMenu) setShowThemeMenu(false);
   };
 
   const handlePropertyFormClose = () => {
@@ -186,7 +252,7 @@ const Dashboard = () => {
   // Modified function to handle property form submission
   const handlePropertyFormSubmit = async (propertyId: string, propertyData?: any) => {
     setIsSubmitting(true);
-    
+
     try {
       // Use the property data directly if it's available from the form
       const tempProperty: Property = {
@@ -199,12 +265,12 @@ const Dashboard = () => {
         imageUrl: propertyData?.imageUrl || null,
         details: propertyData?.details || {}
       };
-      
+
       // Add the property to the UI
       setProperties(prevProperties => {
         // Check if this property already exists (in case of update)
         const existingIndex = prevProperties.findIndex(p => p.id === propertyId);
-        
+
         if (existingIndex >= 0) {
           // Replace the existing property
           const updatedProperties = [...prevProperties];
@@ -215,10 +281,10 @@ const Dashboard = () => {
           return [...prevProperties, tempProperty];
         }
       });
-      
+
       // Close the form
       setShowPropertyForm(false);
-      
+
       // Only make the API call if we didn't get the data directly from the form
       if (!propertyData) {
         // Your existing API call to create property
@@ -229,21 +295,21 @@ const Dashboard = () => {
           },
           body: JSON.stringify(propertyData),
         });
-        
+
       } else {
         // Property was already created and we're just updating the UI
         console.log("Property was created successfully:", propertyId);
       }
-      
+
       // Refresh properties to get the complete data from the server
       setTimeout(() => {
         fetchProperties();
       }, 1000);
-      
+
     } catch (error) {
       console.error('Error creating property:', error);
       // Remove the temporary property if there was an error
-      setProperties(prevProperties => 
+      setProperties(prevProperties =>
         prevProperties.filter(property => property.id !== propertyId)
       );
     } finally {
@@ -259,27 +325,27 @@ const Dashboard = () => {
       formData.append('propertyId', propertyId);
       formData.append('image', imageFile);
       formData.append('isPrimary', 'true');
-      
+
       // Upload the image to your API
       const response = await fetch('/api/property-images/property-images', {
         method: 'POST',
         body: formData,
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to upload image');
       }
-      
+
       const result = await response.json();
       const uploadedImageUrl = result.imageUrl;
-      
+
       // Update the property with the new image URL
-      setProperties(prevProperties => 
-        prevProperties.map(property => 
+      setProperties(prevProperties =>
+        prevProperties.map(property =>
           property.id === propertyId ? { ...property, imageUrl: uploadedImageUrl } : property
         )
       );
-      
+
       return uploadedImageUrl;
     } catch (error) {
       console.error('Error uploading image:', error);
@@ -299,7 +365,7 @@ const Dashboard = () => {
             <div className="logo-section">
               <h1 className="dashboard-title">Landlord Dashboard</h1>
             </div>
-            
+
             <div className="search-container">
               <div className="search-wrapper">
                 <input
@@ -309,9 +375,17 @@ const Dashboard = () => {
                 />
               </div>
             </div>
-            
+
             <div className="user-actions">
               <span className="user-greeting">Hi, {landlordName}!</span>
+
+              {/* Theme Settings Button */}
+              <div className="settings-container" onClick={handleSettingsClick}>
+                <button className="settings-button">
+                  <Settings size={20} />
+                </button>
+              </div>
+
               <div className="notification-container" onClick={handleNotificationToggle}>
                 <button className="notification-button">
                   <Bell size={20} />
@@ -331,13 +405,32 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* Theme Menu */}
+        {showThemeMenu && (
+          <div className="theme-menu">
+            <div className="theme-menu-header">
+              <h3>Settings</h3>
+            </div>
+            <div className="theme-option" onClick={toggleTheme}>
+              <div className="theme-option-content">
+                <span className="theme-label">
+                  {isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                </span>
+                <div className="theme-icon">
+                  {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Notifications Panel */}
         {showNotifications && (
-          <NotificationPanel 
-            notifications={notifications} 
-            onAction={handleNotificationAction} 
-            primaryColor={PRIMARY_COLOR}
-            primaryLight={PRIMARY_LIGHT}
+          <NotificationPanel
+            notifications={notifications}
+            onAction={handleNotificationAction}
+            primaryColor={currentTheme.PRIMARY_COLOR}
+            primaryLight={currentTheme.PRIMARY_LIGHT}
           />
         )}
       </header>
@@ -350,6 +443,18 @@ const Dashboard = () => {
           </div>
         ) : (
           <>
+            {/* Navigation Menu */}
+            <div className="navigation-menu">
+              <div className="nav-item active">
+                <Home size={18} />
+                <span>Dashboard</span>
+              </div>
+              <div className="nav-item" onClick={handleInquiriesClick}>
+                <MessageSquare size={18} />
+                <span>Inquiries</span>
+              </div>
+            </div>
+
             {/* Stats Cards */}
             <div className="stats-grid">
               <div className="stat-card">
@@ -363,8 +468,8 @@ const Dashboard = () => {
                   </div>
                 </div>
               </div>
-              
-              <div className="stat-card">
+
+              <div className="stat-card" onClick={handleInquiriesClick} style={{ cursor: 'pointer' }}>
                 <div className="stat-content">
                   <div className="stat-icon-container">
                     <Users size={24} />
@@ -381,8 +486,8 @@ const Dashboard = () => {
             <div className="properties-container">
               <div className="properties-header">
                 <h2 className="properties-title">Manage Properties</h2>
-                <button 
-                  className="add-property-button" 
+                <button
+                  className="add-property-button"
                   onClick={handleAddPropertyClick}
                   disabled={isSubmitting}
                 >
@@ -402,8 +507,8 @@ const Dashboard = () => {
                       <div className="property-image-container">
                         {property.imageUrl ? (
                           // Display the actual property image if available
-                          <img 
-                            src={property.imageUrl} 
+                          <img
+                            src={property.imageUrl}
                             alt={property.location}
                             className="property-image"
                             onError={(e) => {
@@ -419,20 +524,16 @@ const Dashboard = () => {
                             <p>No image available</p>
                           </div>
                         )}
-                        <div className={`property-status ${
-                          property.status === "Available" ? "status-available" : "status-rented"
-                        }`}>
-                          {property.status || "Available"}
-                        </div>
+
                       </div>
-                      
+
                       <div className="property-details">
                         <h3 className="property-location">
                           {property.title || property.location}
                         </h3>
                         <p className="property-address">{property.location}</p>
                         <p className="property-price">{property.price} <span className="price-period">per month</span></p>
-                        
+
                         {/* Display property details if available */}
                         {property.details && (
                           <div className="property-features">
@@ -461,19 +562,19 @@ const Dashboard = () => {
                             )}
                           </div>
                         )}
-                        
+
                         <p className="property-inquiries">
                           <span className="inquiries-count">{property.inquiries || 0}</span> inquiries
                         </p>
-                        
+
                         {/* Property type if available */}
                         {property.propertyType && (
                           <p className="property-type">{property.propertyType}</p>
                         )}
-                        
+
                         {/* Don't show delete button for properties currently being added */}
                         {!String(property.id).startsWith('temp-') && (
-                          <button 
+                          <button
                             className="delete-property-button"
                             onClick={() => deleteProperty(property.id.toString())}
                           >
@@ -481,7 +582,7 @@ const Dashboard = () => {
                             Delete
                           </button>
                         )}
-                        
+
                         {/* Show indicator for properties being processed */}
                         {String(property.id).startsWith('temp-') && (
                           <div className="processing-indicator">
@@ -500,33 +601,19 @@ const Dashboard = () => {
 
       {/* Property Creation Form Modal */}
       {showPropertyForm && (
-        <PropertyCreationForm 
+        <PropertyCreationForm
           isOpen={showPropertyForm}
           onClose={handlePropertyFormClose}
           onSubmit={handlePropertyFormSubmit}
           onImageUpload={handleImageUpload}
           landlordId={landlordId}
+          isDarkMode={isDarkMode}
+          themeColors={currentTheme}
         />
       )}
 
       {/* CSS Styles */}
       <style jsx>{`
-        /* Global Reset & Viewport Setup */
-        *, *::before, *::after {
-          box-sizing: border-box;
-          margin: 0;
-          padding: 0;
-        }
-        
-        /* Essential Full Screen Setup */
-        html, body {
-          width: 100%;
-          height: 100%;
-          margin: 0;
-          padding: 0;
-          overflow-x: hidden;
-        }
-
         /* Global Dashboard Styles - Ensure 100% width */
         .dashboard-container {
           display: flex;
@@ -534,9 +621,10 @@ const Dashboard = () => {
           min-height: 100vh;
           width: 100vw;
           max-width: 100%;
-          background-color: #f9fafb;
+          background-color: ${currentTheme.BACKGROUND};
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
           overflow-x: hidden;
+          transition: background-color 0.3s ease;
         }
 
         /* Loading State */
@@ -547,40 +635,120 @@ const Dashboard = () => {
           height: 300px;
           width: 100%;
           font-size: 1.1rem;
-          color: #6b7280;
+          color: ${currentTheme.TEXT_SECONDARY};
         }
 
         /* Empty State */
         .empty-state {
           padding: 2rem;
           text-align: center;
-          color: #6b7280;
+          color: ${currentTheme.TEXT_SECONDARY};
           width: 100%;
         }
 
         /* Header Styles - Full Width */
         .dashboard-header {
-          background-color: white;
+          background-color: ${currentTheme.CARD_BACKGROUND};
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
           position: fixed;
           top: 0;
           z-index: 1000;
           width: 100%;
-          
+          transition: background-color 0.3s ease;
         }
 
-        .header-container {
-          width: 100%;
-          max-width: 100%;
-          padding: 0 1rem;
-        }
-
-        .header-content {
+        /* Navigation Menu */
+        .navigation-menu {
           display: flex;
-          justify-content: space-between;
+          margin-bottom: 2rem;
+          border-bottom: 1px solid ${currentTheme.BORDER};
+        }
+
+        .nav-item {
+          display: flex;
           align-items: center;
-          height: 4rem;
-          width: 100%;
+          gap: 0.5rem;
+          padding: 0.75rem 1.5rem;
+          color: ${currentTheme.TEXT_SECONDARY};
+          cursor: pointer;
+          border-bottom: 2px solid transparent;
+          transition: all 0.2s ease;
+        }
+
+        .nav-item:hover {
+          color: ${currentTheme.PRIMARY_COLOR};
+          background-color: ${currentTheme.PRIMARY_LIGHT};
+        }
+
+        .nav-item.active {
+          color: ${currentTheme.PRIMARY_COLOR};
+          border-bottom: 2px solid ${currentTheme.PRIMARY_COLOR};
+          font-weight: 500;
+        }
+
+        /* Theme Menu */
+        .theme-menu {
+          position: absolute;
+          top: 4rem;
+          right: 5rem;
+          width: 220px;
+          background-color: ${currentTheme.CARD_BACKGROUND};
+          border-radius: 0.5rem;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+          border: 1px solid ${currentTheme.BORDER};
+          overflow: hidden;
+          z-index: 1000;
+          transition: all 0.3s ease;
+        }
+        
+        .theme-menu-header {
+          padding: 0.75rem 1rem;
+          border-bottom: 1px solid ${currentTheme.BORDER};
+          color: ${currentTheme.TEXT_PRIMARY};
+        }
+        
+        .theme-option {
+          padding: 0.75rem 1rem;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        
+        .theme-option:hover {
+          background-color: ${currentTheme.PRIMARY_LIGHT};
+        }
+        
+        .theme-option-content {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        
+        .theme-label {
+          color: ${currentTheme.TEXT_PRIMARY};
+          font-size: 0.9rem;
+        }
+        
+        .theme-icon {
+          color: ${currentTheme.PRIMARY_COLOR};
+        }
+
+
+        .settings-button {
+          padding: 0.25rem;
+          border-radius: 9999px;
+          color: ${currentTheme.TEXT_SECONDARY};
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+        }
+
+        .settings-button:hover {
+          background-color: ${currentTheme.PRIMARY_LIGHT};
+          color: ${currentTheme.PRIMARY_COLOR};
         }
 
         /* Improved mobile-first responsive layout */
@@ -603,35 +771,41 @@ const Dashboard = () => {
             order: 3;
           }
 
-              .property-features {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 10px;
-          margin: 8px 0;
-        }
-        
-        .feature {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          font-size: 0.85rem;
-          background-color: ${PRIMARY_LIGHT};
-          padding: 4px 8px;
-          border-radius: 4px;
-        }
-        
-        .property-address {
-          color: #666;
-          font-size: 0.9rem;
-          margin-top: 2px;
-        }
-        
-        .property-type {
-          font-size: 0.85rem;
-          color: #666;
-          font-style: italic;
-          margin-top: 4px;
-        }
+          .property-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 8px 0;
+          }
+          
+          .feature {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.85rem;
+            background-color: ${currentTheme.PRIMARY_LIGHT};
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: ${currentTheme.TEXT_PRIMARY};
+          }
+          
+          .theme-menu {
+            right: 1rem;
+            width: calc(100% - 2rem);
+          }
+          
+          .property-address {
+            color: ${currentTheme.TEXT_TERTIARY};
+            font-size: 0.9rem;
+            margin-top: 2px;
+          }
+          
+          .property-type {
+            font-size: 0.85rem;
+            color: ${currentTheme.TEXT_TERTIARY};
+            font-style: italic;
+            margin-top: 4px;
+          }
           
           .user-actions {
             width: 100%;
@@ -643,46 +817,36 @@ const Dashboard = () => {
         .dashboard-title {
           font-size: 1.25rem;
           font-weight: 700;
-          color: ${PRIMARY_COLOR};
+          color: ${currentTheme.PRIMARY_COLOR};
           margin: 0;
           white-space: nowrap;
         }
 
-        .search-container {
-          flex: 1;
-          max-width: 28rem;
-          margin: 0 1rem;
-        }
-
-        .search-wrapper {
-          position: relative;
-          width: 100%;
-        }
 
         .search-input {
           width: 100%;
           border-radius: 0.375rem;
-          border: 1px solid #e5e7eb;
-          background-color: #f3f4f6;
+          border: 1px solid ${currentTheme.BORDER};
+          background-color: ${isDarkMode ? '#374151' : '#f3f4f6'};
           padding: 0.5rem 1rem;
           font-size: 0.875rem;
           outline: none;
-          color: black;
+          color: ${currentTheme.TEXT_PRIMARY};
+          transition: all 0.3s ease;
         }
 
         .search-input:focus {
-          border-color: ${PRIMARY_COLOR};
-          box-shadow: 0 0 0 3px ${PRIMARY_LIGHT};
+          border-color: ${currentTheme.PRIMARY_COLOR};
+          box-shadow: 0 0 0 3px ${currentTheme.PRIMARY_LIGHT};
         }
 
-        .user-actions {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
+        .search-input::placeholder {
+          color: ${currentTheme.TEXT_TERTIARY};
         }
+
 
         .user-greeting {
-          color: #4b5563;
+          color: ${currentTheme.TEXT_SECONDARY};
           display: none;
         }
 
@@ -692,33 +856,30 @@ const Dashboard = () => {
           }
         }
 
-        .notification-container {
-          position: relative;
-          cursor: pointer;
-        }
 
         .notification-button {
           padding: 0.25rem;
           border-radius: 9999px;
-          color: #4b5563;
+          color: ${currentTheme.TEXT_SECONDARY};
           background: transparent;
           border: none;
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
+          transition: all 0.2s ease;
         }
 
         .notification-button:hover {
-          background-color: ${PRIMARY_LIGHT};
-          color: ${PRIMARY_COLOR};
+          background-color: ${currentTheme.PRIMARY_LIGHT};
+          color: ${currentTheme.PRIMARY_COLOR};
         }
 
         .notification-badge {
           position: absolute;
           top: -0.25rem;
           right: -0.25rem;
-          background-color: ${PRIMARY_COLOR};
+          background-color: ${currentTheme.PRIMARY_COLOR};
           color: white;
           font-size: 0.75rem;
           height: 1.25rem;
@@ -733,29 +894,9 @@ const Dashboard = () => {
           height: 2rem;
           width: 2rem;
           border-radius: 9999px;
-          border: 2px solid ${PRIMARY_LIGHT};
+          border: 2px solid ${currentTheme.PRIMARY_LIGHT};
         }
         
-        /* Main Content Styles - Full Width */
-        .dashboard-main {
-          flex: 1;
-          width: 100%;
-          padding: 1rem;
-          box-sizing: border-box;
-          overflow-y: auto;
-          display: flex;
-          flex-direction: column;
-          padding-top: 5rem;
-        }
-
-        /* Stats Grid Styles */
-        .stats-grid {
-          display: grid;
-          grid-template-columns: repeat(1, 1fr);
-          gap: 1rem;
-          margin-bottom: 1.5rem;
-          width: 100%;
-        }
 
         /* Better breakpoints for stat cards */
         @media (min-width: 480px) {
@@ -764,6 +905,7 @@ const Dashboard = () => {
           }
         }
 
+      
         @media (min-width: 1024px) {
           .stats-grid {
             grid-template-columns: repeat(4, 1fr);
@@ -771,301 +913,159 @@ const Dashboard = () => {
         }
 
         .stat-card {
-          background-color: white;
-          padding: 1rem;
-          border-radius: 0.5rem;
-          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-          border: 1px solid ${PRIMARY_LIGHT};
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
-          width: 100%;
-        }
-        
-        .stat-card:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
+  background-color: ${currentTheme.CARD_BACKGROUND};
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 1.25rem;
+  transition: all 0.3s ease;
+}
 
-        .stat-content {
-          display: flex;
-          align-items: center;
-        }
 
-        .stat-icon-container {
-          padding: 0.75rem;
-          border-radius: 9999px;
-          background-color: ${PRIMARY_LIGHT};
-          color: ${PRIMARY_COLOR};
-          margin-right: 1rem;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
+.stat-icon-container {
+  height: 3rem;
+  width: 3rem;
+  border-radius: 0.5rem;
+  background-color: ${currentTheme.PRIMARY_LIGHT};
+  color: ${currentTheme.PRIMARY_COLOR};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 1rem;
+}
 
-        .stat-info {
-          flex: 1;
-        }
+.stat-info {
+  flex: 1;
+}
 
-        .stat-label {
-          font-size: 0.875rem;
-          font-weight: 500;
-          color: #6b7280;
-          margin: 0 0 0.25rem 0;
-        }
+.stat-label {
+  color: ${currentTheme.TEXT_SECONDARY};
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+}
 
-        .stat-value {
-          font-size: 1.5rem;
-          font-weight: 700;
-          color: ${PRIMARY_COLOR};
-          margin: 0;
-        }
+.stat-value {
+  color: ${currentTheme.TEXT_PRIMARY};
+  font-size: 1.5rem;
+  font-weight: 700;
+}
 
-        /* Properties Container Styles - Full Width */
-        .properties-container {
-          background-color: white;
-          border-radius: 0.5rem;
-          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-          border: 1px solid ${PRIMARY_LIGHT};
-          overflow: hidden;
-          width: 100%;
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-        }
 
-        .properties-header {
-          padding: 1rem;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          align-items: flex-start;
-          border-bottom: 1px solid ${PRIMARY_LIGHT};
-          background-color: ${PRIMARY_LIGHT};
-          width: 100%;
-        }
+.properties-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: ${currentTheme.TEXT_PRIMARY};
+  margin: 0;
+}
 
-        @media (min-width: 640px) {
-          .properties-header {
-            flex-direction: row;
-            align-items: center;
-            padding: 1rem 1.5rem;
-          }
-        }
+.add-property-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: ${currentTheme.PRIMARY_COLOR};
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
 
-        .properties-title {
-          font-size: 1.25rem;
-          font-weight: 700;
-          color: ${PRIMARY_COLOR};
-          margin: 0 0 0.75rem 0;
-        }
+.add-property-button:hover {
+  opacity: 0.9;
+}
 
-        @media (min-width: 640px) {
-          .properties-title {
-            margin: 0;
-          }
-        }
+.add-property-button:disabled {
+  background-color: ${currentTheme.TEXT_TERTIARY};
+  cursor: not-allowed;
+}
 
-        .add-property-button {
-          display: inline-flex;
-          align-items: center;
-          padding: 0.5rem 1rem;
-          background-color: ${PRIMARY_COLOR};
-          color: white;
-          border-radius: 0.375rem;
-          border: none;
-          cursor: pointer;
-          font-size: 0.875rem;
-          font-weight: 500;
-          transition: background-color 0.2s;
-          width: 100%;
-          justify-content: center;
-        }
 
-        .add-property-button:disabled {
-          background-color: ${PRIMARY_MEDIUM};
-          cursor: not-allowed;
-        }
+.property-card {
+  background-color: ${currentTheme.CARD_BACKGROUND};
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  position: relative;
+}
 
-        @media (min-width: 640px) {
-          .add-property-button {
-            width: auto;
-          }
-        }
+.property-image-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: ${isDarkMode ? '#374151' : '#e5e7eb'};
+  color: ${currentTheme.TEXT_SECONDARY};
+}
 
-        .add-property-button:hover:not(:disabled) {
-          background-color: rgba(48, 0, 126, 0.9);
-        }
 
-        .button-icon {
-          margin-right: 0.5rem;
-        }
+.property-location {
+  font-size: 1rem;
+  font-weight: 600;
+  color: ${currentTheme.TEXT_PRIMARY};
+  margin-bottom: 0.25rem;
+}
 
-        /* Properties Grid - Improved to completely fill available space */
-        .properties-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-          gap: 1rem;
-          padding: 1rem;
-          width: 100%;
-          box-sizing: border-box;
-          flex: 1;
-        }
+.property-address {
+  color: ${currentTheme.TEXT_TERTIARY};
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
 
-        /* Property card styles */
-        .property-card {
-          background-color: white;
-          border-radius: 0.5rem;
-          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-          border: 1px solid ${PRIMARY_LIGHT};
-          overflow: hidden;
-          transition: transform 0.2s, box-shadow 0.2s;
-          width: 100%;
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-        }
+.property-price {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: ${currentTheme.PRIMARY_COLOR};
+  margin-bottom: 0.5rem;
+}
 
-        .property-card:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-          border-color: ${PRIMARY_COLOR};
-        }
+.price-period {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: ${currentTheme.TEXT_SECONDARY};
+}
 
-        .property-image-container {
-          position: relative;
-          width: 100%;
-          height: 0;
-          padding-bottom: 60%;
-          overflow: hidden;
-        }
 
-        .property-image {
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          transition: transform 0.3s ease;
-        }
-        
-        .property-card:hover .property-image {
-          transform: scale(1.05);
-        }
+.feature {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: ${currentTheme.TEXT_SECONDARY};
+  background-color: ${currentTheme.PRIMARY_LIGHT};
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+}
 
-        .property-status {
-          position: absolute;
-          top: 0.5rem;
-          right: 0.5rem;
-          padding: 0.25rem 0.5rem;
-          font-size: 0.75rem;
-          font-weight: 600;
-          border-radius: 0.25rem;
-        }
+.property-inquiries {
+  font-size: 0.875rem;
+  color: ${currentTheme.TEXT_SECONDARY};
+  margin-top: 0.5rem;
+}
 
-        .status-available {
-          background-color: ${PRIMARY_LIGHT};
-          color: ${PRIMARY_COLOR};
-        }
+.inquiries-count {
+  font-weight: 600;
+  color: ${currentTheme.TEXT_PRIMARY};
+}
 
-        .status-rented {
-          background-color: rgba(220, 38, 38, 0.1);
-          color: rgb(220, 38, 38);
-        }
+.property-type {
+  font-size: 0.75rem;
+  color: ${currentTheme.TEXT_TERTIARY};
+  font-style: italic;
+  margin-top: 0.25rem;
+}
 
-        .property-details {
-          padding: 1rem;
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          color:black;
-        }
 
-        .property-location {
-          font-size: 0.9375rem;
-          font-weight: 500;
-          color:rgb(0, 0, 0);
-          margin: 0 0 0.25rem 0;
-          word-wrap: break-word;
-        }
-
-        .property-price {
-          font-size: 1.125rem;
-          font-weight: 700;
-          color: ${PRIMARY_COLOR};
-          margin: 0 0 0.5rem 0;
-        }
-
-        .price-period {
-          font-size: 0.75rem;
-          font-weight: 400;
-          color: #6b7280;
-        }
-
-        .property-inquiries {
-          font-size: 0.875rem;
-          color: #4b5563;
-          margin: 0 0 0.75rem 0;
-        }
-
-        .inquiries-count {
-          font-weight: 500;
-        }
-
-        .delete-property-button {
-          width: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0.5rem 1rem;
-          margin-top: auto;
-          background-color: white;
-          color: #4b5563;
-          border: 1px solid #e5e7eb;
-          border-radius: 0.375rem;
-          font-size: 0.875rem;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .delete-property-button:hover {
-          background-color: #fee2e2;
-          color: #dc2626;
-          border-color: #fecaca;
-        }
-
-        .processing-indicator {
-          width: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0.5rem 1rem;
-          margin-top: auto;
-          background-color: ${PRIMARY_LIGHT};
-          color: ${PRIMARY_COLOR};
-          border-radius: 0.375rem;
-          font-size: 0.875rem;
-          font-weight: 500;
-        }
-
-        /* Ensure the layout works on very small screens */
-        @media screen and (max-width: 320px) {
-          .dashboard-container {
-            padding: 0;
-          }
-          
-          .dashboard-main {
-            padding: 0.5rem;
-          }
-          
-          .header-container {
-            padding: 0 0.5rem;
-          }
-          
-          .properties-grid {
-            padding: 0.5rem;
-            grid-template-columns: 1fr;
-          }
-        }
+.processing-indicator {
+  font-size: 0.75rem;
+  color: ${currentTheme.TEXT_SECONDARY};
+  display: flex;
+  align-items: center;
+  margin-top: 0.75rem;
+}
       `}</style>
     </div>
   );

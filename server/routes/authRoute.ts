@@ -1,5 +1,6 @@
+import { eq, and, sql } from "drizzle-orm";
 import dotenv from "dotenv";
-dotenv.config(); 
+dotenv.config();
 import { createRoute, z } from "@hono/zod-openapi";
 import { jwt } from "hono/jwt";
 import { sign } from "jsonwebtoken";
@@ -12,7 +13,7 @@ import { createRouter } from "../libs/create-app";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 
 const SALT_ROUNDS = 10;
-const JWT_SECRET = "Wg4m8v2Lp9qRjT3cNwXyZ6bBdFhJkMnQ";
+const JWT_SECRET = process.env.JWT_SECRET || "Wg4m8v2Lp9qRjT3cNwXyZ6bBdFhJkMnQ";
 if (!JWT_SECRET) {
   throw new Error("JWT_SECRET environment variable is not set");
 }
@@ -37,6 +38,21 @@ const approvalSchema = z.object({
   approved: z.boolean(),
 });
 
+// New schema for check-auth response
+const checkAuthSchema = z.object({
+  isAuthenticated: z.boolean(),
+  studentId: z.number().optional(),
+});
+
+// New schema for student details response
+const studentSchema = z.object({
+  studentId: z.number(),
+  firstName: z.string(),
+  lastName: z.string(),
+  email: z.string().optional(),
+  profileImage: z.string().optional(),
+});
+
 // JWT middleware
 const authMiddleware = jwt({
   secret: JWT_SECRET,
@@ -58,7 +74,6 @@ const authRouter = createRouter();
 
 // Helper functions
 const generateToken = (userId: number, userType: "student" | "landlord" | "admin", approved: boolean = true) => {
-  // Don't generate token for unapproved landlords
   if (userType === "landlord" && !approved) {
     return null;
   }
@@ -104,7 +119,6 @@ const updateUserApproval = async (userId: number, approved: boolean) => {
     .returning({ 
       userId: users.userId, 
       email: users.email,
-      userType: users.userType,
       firstName: users.firstName,
       lastName: users.lastName,
       approved: users.approved 
@@ -168,7 +182,6 @@ authRouter
         });
       }
 
-      // Check if landlord account is approved
       if (user.userType === "landlord" && !user.approved) {
         return c.json({
           token: null,
@@ -178,7 +191,7 @@ authRouter
             userType: user.userType as "student" | "landlord" | "admin",
             approved: false,
           },
-          message: "Your account is pending admin approval"
+          message: "Your account is pending admin approval",
         }, HttpStatusCodes.OK);
       }
 
@@ -249,8 +262,6 @@ authRouter
       }
 
       const passwordHash = await hash(password, SALT_ROUNDS);
-      
-      // Auto-approve students, but not landlords
       const approved = userType === "student";
       
       const newUser = await createUser({
@@ -263,38 +274,9 @@ authRouter
         approved,
       });
 
-      // Generate token for students, not for unapproved landlords
       const token = generateToken(newUser.userId, userType as "student" | "landlord" | "admin", approved);
       
-      let message = "User successfully registered";
-      if (userType === "landlord") {
-        message += ". Your account requires admin approval before you can access all features.";
-        
-        // Optionally, send notification to admins about new landlord registration
-        try {
-          const admins = await db
-            .select({ userId: users.userId })
-            .from(users)
-            .where(eq(users.userType, "admin"));
-            
-          // Create notifications for all admins
-          if (admins.length > 0) {
-            const notifications = admins.map(admin => ({
-              userId: admin.userId,
-              title: "New Landlord Registration",
-              content: `${firstName} ${lastName} (${email}) has registered as a landlord and requires approval.`,
-              type: "landlord_approval",
-              isRead: false,
-            }));
-            
-            await db.insert(notifications).into("notifications");
-          }
-        } catch (error) {
-          console.error("Failed to notify admins:", error);
-          // Don't fail the registration if notification fails
-        }
-      }
-
+      
       return c.json({
         message,
         user: {
@@ -306,7 +288,6 @@ authRouter
       }, HttpStatusCodes.CREATED);
     }
   )
-  // Admin endpoint to approve/reject landlords
   .openapi(
     createRoute({
       tags: ["Auth"],
@@ -362,14 +343,12 @@ authRouter
         },
       },
     }),
-    // Apply JWT and admin middleware
     {
       beforeHandle: [authMiddleware, adminMiddleware],
     },
     async (c) => {
       const { userId, approved } = c.req.valid("json");
 
-      // Find the user
       const user = await findUserById(userId);
       if (!user) {
         throw new HTTPException(HttpStatusCodes.NOT_FOUND, {
@@ -377,31 +356,13 @@ authRouter
         });
       }
 
-      // Ensure the user is a landlord
       if (user.userType !== "landlord") {
         throw new HTTPException(HttpStatusCodes.BAD_REQUEST, {
           message: "Only landlord accounts require approval",
         });
       }
 
-      // Update approval status
       const updatedUser = await updateUserApproval(userId, approved);
-      
-      // Send notification to the landlord
-      try {
-        await db.insert({
-          userId: userId,
-          title: approved ? "Account Approved" : "Account Not Approved",
-          content: approved 
-            ? "Your landlord account has been approved. You can now log in and list properties." 
-            : "Your landlord account has not been approved. Please contact support for more information.",
-          type: "account_status",
-          isRead: false,
-        }).into("notifications");
-      } catch (error) {
-        console.error("Failed to notify landlord:", error);
-        // Don't fail the approval if notification fails
-      }
 
       return c.json({
         message: approved ? "Landlord account approved" : "Landlord account disapproved",
@@ -416,7 +377,6 @@ authRouter
       }, HttpStatusCodes.OK);
     }
   )
-  // Admin endpoint to get all pending landlords
   .openapi(
     createRoute({
       tags: ["Auth"],
@@ -453,12 +413,10 @@ authRouter
         },
       },
     }),
-    // Apply JWT and admin middleware
     {
       beforeHandle: [authMiddleware, adminMiddleware],
     },
     async (c) => {
-      // Find all landlords with approved = false
       const pendingLandlords = await db
         .select({
           id: users.userId,
@@ -482,7 +440,6 @@ authRouter
       }, HttpStatusCodes.OK);
     }
   )
-  // Add endpoint for landlords to check their approval status
   .openapi(
     createRoute({
       tags: ["Auth"],
@@ -518,31 +475,234 @@ authRouter
     async (c) => {
       const payload = c.get('jwtPayload');
       const userId = payload.userId;
-      
-      // Get the user
+
       const user = await findUserById(userId);
       if (!user) {
         throw new HTTPException(HttpStatusCodes.NOT_FOUND, {
           message: "User not found",
         });
       }
-      
-      // Check if user is a landlord
+
       if (user.userType !== "landlord") {
         throw new HTTPException(HttpStatusCodes.FORBIDDEN, {
           message: "This endpoint is only for landlord accounts",
         });
       }
-      
+
       let message = user.approved 
         ? "Your account is approved. You can list properties and access all landlord features." 
         : "Your account is pending approval by an administrator.";
-        
+
       return c.json({
         approved: user.approved,
         message,
       }, HttpStatusCodes.OK);
     }
+  )
+  // New route: Check authentication status
+  .openapi(
+    createRoute({
+      tags: ["Auth"],
+      method: "get",
+      path: "/check-auth",
+      responses: {
+        [HttpStatusCodes.OK]: {
+          content: {
+            "application/json": {
+              schema: checkAuthSchema,
+            },
+          },
+          description: "Authentication status checked",
+        },
+      },
+    }),
+    async (c) => {
+      try {
+        // Attempt to get JWT payload (will throw if token is invalid or missing)
+        const payload = c.get('jwtPayload');
+        const user = await findUserById(payload.userId);
+
+        if (!user) {
+          return c.json({
+            isAuthenticated: false,
+          }, HttpStatusCodes.OK);
+        }
+
+        return c.json({
+          isAuthenticated: true,
+          studentId: user.userId, // Use studentId to match frontend expectation
+        }, HttpStatusCodes.OK);
+      } catch (err) {
+        // If JWT validation fails or no token is provided, return unauthenticated
+        return c.json({
+          isAuthenticated: false,
+        }, HttpStatusCodes.OK);
+      }
+    }
+  )
+  // New route: Get student details
+  .openapi(
+    createRoute({
+      tags: ["Student"],
+      method: "get",
+      path: "/students/{id}",
+      request: {
+        params: z.object({
+          id: z.string().regex(/^\d+$/).transform(Number), // Ensure ID is a number
+        }),
+      },
+      responses: {
+        [HttpStatusCodes.OK]: {
+          content: {
+            "application/json": {
+              schema: studentSchema,
+            },
+          },
+          description: "Student details retrieved",
+        },
+        [HttpStatusCodes.NOT_FOUND]: {
+          content: {
+            "application/json": {
+              schema: z.object({
+                message: z.string(),
+              }),
+            },
+          },
+          description: "Student not found",
+        },
+        [HttpStatusCodes.FORBIDDEN]: {
+          content: {
+            "application/json": {
+              schema: z.object({
+                message: z.string(),
+              }),
+            },
+          },
+          description: "Access denied",
+        },
+      },
+    }),
+    {
+      beforeHandle: [authMiddleware],
+    },
+    async (c) => {
+      const { id } = c.req.valid("param");
+      const payload = c.get('jwtPayload');
+      const requestingUserId = payload.userId;
+      const requestingUserType = payload.userType;
+
+      // Allow access if the user is requesting their own data or is an admin
+      if (id !== requestingUserId && requestingUserType !== 'admin') {
+        throw new HTTPException(HttpStatusCodes.FORBIDDEN, {
+          message: "You can only access your own student data",
+        });
+      }
+
+      const user = await findUserById(id);
+      if (!user) {
+        throw new HTTPException(HttpStatusCodes.NOT_FOUND, {
+          message: "Student not found",
+        });
+      }
+
+      // Ensure the user is a student
+      if (user.userType !== "student") {
+        throw new HTTPException(HttpStatusCodes.BAD_REQUEST, {
+          message: "User is not a student",
+        });
+      }
+
+      return c.json({
+        studentId: user.userId,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        profileImage: user.profileImage || undefined,
+      }, HttpStatusCodes.OK);
+    }
   );
+
+
+
+  authRouter.openapi(
+  createRoute({
+    tags: ["Auth"],
+    method: "get",
+    path: "/user-type-stats",
+    responses: {
+      [HttpStatusCodes.OK]: {
+        content: {
+          "application/json": {
+            schema: z.array(
+              z.object({
+                name: z.string(),
+                value: z.number(),
+                color: z.string(),
+              })
+            ),
+          },
+        },
+        description: "User type statistics for dashboard",
+      },
+      [HttpStatusCodes.INTERNAL_SERVER_ERROR]: {
+        content: {
+          "application/json": {
+            schema: z.object({
+              message: z.string(),
+              error: z.string().optional(),
+            }),
+          },
+        },
+        description: "Error fetching user statistics",
+      },
+    },
+  }),
+  async (c) => {
+    try {
+      // Get counts for each user type using Drizzle ORM
+      const studentCount = await db.select({ count: sql<number>`count(*)` })
+        .from(users)
+        .where(eq(users.userType, "student"));
+
+      const landlordCount = await db.select({ count: sql<number>`count(*)` })
+        .from(users)
+        .where(eq(users.userType, "landlord"));
+
+      const adminCount = await db.select({ count: sql<number>`count(*)` })
+        .from(users)
+        .where(eq(users.userType, "admin"));
+
+      const formattedData = [
+        { 
+          name: 'Students', 
+          value: Number(studentCount[0]?.count) || 0, 
+          color: '#3b82f6' 
+        },
+        { 
+          name: 'Landlords', 
+          value: Number(landlordCount[0]?.count) || 0, 
+          color: '#10b981' 
+        },
+        { 
+          name: 'Admins', 
+          value: Number(adminCount[0]?.count) || 0, 
+          color: '#f59e0b' 
+        }
+      ];
+
+      return c.json(formattedData, HttpStatusCodes.OK);
+      
+    } catch (error) {
+      console.error("Error fetching user type stats:", error);
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown database error';
+      
+      throw new HTTPException(HttpStatusCodes.INTERNAL_SERVER_ERROR, {
+        message: "Failed to fetch user type statistics",
+        error: errorMessage,
+      });
+    }
+  }
+);
 
 export default authRouter;

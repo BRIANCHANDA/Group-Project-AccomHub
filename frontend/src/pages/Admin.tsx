@@ -1,1138 +1,1209 @@
-
 import React, { useState, useEffect } from 'react';
+import { EyeOff } from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  LineChart, Line, PieChart, Pie, Cell, AreaChart, Area
+} from 'recharts';
+import {
+  Home, Users, MessageSquare, Star, Heart, Bell, Settings,
+  Search, Filter, Plus, Edit, Trash2, Eye, MapPin, Calendar,
+  TrendingUp, TrendingDown, DollarSign, Building, UserCheck,
+  Mail, Phone, Clock, CheckCircle, XCircle, AlertCircle, UserPlus, Lock,
+  User
+} from 'lucide-react';
+import './admin.css';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 
-const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState('properties');
-  const [properties, setProperties] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [bookings, setBookings] = useState([]);
-  const [pendingRegistrations, setPendingRegistrations] = useState([]);
-  const [loading, setLoading] = useState(true);
+const Dashboard = () => {
+  const [activeTab, setActiveTab] = useState('overview');
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
-  const [viewMode, setViewMode] = useState('list'); // list or detail
-  const [filterStatus, setFilterStatus] = useState('all');
+  const [showModal, setShowModal] = useState(false);
+  const [modalType, setModalType] = useState('');
+  const [name, setName] = useState('');
 
-  // Mock data - in a real app, you would fetch this from your API
+  // Mock data based on schema
+  const dashboardStats = {
+    totalProperties: 247,
+    totalUsers: 1834,
+    totalInquiries: 432,
+    averageRating: 4.2,
+    monthlyRevenue: 125000,
+    occupancyRate: 87
+  };
+
+  // Corrected Property interface
+  interface Property {
+    id: string | number;
+    title?: string;
+    description?: string;
+    location: string;
+    price: string; // Keep as string to match display format
+    status: string; // Changed to required since we always set it
+    inquiries: number; // Changed to required
+    imageUrl?: string | null;
+    propertyType?: string;
+    landlordName: string; // Added based on your requirements
+    landlordEmail: string; // Added based on your requirements
+  }
+
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Interface definition - matches your API response
+  interface UserData {
+    userId: string | number;
+    firstName: string;
+    lastName: string;
+    email: string;
+    userType: string;
+    phoneNumber: string | null;
+    createdAt: string; // API returns string, not Date
+    approved?: boolean;
+  }
+
+  const [userData, setUserData] = useState<UserData[]>([]);
+
   useEffect(() => {
-    // Simulate API fetch
-    setTimeout(() => {
-      setProperties([
-        { propertyId: 1, title: 'Modern Apartment near University', propertyType: 'apartment', monthlyRent: 650, isAvailable: true, address: '123 Campus Ave', landlordId: 2 },
-        { propertyId: 2, title: 'Cozy Single Room', propertyType: 'single_room', monthlyRent: 350, isAvailable: true, address: '456 Student St', landlordId: 2 },
-        { propertyId: 3, title: 'Shared House for Students', propertyType: 'house', monthlyRent: 1200, isAvailable: false, address: '789 College Blvd', landlordId: 4 },
-      ]);
-      
-      setUsers([
-        { userId: 1, firstName: 'John', lastName: 'Doe', email: 'john@example.com', userType: 'student', createdAt: '2025-01-15', status: 'active' },
-        { userId: 2, firstName: 'Jane', lastName: 'Smith', email: 'jane@example.com', userType: 'landlord', createdAt: '2025-01-10', status: 'active' },
-        { userId: 3, firstName: 'Admin', lastName: 'User', email: 'admin@example.com', userType: 'admin', createdAt: '2024-12-01', status: 'active' },
-        { userId: 4, firstName: 'Robert', lastName: 'Johnson', email: 'robert@example.com', userType: 'landlord', createdAt: '2025-02-05', status: 'active' },
-      ]);
-      
-      setBookings([
-        { bookingId: 1, propertyId: 1, studentId: 1, status: 'approved', moveInDate: '2025-04-01', createdAt: '2025-03-01' },
-        { bookingId: 2, propertyId: 2, studentId: 1, status: 'pending', moveInDate: '2025-05-01', createdAt: '2025-03-15' },
-        { bookingId: 3, propertyId: 3, studentId: 1, status: 'cancelled', moveInDate: '2025-04-15', createdAt: '2025-02-20' },
-      ]);
+    const fetchProperties = async () => {
+      try {
+        // Fixed endpoint URL
+        const response = await fetch('/api/properties/properties/properties');
 
-      setPendingRegistrations([
-        { regId: 1, firstName: 'Michael', lastName: 'Brown', email: 'michael@example.com', userType: 'landlord', createdAt: '2025-03-20', documents: ['id_verification.pdf', 'property_proof.pdf'] },
-        { regId: 2, firstName: 'Sarah', lastName: 'Wilson', email: 'sarah@example.com', userType: 'landlord', createdAt: '2025-03-22', documents: ['id_verification.pdf', 'property_proof.pdf'] },
-        { regId: 3, firstName: 'David', lastName: 'Taylor', email: 'david@example.com', userType: 'student', createdAt: '2025-03-18', documents: ['student_id.pdf', 'enrollment_proof.pdf'] },
-      ]);
-      
-      setLoading(false);
-    }, 1000);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch properties: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Map the API response to Property interface
+        const mappedProperties = data.map((prop: any) => ({
+          id: prop.propertyId.toString(),
+          title: prop.title || 'No Title',
+          description: prop.description || '',
+          location: prop.address,
+          price: `K${prop.monthlyRent} / month`, // Formatted price string
+          status: prop.isAvailable ? 'Available' : 'Occupied',
+          inquiries: 0, // Default value
+          imageUrl: null, // Placeholder
+          propertyType: prop.propertyType,
+          landlordName: prop.landlordName || 'Unknown',
+          landlordEmail: prop.landlordEmail || ''
+        }));
+
+        setProperties(mappedProperties);
+      } catch (error) {
+        console.error('Error fetching properties:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProperties();
   }, []);
 
-  const handleTabChange = (tab) => {
-    setActiveTab(tab);
-    setViewMode('list');
-    setSelectedItem(null);
-    setFilterStatus('all');
-  };
+  useEffect(() => {
+    // Fetch function
+    const fetchUserData = async () => {
+      try {
+        const response = await fetch('/api/users/users');
+        if (!response.ok) {
+          throw new Error(`Failed to fetch userData: ${response.status}`);
+        }
 
-  const handleViewItem = (item) => {
-    setSelectedItem(item);
-    setViewMode('detail');
-  };
+        const data = await response.json();
 
-  const handleBackToList = () => {
-    setViewMode('list');
-    setSelectedItem(null);
-  };
+        // Extract users array from the response
+        const users = data.users || [];
 
-  const handleFilterChange = (status) => {
-    setFilterStatus(status);
-  };
+        // Map API response to match our interface
+        const mappedUserData: UserData[] = users.map((user: any) => ({
+          userId: user.userId.toString(),
+          firstName: user.firstName || '',
+          lastName: user.lastName || '',
+          email: user.email || '',
+          userType: user.userType || '',
+          phoneNumber: user.phoneNumber,
+          createdAt: user.createdAt || '',
+          approved: user.approved
+        }));
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'approved': return '#28a745';
-      case 'pending': return '#ffc107';
-      case 'rejected': return '#dc3545';
-      case 'cancelled': return '#6c757d';
-      case 'active': return '#28a745';
-      case 'inactive': return '#6c757d';
-      default: return '#6c757d';
+        setUserData(mappedUserData);
+
+        // Set name if needed (using first user as example)
+        if (mappedUserData.length > 0) {
+          const firstUser = mappedUserData[0];
+          setName(`${firstUser.firstName} ${firstUser.lastName}`);
+        }
+      } catch (error) {
+        console.error('Error fetching users:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchUserData();
+  }, []);
+
+  const [propertyStats, setPropertyStats] = useState({
+    total: 0,
+    available: 0,
+    unavailable: 0,
+    byType: {}
+  });
+
+  useEffect(() => {
+    // Fetch property stats
+    const fetchPropertyStats = async () => {
+      try {
+        const response = await fetch('/api/properties/properties/count');
+        if (!response.ok) {
+          throw new Error('Failed to fetch property stats');
+        }
+        const data = await response.json();
+        setPropertyStats(data);
+      } catch (err) {
+        console.error('Error fetching property stats:', err);
+      }
+    };
+    fetchPropertyStats();
+  }, []);
+
+  const [userStats, setUserStats] = useState({
+    total: 0,
+    student: 0,
+    landlord: 0,
+    admin: 0
+  });
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUserStats = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/users/users');
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch user stats: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        // Extract counts from the API response
+        const counts = data.counts || {
+          total: 0,
+          student: 0,
+          landlord: 0,
+          admin: 0
+        };
+
+        setUserStats(counts);
+
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+        console.error('Error fetching user stats:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserStats();
+  }, []);
+
+
+
+  const [userTypeData, setUserTypeData] = useState([
+    { name: 'Students', value: 0, color: '#3b82f6' },
+    { name: 'Landlords', value: 0, color: '#10b981' },
+    { name: 'Admins', value: 0, color: '#f59e0b' }
+  ]);
+
+  useEffect(() => {
+    const fetchUserTypeStats = async () => {
+      try {
+        const response = await fetch('/api/auth/user-type-stats');
+        if (!response.ok) throw new Error('Failed to fetch user type stats');
+        const data = await response.json();
+        setUserTypeData(data);
+      } catch (err) {
+        console.error('Error fetching user type stats:', err);
+      }
+    };
+
+    fetchUserTypeStats();
+  }, []);
+
+
+  const handleUnpublish = async (propertyId: any) => {
+    try {
+      const response = await fetch(`/api/propertyListing/${propertyId}/unpublish`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to unpublish property');
+      }
+
+      // Refresh properties or update state
+      refreshProperties();
+      closeModal();
+      showToast('Listing unpublished successfully');
+
+    } catch (error) {
+      showToast('Error unpublishing listing', 'error');
+      console.error('Unpublish error:', error);
     }
   };
 
-  // Filter data based on current filter status
-  const getFilteredData = (dataSet) => {
-    if (filterStatus === 'all') return dataSet;
-    return dataSet.filter(item => item.status === filterStatus);
+
+
+
+
+
+  const [propertyTypeData, setPropertyTypeData] = useState([
+    { type: 'Apartments', count: 0, percentage: 0 },
+    { type: 'Houses', count: 0, percentage: 0 },
+    { type: 'Shared Rooms', count: 0, percentage: 0 },
+    { type: 'Single Rooms', count: 0, percentage: 0 }
+  ]);
+
+  useEffect(() => {
+    const fetchPropertyTypeStats = async () => {
+      try {
+        const response = await fetch('/api/properties/properties/type-stats');
+        if (!response.ok) throw new Error('Failed to fetch property type stats');
+        const data = await response.json();
+        setPropertyTypeData(data);
+      } catch (err) {
+        console.error('Error fetching property type stats:', err);
+      }
+    };
+
+    fetchPropertyTypeStats();
+  }, []);
+
+  const inquiryStats = {
+    total: 432,
+    pending: 120,
+    responded: 250,
+    closed: 62
   };
 
-  const handleApproveRegistration = (regId) => {
-    // In a real app, you would call an API to approve the registration
-    console.log(`Approving registration ${regId}`);
-    // For this demo, we'll just update the UI
-    setPendingRegistrations(pendingRegistrations.filter(reg => reg.regId !== regId));
-  };
 
-  const handleRejectRegistration = (regId) => {
-    // In a real app, you would call an API to reject the registration
-    console.log(`Rejecting registration ${regId}`);
-    // For this demo, we'll just update the UI
-    setPendingRegistrations(pendingRegistrations.filter(reg => reg.regId !== regId));
-  };
 
-  const renderProperties = () => {
-    if (viewMode === 'list') {
-      return (
-        <div className="data-table">
-          <h2>Properties Management</h2>
-          <div className="table-actions">
-            <div className="filter-controls">
-              <span className="filter-label">Filter:</span>
-              <select 
-                className="filter-dropdown"
-                value={filterStatus}
-                onChange={(e) => handleFilterChange(e.target.value)}
-              >
-                <option value="all">All Properties</option>
-                <option value="active">Available</option>
-                <option value="inactive">Unavailable</option>
-              </select>
-            </div>
-            <input type="text" placeholder="Search properties..." className="search-input" />
-          </div>
-          <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Title</th>
-                  <th>Type</th>
-                  <th>Rent (€)</th>
-                  <th>Available</th>
-                  <th>Address</th>
-                  <th>Landlord ID</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {properties.map(property => (
-                  <tr key={property.propertyId}>
-                    <td>{property.propertyId}</td>
-                    <td>{property.title}</td>
-                    <td>{property.propertyType}</td>
-                    <td>{property.monthlyRent}</td>
-                    <td>
-                      <span className={`status-badge ${property.isAvailable ? 'status-active' : 'status-inactive'}`}>
-                        {property.isAvailable ? 'Yes' : 'No'}
-                      </span>
-                    </td>
-                    <td>{property.address}</td>
-                    <td>{property.landlordId}</td>
-                    <td>
-                      <button className="view-btn" onClick={() => handleViewItem(property)}>View</button>
-                      <button className="edit-btn">Edit</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="pagination">
-            <span>Showing 1-3 of 3 items</span>
-            <div className="pagination-controls">
-              <button disabled>Previous</button>
-              <button className="active">1</button>
-              <button disabled>Next</button>
-            </div>
-          </div>
-        </div>
-      );
-    } else {
-      return (
-        <div className="detail-view">
-          <button className="back-button" onClick={handleBackToList}>← Back to List</button>
-          <h2>Property Details</h2>
-          <div className="detail-card">
-            <h3>{selectedItem.title}</h3>
-            <div className="detail-grid">
-              <div className="detail-item">
-                <span className="detail-label">Property ID:</span>
-                <span className="detail-value">{selectedItem.propertyId}</span>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">Type:</span>
-                <span className="detail-value">{selectedItem.propertyType}</span>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">Monthly Rent:</span>
-                <span className="detail-value">€{selectedItem.monthlyRent}</span>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">Available:</span>
-                <span className="detail-value">
-                  <span className={`status-badge ${selectedItem.isAvailable ? 'status-active' : 'status-inactive'}`}>
-                    {selectedItem.isAvailable ? 'Yes' : 'No'}
-                  </span>
-                </span>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">Landlord ID:</span>
-                <span className="detail-value">{selectedItem.landlordId}</span>
-              </div>
-              <div className="detail-item full-width">
-                <span className="detail-label">Address:</span>
-                <span className="detail-value">{selectedItem.address}</span>
-              </div>
-            </div>
-            <div className="action-buttons">
-              <button className="edit-btn">Edit Property</button>
-              <button className="view-btn">View Landlord</button>
-              <button className="action-button">View Bookings</button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-  };
+  const reviewsData = [
+    { id: 1, property: 'Sunset Apartments', user: 'John Doe', rating: 4.8, comment: 'Great location!', date: '2025-05-20' },
+    { id: 2, property: 'Campus View', user: 'Jane Smith', rating: 4.5, comment: 'Very clean.', date: '2025-05-19' }
+  ];
 
-  const renderUsers = () => {
-    if (viewMode === 'list') {
-      return (
-        <div className="data-table">
-          <h2>User Management</h2>
-          <div className="table-actions">
-            <div className="filter-controls">
-              <span className="filter-label">Filter:</span>
-              <select 
-                className="filter-dropdown"
-                value={filterStatus}
-                onChange={(e) => handleFilterChange(e.target.value)}
-              >
-                <option value="all">All Users</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
-            <input type="text" placeholder="Search users..." className="search-input" />
-          </div>
-          <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Type</th>
-                  <th>Status</th>
-                  <th>Created At</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map(user => (
-                  <tr key={user.userId}>
-                    <td>{user.userId}</td>
-                    <td>{user.firstName} {user.lastName}</td>
-                    <td>{user.email}</td>
-                    <td>
-                      <span className={`user-type-badge user-type-${user.userType}`}>
-                        {user.userType}
-                      </span>
-                    </td>
-                    <td>
-                      <span className="status-badge" style={{ backgroundColor: getStatusColor(user.status) }}>
-                        {user.status}
-                      </span>
-                    </td>
-                    <td>{user.createdAt}</td>
-                    <td>
-                      <button className="view-btn" onClick={() => handleViewItem(user)}>View</button>
-                      <button className="edit-btn">Edit</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="pagination">
-            <span>Showing 1-4 of 4 items</span>
-            <div className="pagination-controls">
-              <button disabled>Previous</button>
-              <button className="active">1</button>
-              <button disabled>Next</button>
-            </div>
-          </div>
-        </div>
-      );
-    } else {
-      return (
-        <div className="detail-view">
-          <button className="back-button" onClick={handleBackToList}>← Back to List</button>
-          <h2>User Details</h2>
-          <div className="detail-card">
-            <h3>{selectedItem.firstName} {selectedItem.lastName}</h3>
-            <div className="detail-grid">
-              <div className="detail-item">
-                <span className="detail-label">User ID:</span>
-                <span className="detail-value">{selectedItem.userId}</span>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">Email:</span>
-                <span className="detail-value">{selectedItem.email}</span>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">User Type:</span>
-                <span className="detail-value">
-                  <span className={`user-type-badge user-type-${selectedItem.userType}`}>
-                    {selectedItem.userType}
-                  </span>
-                </span>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">Status:</span>
-                <span className="detail-value">
-                  <span className="status-badge" style={{ backgroundColor: getStatusColor(selectedItem.status) }}>
-                    {selectedItem.status}
-                  </span>
-                </span>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">Joined:</span>
-                <span className="detail-value">{selectedItem.createdAt}</span>
-              </div>
-            </div>
-            <div className="action-buttons">
-              <button className="edit-btn">Edit User</button>
-              {selectedItem.status === 'active' ? (
-                <button className="deactivate-btn">Deactivate User</button>
-              ) : (
-                <button className="activate-btn">Activate User</button>
-              )}
-              {selectedItem.userType === 'student' && (
-                <button className="action-button">View Bookings</button>
-              )}
-              {selectedItem.userType === 'landlord' && (
-                <button className="action-button">View Properties</button>
-              )}
-            </div>
-          </div>
-        </div>
-      );
-    }
-  };
+  const notificationsData = [
+    { id: 1, message: 'New user registered: John Doe', type: 'info', date: '2025-05-28 10:00' },
+    { id: 2, message: 'Property added: Sunset Apartments', type: 'success', date: '2025-05-27 15:30' }
+  ];
 
-  const renderBookings = () => {
-    if (viewMode === 'list') {
-      return (
-        <div className="data-table">
-          <h2>Bookings Management</h2>
-          <div className="table-actions">
-            <div className="filter-controls">
-              <span className="filter-label">Filter:</span>
-              <select 
-                className="filter-dropdown"
-                value={filterStatus}
-                onChange={(e) => handleFilterChange(e.target.value)}
-              >
-                <option value="all">All Bookings</option>
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="cancelled">Cancelled</option>
-                <option value="rejected">Rejected</option>
-              </select>
-            </div>
-            <input type="text" placeholder="Search bookings..." className="search-input" />
-          </div>
-          <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Property ID</th>
-                  <th>Student ID</th>
-                  <th>Status</th>
-                  <th>Move-in Date</th>
-                  <th>Created At</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bookings.map(booking => (
-                  <tr key={booking.bookingId}>
-                    <td>{booking.bookingId}</td>
-                    <td>{booking.propertyId}</td>
-                    <td>{booking.studentId}</td>
-                    <td>
-                      <span className="status-badge" style={{ backgroundColor: getStatusColor(booking.status) }}>
-                        {booking.status}
-                      </span>
-                    </td>
-                    <td>{booking.moveInDate}</td>
-                    <td>{booking.createdAt}</td>
-                    <td>
-                      <button className="view-btn" onClick={() => handleViewItem(booking)}>View</button>
-                      <button className="edit-btn">Edit</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="pagination">
-            <span>Showing 1-3 of 3 items</span>
-            <div className="pagination-controls">
-              <button disabled>Previous</button>
-              <button className="active">1</button>
-              <button disabled>Next</button>
-            </div>
-          </div>
-        </div>
-      );
-    } else {
-      return (
-        <div className="detail-view">
-          <button className="back-button" onClick={handleBackToList}>← Back to List</button>
-          <h2>Booking Details</h2>
-          <div className="detail-card">
-            <h3>Booking #{selectedItem.bookingId}</h3>
-            <div className="detail-grid">
-              <div className="detail-item">
-                <span className="detail-label">Property ID:</span>
-                <span className="detail-value">{selectedItem.propertyId}</span>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">Student ID:</span>
-                <span className="detail-value">{selectedItem.studentId}</span>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">Status:</span>
-                <span className="detail-value">
-                  <span className="status-badge" style={{ backgroundColor: getStatusColor(selectedItem.status) }}>
-                    {selectedItem.status}
-                  </span>
-                </span>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">Move-in Date:</span>
-                <span className="detail-value">{selectedItem.moveInDate}</span>
-              </div>
-              <div className="detail-item">
-                <span className="detail-label">Created At:</span>
-                <span className="detail-value">{selectedItem.createdAt}</span>
-              </div>
-            </div>
-            <div className="action-buttons">
-              <button className="edit-btn">Edit Booking</button>
-              {selectedItem.status === 'pending' && (
-                <>
-                  <button className="approve-btn">Approve</button>
-                  <button className="reject-btn">Reject</button>
-                </>
-              )}
-              <button className="view-btn">View Property</button>
-              <button className="view-btn">View Student</button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-  };
+  const topProperties = [
+    { id: 1, name: 'Sunset Apartments', rating: 4.8, inquiries: 45, revenue: 15000, image: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=300&h=200&fit=crop' },
+    { id: 2, name: 'Campus View House', rating: 4.6, inquiries: 38, revenue: 12500, image: 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=300&h=200&fit=crop' },
+    { id: 3, name: 'Student Plaza', rating: 4.5, inquiries: 32, revenue: 11000, image: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=300&h=200&fit=crop' }
+  ];
 
-  const renderPendingRegistrations = () => {
+  const Sidebar = () => {
+    const [isCollapsed, setIsCollapsed] = useState(false);
+
+    const toggleSidebar = () => setIsCollapsed(!isCollapsed);
+
     return (
-      <div className="data-table">
-        <h2>Pending Registrations</h2>
-        <div className="table-actions">
-          <div className="filter-controls">
-            <span className="filter-label">Filter:</span>
-            <select 
-              className="filter-dropdown"
-              value={filterStatus}
-              onChange={(e) => handleFilterChange(e.target.value)}
-            >
-              <option value="all">All Registrations</option>
-              <option value="landlord">Landlords Only</option>
-            </select>
+      <aside className={`sidebar-wrapper ${isCollapsed ? 'collapsed' : ''}`}>
+        <div className="sidebar-header">
+          <div className="logo-container">
+            <span className="logo-icon">
+              <Home size={20} />
+            </span>
+            <div className="logo-text">
+              <h1 className="sidebar-title">NexNest</h1>
+              <p className="sidebar-subtitle">Admin Dashboard</p>
+            </div>
           </div>
-          <input type="text" placeholder="Search registrations..." className="search-input" />
+          <button
+            className="toggle-btn"
+            onClick={toggleSidebar}
+            aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d={isCollapsed ? 'M4 6h16M4 12h16M4 18h16' : 'M6 18L18-6M6 6l12 12'}
+              />
+            </svg>
+          </button>
         </div>
+        <nav className="sidebar-nav">
+          {[
+            { id: 'overview', name: 'Overview', icon: Home },
+            { id: 'properties', name: 'Properties', icon: Building },
+            { id: 'users', name: 'Users', icon: Users },
+            { id: 'inquiries', name: 'Inquiries', icon: MessageSquare },
+            { id: 'reviews', name: 'Reviews', icon: Star },
+            { id: 'notifications', name: 'Notifications', icon: Bell },
+            { id: 'settings', name: 'Settings', icon: Settings },
+          ].map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`sidebar-btn ${activeTab === item.id ? 'active' : ''}`}
+                title={isCollapsed ? item.name : undefined}
+              >
+                <Icon className="sidebar-icon" />
+                <span className="sidebar-text">{item.name}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </aside>
+    );
+  };
+
+  const StatsCard = ({ title, value, icon: Icon, color }) => (
+    <div className="stats-card">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="stats-title">{title}</p>
+          <p className="stats-value">{value}</p>
+
+        </div>
+        <div className={`icon-container ${color}`}>
+          <Icon className="h-6 w-6 text-white" />
+        </div>
+      </div>
+    </div>
+  );
+
+  const OverviewTab = () => (
+    <div className="space-y-6">
+      <div className="stats-grid">
+        <StatsCard
+          title="Total Properties"
+          value={propertyStats.total.toLocaleString()}
+
+          icon={Building}
+          color="bg-gradient-to-r from-blue-500 to-blue-600"
+        />
+        <StatsCard
+          title="Total Users"
+          value={userStats.total.toLocaleString()}
+
+          icon={Users}
+          color="bg-gradient-to-r from-green-500 to-green-600"
+        />
+        <StatsCard
+          title="Total Inquiries"
+          value={dashboardStats.totalInquiries.toLocaleString()}
+
+          icon={MessageSquare}
+          color="bg-gradient-to-r from-purple-500 to-purple-600"
+        />
+        <StatsCard
+          title="Average Rating"
+          value={dashboardStats.averageRating.toFixed(1)}
+
+          icon={Star}
+          color="bg-gradient-to-r from-yellow-500 to-yellow-600"
+        />
+
+
+      </div>
+
+      <div className="charts-grid">
+
+
+        <div className="chart-card">
+          <h3 className="chart-title">User Distribution</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={userTypeData}
+                cx="50%"
+                cy="50%"
+                outerRadius={100}
+                dataKey="value"
+                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+              >
+                {userTypeData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="activity-grid">
+        <div className="activity-card">
+          <h3 className="card-title">Property Types</h3>
+          <div className="space-y-4">
+            {propertyTypeData.map((item, index) => (
+              <div key={index} className="property-type-item">
+                <div className="flex justify-between">
+                  <span className="font-medium">{item.type}</span>
+                  <br />
+                  <span>{item.count} ({item.percentage}%)</span>
+                </div>
+                <div className="progress-bar">
+                  <div className="progress-fill" style={{ width: `${item.percentage}%` }}></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="activity-card">
+          <h3 className="card-title">Top Properties</h3>
+          <div className="space-y-4">
+            {topProperties.map((property) => (
+              <div key={property.id} className="property-item">
+                <img
+                  src={property.image}
+                  alt={property.name}
+                  className="property-image"
+                />
+                <div className="property-details">
+                  <p className="property-name">{property.name}</p>
+                  <div className="property-stats">
+                    <span className="flex items-center">
+                      <Star className="h-4 w-4 text-yellow-400 mr-1" />
+                      {property.rating}
+                    </span>
+                    <span>{property.inquiries} inquiries</span>
+                  </div>
+                </div>
+                <div className="property-revenue">
+                  <p className="revenue-amount">{property.revenue.toLocaleString()}</p>
+                  <p className="revenue-label">monthly</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const PropertiesTab = () => (
+    <div className="space-y-6">
+      <div className="header-section">
+        <h2 className="section-title">Properties Management</h2>
+
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <div className="search-filter">
+            <div className="search-container">
+              <Search className="search-icon" />
+              <input
+                type="text"
+                placeholder="Search properties..."
+                className="search-input"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <button className="filter-button">
+              <Filter className="h-4 w-4" />
+              <span>Filter</span>
+            </button>
+          </div>
+        </div>
+
         <div className="table-container">
-          <table>
+          <table className="data-table">
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Email</th>
+                <th>Property</th>
                 <th>Type</th>
-                <th>Created At</th>
-                <th>Documents</th>
+                <th>Location</th>
+                <th>Rent</th>
+                
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {pendingRegistrations
-                .filter(reg => filterStatus === 'all' || reg.userType === filterStatus)
-                .map(registration => (
-                  <tr key={registration.regId}>
-                    <td>{registration.regId}</td>
-                    <td>{registration.firstName} {registration.lastName}</td>
-                    <td>{registration.email}</td>
-                    <td>
-                      <span className={`user-type-badge user-type-${registration.userType}`}>
-                        {registration.userType}
-                      </span>
-                    </td>
-                    <td>{registration.createdAt}</td>
-                    <td>
-                      {registration.documents.map((doc, index) => (
-                        <div key={index} className="document-link">
-                          <a href="#">{doc}</a>
-                        </div>
-                      ))}
-                    </td>
-                    <td>
-                      {registration.userType === 'landlord' ? (
-                        <>
-                          <button className="approve-btn" onClick={() => handleApproveRegistration(registration.regId)}>Approve</button>
-                          <button className="reject-btn" onClick={() => handleRejectRegistration(registration.regId)}>Reject</button>
-                        </>
-                      ) : (
-                        <span className="auto-approval-note">Auto-approved</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+              {properties.map((property) => (
+                <tr key={property.id}>
+                  <td>
+                    <div className="flex items-center">
+                      <img className="table-image" src={property.imageUrl} alt="" />
+                      <div className="ml-4">
+                        <div className="table-title">{property.title}</div>
+                        <div className="table-subtitle">ID: {property.id}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <span className="type-badge">Property Type:{property.propertyType}</span>
+                  </td>
+                  <td>
+                    <div className="flex items-center">
+                      <MapPin className="h-4 w-4 text-gray-400 mr-1" />
+                      Location: {property.location}
+                    </div>
+                  </td>
+                  <td className="font-medium">
+                    {property.price.toLocaleString()}
+                  </td>
+
+                  <td>
+                    <div className="action-buttons">
+                      <button
+                        className="action-icon view"
+                        onClick={() => openModal('viewProperty', property)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+
+                      <button
+                        className="action-icon unpublish flex items-center gap-1 bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded transition-colors"
+                        onClick={() => openModal('unpublishProperty', property)}
+                      >
+                        <EyeOff className="h-4 w-4" />
+                        <span className="text-xs">Unpublish</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
-        <div className="pagination">
-          <span>Showing 1-3 of 3 items</span>
-          <div className="pagination-controls">
-            <button disabled>Previous</button>
-            <button className="active">1</button>
-            <button disabled>Next</button>
+      </div>
+    </div>
+  );
+
+  const UsersTab = () => (
+    <div className="space-y-6">
+      <div className="header-section">
+        <h2 className="section-title">Users Management</h2>
+
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <div className="search-filter">
+            <div className="search-container">
+              <Search className="search-icon" />
+              <input
+                type="text"
+                placeholder="Search users by name or email..."
+                className="search-input"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <button className="filter-button">
+              <Filter className="h-4 w-4" />
+              <span>Filter</span>
+            </button>
           </div>
         </div>
+
+        {isLoading ? (
+          <div className="loading-container">
+            <div className="loading-spinner"></div>
+            <p>Loading users...</p>
+          </div>
+        ) : (
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>User ID</th>
+                  <th>Full Name</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>User Type</th>
+                  <th>Join Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {userData
+                  .filter(user =>
+                    user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    user.email.toLowerCase().includes(searchTerm.toLowerCase())
+                  )
+                  .map((user) => (
+                    <tr key={user.userId}>
+                      <td className="user-id">#{user.userId}</td>
+                      <td className="table-title">
+                        <div className="user-info">
+                          <div className="user-avatar">
+                            {user.firstName.charAt(0)}{user.lastName.charAt(0)}
+                          </div>
+                          <div className="user-details">
+                            <span className="user-name">
+                              {user.firstName} {user.lastName}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="user-email">
+                        <Mail className="h-4 w-4 inline-icon" />
+                        {user.email}
+                      </td>
+                      <td className="user-phone">
+                        {user.phoneNumber ? (
+                          <>
+                            <Phone className="h-4 w-4 inline-icon" />
+                            {user.phoneNumber}
+                          </>
+                        ) : (
+                          <span className="text-gray-400">No phone</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`role-badge ${user.userType.toLowerCase().replace(' ', '-')}`}>
+                          {user.userType === 'admin' && <Lock className="h-3 w-3" />}
+                          {user.userType === 'landlord' && <Building className="h-3 w-3" />}
+                          {user.userType === 'student' && <UserCheck className="h-3 w-3" />}
+                          {user.userType === 'tenant' && <UserCheck className="h-3 w-3" />}
+                          <span>{user.userType}</span>
+                        </span>
+                      </td>
+                      <td className="join-date">
+                        <Calendar className="h-4 w-4 inline-icon" />
+                        {user.createdAt === "string" ? "N/A" : user.createdAt}
+                      </td>
+                      <td>
+                        <div className="action-buttons">
+                          <button
+                            className="action-icon view"
+                            onClick={() => openModal('viewUser', user)}
+                            title="View Details"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+
+
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+
+            {userData.length === 0 && !isLoading && (
+              <div className="empty-state">
+                <Users className="h-12 w-12" />
+                <h3>No Users Found</h3>
+                <p>There are no users to display at the moment.</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const InquiriesTab = () => (
+    <div className="space-y-6">
+      <div className="header-section">
+        <h2 className="section-title">Inquiries Overview</h2>
+      </div>
+
+      <div className="stats-grid">
+        <StatsCard
+          title="Total Inquiries"
+          value={inquiryStats.total.toLocaleString()}
+          icon={MessageSquare}
+          color="bg-gradient-to-r from-purple-500 to-purple-600"
+        />
+        <StatsCard
+          title="Pending"
+          value={inquiryStats.pending.toLocaleString()}
+          icon={Clock}
+          color="bg-gradient-to-r from-yellow-500 to-yellow-600"
+        />
+        <StatsCard
+          title="Responded"
+          value={inquiryStats.responded.toLocaleString()}
+          icon={CheckCircle}
+          color="bg-gradient-to-r from-green-500 to-green-600"
+        />
+        <StatsCard
+          title="Closed"
+          value={inquiryStats.closed.toLocaleString()}
+          icon={XCircle}
+          color="bg-gradient-to-r from-blue-500 to-blue-600"
+        />
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <h3 className="card-title">Inquiry Trends</h3>
+        </div>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={[
+            { name: 'Pending', count: inquiryStats.pending },
+            { name: 'Responded', count: inquiryStats.responded },
+            { name: 'Closed', count: inquiryStats.closed }
+          ]}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" />
+            <YAxis />
+            <Tooltip />
+            <Bar dataKey="count" fill="#3b82f6" />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+
+  const ReviewsTab = () => (
+    <div className="space-y-6">
+      <div className="header-section">
+        <h2 className="section-title">Reviews Management</h2>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <div className="search-filter">
+            <div className="search-container">
+              <Search className="search-icon" />
+              <input
+                type="text"
+                placeholder="Search reviews..."
+                className="search-input"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <button className="filter-button">
+              <Filter className="h-4 w-4" />
+              <span>Filter</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="table-container">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Property</th>
+                <th>User</th>
+                <th>Rating</th>
+                <th>Comment</th>
+                <th>Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reviewsData.map((review) => (
+                <tr key={review.id}>
+                  <td className="table-title">{review.property}</td>
+                  <td>{review.user}</td>
+                  <td>
+                    <div className="flex items-center">
+                      <Star className="h-4 w-4 text-yellow-400 mr-1" />
+                      {review.rating}
+                    </div>
+                  </td>
+                  <td>{review.comment}</td>
+                  <td>{review.date}</td>
+                  <td>
+                    <div className="action-buttons">
+                      <button
+                        className="action-icon view"
+                        onClick={() => openModal('viewReview', review)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      <button
+                        className="action-icon delete"
+                        onClick={() => openModal('deleteReview', review)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
+  const NotificationsTab = () => (
+    <div className="space-y-6">
+      <div className="header-section">
+        <h2 className="section-title">Notifications</h2>
+        <button className="action-button secondary">
+          <span>Clear All</span>
+        </button>
+      </div>
+
+      <div className="card">
+        <div className="space-y-4">
+          {notificationsData.map((notification) => (
+            <div key={notification.id} className="notification-item">
+              <div className={`notification-icon ${notification.type}`}>
+                {notification.type === 'info' && <AlertCircle className="h-5 w-5" />}
+                {notification.type === 'success' && <CheckCircle className="h-5 w-5" />}
+              </div>
+              <div className="notification-content">
+                <p className="notification-message">{notification.message}</p>
+                <p className="notification-date">{notification.date}</p>
+              </div>
+              <button className="action-icon delete">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const SettingsTab = () => (
+    <div className="space-y-6">
+      <div className="header-section">
+        <h2 className="section-title">Settings</h2>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <h3 className="card-title">Account Settings</h3>
+        </div>
+        <div className="settings-form">
+          <div className="form-group">
+            <label className="form-label">Email</label>
+            <div className="input-group">
+              <Mail className="input-icon" />
+              <input type="email" className="form-input" defaultValue="admin@example.com" />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Password</label>
+            <div className="input-group">
+              <Lock className="input-icon" />
+              <input type="password" className="form-input" defaultValue="********" />
+            </div>
+          </div>
+          <div className="form-actions">
+            <button className="action-button primary">Save Changes</button>
+            <button className="action-button secondary">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const openModal = (type: React.SetStateAction<string>, item = null) => {
+    setModalType(type);
+    setSelectedItem(item);
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setModalType('');
+    setSelectedItem(null);
+  };
+
+  const Modal = () => {
+    if (!showModal) return null;
+
+    const renderModalContent = () => {
+      switch (modalType) {
+        case 'addProperty':
+          return (
+            <>
+              <h5 className="modal-title">Add New Property</h5>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label className="form-label">Property Name</label>
+                  <input type="text" className="form-input" placeholder="Enter property name" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Type</label>
+                  <select className="form-input">
+                    <option>Apartment</option>
+                    <option>House</option>
+                    <option>Shared Room</option>
+                    <option>Single Room</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Monthly Rent</label>
+                  <input type="number" className="form-input" placeholder="Enter rent amount" />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="action-button secondary" onClick={closeModal}>Cancel</button>
+                <button className="action-button primary">Add Property</button>
+              </div>
+            </>
+          );
+        case 'viewProperty':
+          return (
+            <>
+              <h5 className="modal-title">Property Details</h5>
+              <div className="modal-body">
+                <p><strong>Name:</strong> {selectedItem?.name || selectedItem?.title || 'Unnamed Property'}</p>
+                <p><strong>Rating:</strong> {selectedItem?.rating || 'N/A'}</p>
+                <p><strong>Inquiries:</strong> {selectedItem?.inquiries || 0}</p>
+
+
+                {/* Additional basic info */}
+                <p><strong>Location:</strong> {selectedItem?.location || selectedItem?.address || 'Unknown'}</p>
+                <p><strong>Price:</strong> {selectedItem?.price || 'N/A'}</p>
+                <p><strong>Status:</strong> {selectedItem?.status || (selectedItem?.isAvailable ? 'Available' : 'Unavailable')}</p>
+              </div>
+              <div className="modal-footer">
+                <button className="action-button secondary" onClick={closeModal}>Close</button>
+              </div>
+            </>
+          );
+        case 'editProperty':
+          return (
+            <>
+              <h5 className="modal-title">Edit Property</h5>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label className="form-label">Property Name</label>
+                  <input type="text" className="form-input" defaultValue={selectedItem?.name} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Monthly Rent</label>
+                  <input type="number" className="form-input" defaultValue={selectedItem?.revenue} />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="action-button secondary" onClick={closeModal}>Cancel</button>
+                <button className="action-button primary">Save Changes</button>
+              </div>
+            </>
+          );
+        case 'deleteProperty':
+          return (
+            <>
+              <h5 className="modal-title">Delete Property</h5>
+              <div className="modal-body">
+                <p>Are you sure you want to delete <strong>{selectedItem?.name}</strong>?</p>
+              </div>
+              <div className="modal-footer">
+                <button className="action-button secondary" onClick={closeModal}>Cancel</button>
+                <button className="action-button danger">Delete</button>
+              </div>
+            </>
+          );
+
+        case 'viewUser':
+          return (
+            <>
+              <h5 className="modal-title">User Details    </h5>
+              <div className="modal-body">
+                <p><strong>Name:</strong> {selectedItem?.firstName} {selectedItem?.lastName}</p>
+                <p><strong>Email:</strong> {selectedItem?.email}</p>
+                <p><strong>Role:</strong> {selectedItem?.userType}</p>
+                <p><strong>Phone:</strong> {selectedItem?.phoneNumber || 'Not provided'}</p>
+
+                <p><strong>Account Creation Date:</strong> {new Date(selectedItem?.createdAt).toLocaleDateString()}</p>
+              </div>
+              <div className="modal-footer">
+                <button className="action-button secondary" onClick={closeModal}>Close</button>
+              </div>
+            </>
+          );
+        case 'editUser':
+          return (
+            <>
+              <h5 className="modal-title">Edit User</h5>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label className="form-label">Name</label>
+                  <input type="text" className="form-input" defaultValue={selectedItem?.name} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Email</label>
+                  <input type="email" className="form-input" defaultValue={selectedItem?.email} />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="action-button secondary" onClick={closeModal}>Cancel</button>
+                <button className="action-button primary">Save Changes</button>
+              </div>
+            </>
+          );
+        case 'deleteUser':
+          return (
+            <>
+              <h5 className="modal-title">Delete User</h5>
+              <div className="modal-body">
+                <p>Are you sure you want to delete <strong>{selectedItem?.name}</strong>?</p>
+              </div>
+              <div className="modal-footer">
+                <button className="action-button secondary" onClick={closeModal}>Cancel</button>
+                <button className="action-button danger">Delete</button>
+              </div>
+            </>
+          );
+        case 'viewReview':
+          return (
+            <>
+              <h5 className="modal-title">Review Details</h5>
+              <div className="modal-body">
+                <p><strong>Property:</strong> {selectedItem?.property}</p>
+                <p><strong>User:</strong> {selectedItem?.user}</p>
+                <p><strong>Rating:</strong> {selectedItem?.rating}</p>
+                <p><strong>Comment:</strong> {selectedItem?.comment}</p>
+                <p><strong>Date:</strong> {selectedItem?.date}</p>
+              </div>
+              <div className="modal-footer">
+                <button className="action-button secondary" onClick={closeModal}>Close</button>
+              </div>
+            </>
+          );
+        case 'deleteReview':
+          return (
+            <>
+              <h5 className="modal-title">Delete Review</h5>
+              <div className="modal-body">
+                <p>Are you sure you want to delete review for <strong>{selectedItem?.property}</strong>?</p>
+              </div>
+              <div className="modal-footer">
+                <button className="action-button secondary" onClick={closeModal}>Cancel</button>
+                <button className="action-button danger">Delete</button>
+              </div>
+            </>
+          );
+        default:
+          return null;
+      }
+    };
+    // In your modal component
+    {
+      modalType === 'unpublishProperty' && (
+        <div className="p-4">
+          <h3 className="text-lg font-medium mb-3">Unpublish Listing</h3>
+          <p className="mb-4">
+            Are you sure you want to unpublish "{selectedProperty.title}"?
+            The listing will be hidden from students but can be republished later.
+          </p>
+
+          <div className="flex justify-end gap-2">
+            <button
+              className="px-3 py-1 border rounded"
+              onClick={closeModal}
+            >
+              Cancel
+            </button>
+            <button
+              className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+              onClick={() => handleUnpublish(selectedProperty.propertyId)}
+            >
+              Confirm Unpublish
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="modal fade show" style={{ display: 'block' }}>
+        <div className="modal-dialog modal-lg">
+          <div className="modal-content">
+            <div className="modal-header">
+              {renderModalContent()}
+              <button className="btn-close" onClick={closeModal}></button>
+            </div>
+          </div>
+        </div>
+        <div className="modal-backdrop fade show" onClick={closeModal}></div>
       </div>
     );
   };
 
+  const renderActiveTab = () => {
+    switch (activeTab) {
+      case 'overview': return <OverviewTab />;
+      case 'properties': return <PropertiesTab />;
+      case 'users': return <UsersTab />;
+      case 'inquiries': return <InquiriesTab />;
+      case 'reviews': return <ReviewsTab />;
+      case 'notifications': return <NotificationsTab />;
+      case 'settings': return <SettingsTab />;
+      default: return <OverviewTab />;
+    }
+  };
+
   return (
-    <div className="admin-dashboard">
-      <header className="dashboard-header">
-        <div className="header-content">
-          <h1>Zit AccomHub Admin</h1>
-          <div className="user-info">
-            <span className="user-name">Admin User</span>
-            <button className="logout-btn">Logout</button>
-          </div>
-        </div>
-      </header>
-      
-      <div className="dashboard-container">
-        <nav className="sidebar">
-          <ul>
-            <li 
-              className={activeTab === 'properties' ? 'active' : ''} 
-              onClick={() => handleTabChange('properties')}
-            >
-              Properties
-            </li>
-            <li 
-              className={activeTab === 'users' ? 'active' : ''} 
-              onClick={() => handleTabChange('users')}
-            >
-              Users
-            </li>
-            <li 
-              className={activeTab === 'bookings' ? 'active' : ''} 
-              onClick={() => handleTabChange('bookings')}
-            >
-              Bookings
-            </li>
-            <li 
-              className={activeTab === 'registrations' ? 'active' : ''} 
-              onClick={() => handleTabChange('registrations')}
-            >
-              Pending Registrations
-            </li>
-            <li>
-              Reviews
-            </li>
-            <li>
-              Messages
-            </li>
-            <li>
-              Reports
-            </li>
-            <li>
-              Settings
-            </li>
-          </ul>
-        </nav>
-        
-        <main className="content">
-          {loading ? (
-            <div className="loading">
-              <div className="loading-spinner"></div>
-              <div>Loading dashboard data...</div>
+    <div className="dashboard-container">
+      <Sidebar />
+
+      <div className="main-container">
+        <header className="header">
+          <div className="header-content">
+            <div>
+              <h1 className="header-title">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h1>
+              <p className="header-subtitle">Welcome back, Admin</p>
             </div>
-          ) : (
-            <>
-              {activeTab === 'properties' && renderProperties()}
-              {activeTab === 'users' && renderUsers()}
-              {activeTab === 'bookings' && renderBookings()}
-              {activeTab === 'registrations' && renderPendingRegistrations()}
-            </>
-          )}
+            <div className="header-actions">
+              <button className="notification-button">
+                <Bell className="h-5 w-5" />
+                <span className="notification-dot"></span>
+              </button>
+              <div className="user-profile">
+                <div className="user-details">
+                  <p className="user-name">NexNest Admin</p>
+                  <p className="user-role">Administrator</p>
+                </div>
+                <img
+                  className="user-image"
+                  src="https://images.unsplash.com/photo-147209-5785-5658abf4ff4e?w=60&h=60&fit=crop&crop=faces"
+                  alt="Profile"
+                />
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main className="content">
+          {renderActiveTab()}
         </main>
       </div>
-      
-      <footer className="dashboard-footer">
-        <p>© 2025 StudentHousing Admin Dashboard</p>
-      </footer>
 
-      <style jsx>{`
-        /* Global Styles */
-        * {
-          box-sizing: border-box;
-          margin: 0;
-          padding: 0;
-        }
-        
-        body {
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-          line-height: 1.6;
-          color: #333;
-          background-color: #f5f5f5;
-        }
-        
-        /* Dashboard Layout */
-        .admin-dashboard {
-          display: flex;
-          flex-direction: column;
-          min-height: 100vh;
-        }
-        
-        .dashboard-header {
-          background-color: rgb(48, 0, 126);
-          color: white;
-          padding: 1rem 2rem;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .header-content {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          max-width: 1800px;
-          margin: 0 auto;
-          width: 100%;
-        }
-        
-        .dashboard-container {
-          display: flex;
-          flex: 1;
-          max-width: 1800px;
-          margin: 0 auto;
-          width: 100%;
-        }
-        
-        .dashboard-footer {
-          padding: 1rem;
-          text-align: center;
-          background-color: #f8f9fa;
-          border-top: 1px solid #dee2e6;
-          font-size: 0.9rem;
-          color: #6c757d;
-        }
-        
-        /* Sidebar Navigation */
-        .sidebar {
-          width: 240px;
-          background-color: #f8f9fa;
-          border-right: 1px solid #dee2e6;
-          padding: 1.5rem 0;
-          height: calc(100vh - 110px);
-          position: sticky;
-          top: 0;
-        }
-        
-        .sidebar ul {
-          list-style: none;
-        }
-        
-        .sidebar li {
-          padding: 0.75rem 1.5rem;
-          cursor: pointer;
-          font-weight: 500;
-          color: #495057;
-          border-left: 4px solid transparent;
-          transition: all 0.2s ease;
-        }
-        
-        .sidebar li:hover {
-          background-color: rgba(48, 0, 126, 0.05);
-          color: rgb(48, 0, 126);
-        }
-        
-        .sidebar li.active {
-          background-color: rgba(48, 0, 126, 0.1);
-          color: rgb(48, 0, 126);
-          border-left-color: rgb(48, 0, 126);
-        }
-        
-        /* Content Area */
-        .content {
-          flex: 1;
-          padding: 2rem;
-          overflow-y: auto;
-        }
-        
-        .loading {
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          height: 100%;
-          font-size: 1.2rem;
-          color: #6c757d;
-          gap: 1rem;
-        }
-
-        .loading-spinner {
-          width: 40px;
-          height: 40px;
-          border: 4px solid rgba(48, 0, 126, 0.1);
-          border-radius: 50%;
-          border-top: 4px solid rgb(48, 0, 126);
-          animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        
-        /* Table Styles */
-        .data-table {
-          background-color: white;
-          border-radius: 8px;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-          padding: 1.5rem;
-        }
-        
-        .data-table h2 {
-          margin-bottom: 1.5rem;
-          color: rgb(48, 0, 126);
-        }
-        
-        .table-actions {
-          display: flex;
-          justify-content: space-between;
-          margin-bottom: 1.5rem;
-          align-items: center;
-        }
-        
-        .table-container {
-          overflow-x: auto;
-          margin-bottom: 1rem;
-          max-height: calc(100vh - 300px);
-          overflow-y: auto;
-        }
-
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          min-width: 800px;
-        }
-        
-        th {
-          text-align: left;
-          padding: 0.75rem;
-          background-color: #f8f9fa;
-          border-bottom: 2px solid #dee2e6;
-          color: #495057;
-          font-weight: 600;
-          position: sticky;
-          top: 0;
-          z-index: 10;
-        }
-        
-        td {
-          padding: 0.75rem;
-          border-bottom: 1px solid #e9ecef;
-        }
-        
-        tr:last-child td {
-          border-bottom: none;
-        }
-        
-        tr:hover {
-          background-color: #f8f9fa;
-        }
-
-        /* Pagination */
-        .pagination {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding-top: 1rem;
-          border-top: 1px solid #e9ecef;
-          font-size: 0.9rem;
-          color: #6c757d;
-        }
-
-        .pagination-controls {
-          display: flex;
-          gap: 0.5rem;
-        }
-
-        .pagination-controls button {
-          background-color: transparent;
-          border: 1px solid #dee2e6;
-          padding: 0.25rem 0.75rem;
-          border-radius: 4px;
-          color: #6c757d;
-        }
-
-        
-          ////
-  .pagination-controls button.active {
-  background-color: rgb(48, 0, 126);
-  color: white;
-  border-color: rgb(48, 0, 126);
-}
-
-.pagination-controls button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.pagination-controls button:not(:disabled):hover {
-  background-color: #e9ecef;
-}
-
-/* Status Badges */
-.status-badge {
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: white;
-  display: inline-block;
-}
-
-.status-active {
-  background-color: #28a745;
-}
-
-.status-inactive {
-  background-color: #6c757d;
-}
-
-/* User Type Badges */
-.user-type-badge {
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  display: inline-block;
-}
-
-.user-type-admin {
-  background-color: #dc3545;
-  color: white;
-}
-
-.user-type-landlord {
-  background-color: #fd7e14;
-  color: white;
-}
-
-.user-type-student {
-  background-color: #17a2b8;
-  color: white;
-}
-
-/* Button Styles */
-button {
-  cursor: pointer;
-  padding: 0.375rem 0.75rem;
-  border-radius: 4px;
-  font-weight: 500;
-  border: none;
-  transition: all 0.2s;
-}
-
-.view-btn {
-  background-color: #e9ecef;
-  color: #495057;
-  margin-right: 0.5rem;
-}
-
-.view-btn:hover {
-  background-color: #dee2e6;
-}
-
-.edit-btn {
-  background-color: #17a2b8;
-  color: white;
-  margin-right: 0.5rem;
-}
-
-.edit-btn:hover {
-  background-color: #138496;
-}
-
-.approve-btn {
-  background-color: #28a745;
-  color: white;
-  margin-right: 0.5rem;
-}
-
-.approve-btn:hover {
-  background-color: #218838;
-}
-
-.reject-btn, .deactivate-btn {
-  background-color: #dc3545;
-  color: white;
-}
-
-.reject-btn:hover, .deactivate-btn:hover {
-  background-color: #c82333;
-}
-
-.activate-btn {
-  background-color: #28a745;
-  color: white;
-}
-
-.activate-btn:hover {
-  background-color: #218838;
-}
-
-.action-button {
-  background-color: rgb(48, 0, 126);
-  color: white;
-  margin-right: 0.5rem;
-}
-
-.action-button:hover {
-  background-color: rgb(38, 0, 101);
-}
-
-.logout-btn {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 0.375rem 0.75rem;
-}
-
-.logout-btn:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-/* Form Controls */
-.filter-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.filter-label {
-  font-weight: 500;
-}
-
-.filter-dropdown,
-.search-input {
-  padding: 0.375rem 0.75rem;
-  border: 1px solid #ced4da;
-  border-radius: 4px;
-  font-size: 0.95rem;
-}
-
-.search-input {
-  min-width: 240px;
-}
-
-/* Detail View */
-.detail-view {
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  padding: 1.5rem;
-}
-
-.back-button {
-  background-color: transparent;
-  color: rgb(48, 0, 126);
-  padding: 0;
-  margin-bottom: 1rem;
-  display: inline-block;
-}
-
-.back-button:hover {
-  text-decoration: underline;
-}
-
-.detail-view h2 {
-  margin-bottom: 1.5rem;
-  color: rgb(48, 0, 126);
-}
-
-.detail-card {
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
-  padding: 1.5rem;
-}
-
-.detail-card h3 {
-  margin-bottom: 1.5rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid #e9ecef;
-}
-
-.detail-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1.5rem;
-  margin-bottom: 1.5rem;
-}
-
-.detail-item.full-width {
-  grid-column: span 2;
-}
-
-.detail-label {
-  display: block;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #6c757d;
-  margin-bottom: 0.25rem;
-}
-
-.detail-value {
-  font-size: 1rem;
-}
-
-.action-buttons {
-  display: flex;
-  gap: 0.75rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid #e9ecef;
-}
-
-/* User Info in Header */
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.user-name {
-  font-weight: 500;
-}
-
-/* Document Links */
-.document-link {
-  margin-bottom: 0.25rem;
-}
-
-.document-link a {
-  color: rgb(48, 0, 126);
-  text-decoration: none;
-  font-size: 0.9rem;
-}
-
-.document-link a:hover {
-  text-decoration: underline;
-}
-
-.auto-approval-note {
-  font-style: italic;
-  color: #6c757d;
-  font-size: 0.9rem;
-}
-
-/* Responsive Adjustments */
-@media (max-width: 992px) {
-  .dashboard-container {
-    flex-direction: column;
-  }
-  
-  .sidebar {
-    width: 100%;
-    height: auto;
-    border-right: none;
-    border-bottom: 1px solid #dee2e6;
-    padding: 0.5rem 0;
-  }
-  
-  .sidebar ul {
-    display: flex;
-    overflow-x: auto;
-    padding: 0.5rem;
-  }
-  
-  .sidebar li {
-    padding: 0.5rem 1rem;
-    white-space: nowrap;
-    border-left: none;
-    border-bottom: 3px solid transparent;
-  }
-  
-  .sidebar li.active {
-    border-left-color: transparent;
-    border-bottom-color: rgb(48, 0, 126);
-  }
-  
-  .detail-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .detail-item.full-width {
-    grid-column: 1;
-  }
-  
-  .action-buttons {
-    flex-wrap: wrap;
-  }
-}
-
-@media (max-width: 768px) {
-  .data-table {
-    padding: 1rem;
-  }
-  
-  .pagination {
-    flex-direction: column;
-    gap: 1rem;
-    align-items: flex-start;
-  }
-}
-  `}</style>
+      {showModal && <Modal />}
     </div>
   );
 };
 
-export default AdminDashboard;
+export default Dashboard;
+
+
+function setLandlordName(landlordName: any) {
+  throw new Error('Function not implemented.');
+}
+
+function setIsLoading(arg0: boolean) {
+  throw new Error('Function not implemented.');
+}
+
+
+function setName(arg0: any) {
+  throw new Error('Function not implemented.');
+}
+
+function setError(message: any) {
+  throw new Error('Function not implemented.');
+}

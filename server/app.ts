@@ -1,4 +1,5 @@
 import configureOpenAPI from "../configure-open-api";
+
 import createApp from "./libs/create-app";
 import authRouter from "./routes/authRoute";
 import propertiesRouter from "./routes/propertyRoute";
@@ -11,6 +12,10 @@ import userRouter from "./routes/userRoute";
 import propertyImageRouter from "./routes/propertyImagesRoute";
 import propertyDetailRouter from "./routes/propertyDetailsRoute";
 import studentProfileRouter from "./routes/studentProfilesRoute";
+import propertyListing from "./routes/PropertyListingRoute";
+import inquiryRouter from "./routes/InquiryRoute";
+import propertyDetails from './routes/details';
+
 
 const app = createApp();
 
@@ -23,11 +28,13 @@ const routes = [
   { path: "/api/properties", router: propertiesRouter },
   { path: "/api/property-details", router: propertyDetailRouter },
   { path: "/api/property-images", router: propertyImageRouter },
-  { path: "/api/bookings", router: bookingRouter },
+  { path: "/api/inquiries", router: inquiryRouter },
   { path: "/api/reviews", router: reviewsRouter },
   { path: "/api/messages", router: messagesRouter },
   { path: "/api/favorites", router: favoritesRouter },
   { path: "/api/notifications", router: notificationsRouter },
+  { path: "/api/PropertyListingRoute", router: propertyListing},
+  {path: "/api/details", router: propertyDetails}
 ] as const;
 
 routes.forEach(({ path, router }) => {

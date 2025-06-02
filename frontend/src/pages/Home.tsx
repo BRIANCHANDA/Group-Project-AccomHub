@@ -1,951 +1,520 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import './bootstrap-5.3.5-dist/css/bootstrap.min.css';
+import './Homepage.css';
 
 const HomePage = () => {
   const navigate = useNavigate();
-  const [hoveredItem, setHoveredItem] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [scrollPosition, setScrollPosition] = useState(0);
-  const [activeColorScheme, setActiveColorScheme] = useState(0);
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
-  
-  // Color schemes that will rotate
-  const colorSchemes = [
-    { primary: '#30007e', secondary: '#6d28d9', accent: '#ddd6fe', background: '#efedff' },
-    { primary: '#0e4429', secondary: '#10b981', accent: '#d1fae5', background: '#ecfdf5' },
-    { primary: '#4c1d95', secondary: '#8b5cf6', accent: '#e0e7ff', background: '#ede9fe' },
-    { primary: '#1e3a8a', secondary: '#3b82f6', accent: '#dbeafe', background: '#eff6ff' },
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  interface Property {
+    id: number;
+    image: string;
+    title: string;
+    location: string;
+    price: string;
+    features: string[];
+    tag?: string;
+  }
+
+  // Mock data to show immediately while API loads
+  const mockProperties: Property[] = [
+    
   ];
-  
-  // Get current color scheme
-  const colors = colorSchemes[activeColorScheme];
 
-  // Handle scroll events to change header appearance and trigger animations
+  const [featuredProperties, setFeaturedProperties] = useState<Property[]>(mockProperties);
+  const [isLoading, setIsLoading] = useState(false); // Start with false to show mock data immediately
+  const [error, setError] = useState(null);
+  const [hasLoadedAPI, setHasLoadedAPI] = useState(false);
+
+  // References for navigation
+  const homeRef = useRef(null);
+  const servicesRef = useRef(null);
+  const communityRef = useRef(null);
+  const contactRef = useRef(null);
+
+  // Fetch real properties in background after component mounts
   useEffect(() => {
-    const handleScroll = () => {
-      setScrollPosition(window.scrollY);
+    const fetchRealProperties = async () => {
+      try {
+        const response = await fetch('/api/properties/properties/random');
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.length > 0) {
+            setFeaturedProperties(data);
+            setHasLoadedAPI(true);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch properties:', err);
+        // Keep mock data on error, don't show error to user
+      }
     };
 
-    // Color scheme rotation on interval
-    const colorInterval = setInterval(() => {
-      setActiveColorScheme((prev) => (prev + 1) % colorSchemes.length);
-    }, 10000); // Change color scheme every 10 seconds
-    
-    window.addEventListener('scroll', handleScroll);
-    
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      clearInterval(colorInterval);
-    };
+    // Delay API call slightly to ensure immediate render
+    const timer = setTimeout(fetchRealProperties, 100);
+    return () => clearTimeout(timer);
   }, []);
-  
-  // Navigation handlers with improved error handling
+
+  // Optimized scroll handler with throttling
+  useEffect(() => {
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          setIsScrolled(window.scrollY > 10);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Simplified navigation handler
   const handleNavigation = (path) => {
-    if (path === 'signin') {
-      navigate('/login');
-    } else if (path === 'register') {
-      navigate('/register');
-    } else if (path === 'about') {
-      navigate('/about');
+    const paths = {
+      signin: '/login',
+      register: '/register',
+      about: '/about',
+      viewall: '/studentdashboard',
+    };
+
+    if (paths[path]) {
+      navigate(paths[path]);
+    } else if (path.startsWith('property/')) {
+      const propertyId = path.split('/')[1];
+      navigate(`/property/${propertyId}`);
     } else {
-      // Try to find an element with the corresponding id on the page
       const section = document.getElementById(path);
       if (section) {
-        section.scrollIntoView({ behavior: 'smooth' });
+        const navbarHeight = 70; // Fixed height instead of computed
+        const offsetPosition = section.getBoundingClientRect().top + window.pageYOffset - navbarHeight;
+        window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
       } else {
-        // Fallback in case the section does not exist
         navigate(`/${path}`);
       }
     }
-    // Close mobile menu after navigation
     setMenuOpen(false);
   };
 
-  // Animation and style utilities
-  const getHoverStyle = (itemName, baseStyle) => ({
-    ...baseStyle,
-    transition: 'all 0.3s ease',
-    ...(itemName === 'navItem' 
-      ? { 
-          borderBottom: hoveredItem === itemName 
-            ? `2px solid ${colors.primary}` 
-            : '2px solid transparent',
-          transform: hoveredItem === itemName ? 'translateY(-2px)' : 'none'
-        }
-      : {}),
-    ...(itemName === 'buttonOutline' 
-      ? { 
-          backgroundColor: hoveredItem === itemName ? '#f3f4f6' : 'transparent',
-          transform: hoveredItem === itemName ? 'scale(1.05)' : 'scale(1)'
-        }
-      : {}),
-    ...(itemName === 'buttonFilled' 
-      ? { 
-          backgroundColor: hoveredItem === itemName ? colors.secondary : colors.primary,
-          transform: hoveredItem === itemName ? 'scale(1.05)' : 'scale(1)'
-        }
-      : {}),
-    ...(itemName === 'ctaButton' 
-      ? { 
-          backgroundColor: hoveredItem === itemName ? '#f9fafb' : '#ffffff',
-          transform: hoveredItem === itemName ? 'scale(1.05)' : 'scale(1)',
-          boxShadow: hoveredItem === itemName ? '0 10px 15px -3px rgba(0, 0, 0, 0.2)' : 'none'
-        }
-      : {}),
-    ...(itemName?.startsWith('property') 
-      ? { 
-          transform: hoveredItem === itemName ? 'translateY(-8px)' : 'none',
-          boxShadow: hoveredItem === itemName
-            ? '0 15px 30px -5px rgba(0, 0, 0, 0.15), 0 10px 15px -5px rgba(0, 0, 0, 0.1)'
-            : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-        }
-      : {}),
-    ...(itemName?.startsWith('feature') 
-      ? { 
-          transform: hoveredItem === itemName ? 'translateY(-8px) scale(1.03)' : 'none',
-          boxShadow: hoveredItem === itemName
-            ? '0 15px 30px -5px rgba(0, 0, 0, 0.15), 0 10px 15px -5px rgba(0, 0, 0, 0.1)'
-            : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-        }
-      : {})
-  });
-
-  // Media query breakpoints
-  const mediaQueries = {
-    mobile: '@media (max-width: 640px)',
-    tablet: '@media (min-width: 641px) and (max-width: 1024px)',
-    desktop: '@media (min-width: 1025px)',
-    largeScreen: '@media (min-width: 1800px)'
-  };
-
-  // Styles - reorganized for better maintainability and responsiveness
-  const styles = {
-    // Layout
-    container: {
-      width: '100%',
-      minHeight: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      backgroundColor: '#ffffff',
-      fontFamily: 'Arial, sans-serif',
-      overflowX: 'hidden', // Prevent horizontal scrolling
-      transition: 'background-color 1s ease'
-    },
-    
-    // Header styles with dynamic scroll behavior
-    header: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      padding: '1rem 5%',
-      backgroundColor: scrollPosition > 50 ? '#ffffff' : 'rgba(255, 255, 255, 0.95)',
-      backdropFilter: scrollPosition > 50 ? 'none' : 'blur(8px)',
-      borderBottom: scrollPosition > 50 ? `1px solid ${colors.accent}` : 'none',
-      position: 'sticky',
-      top: 0,
-      zIndex: 1000,
-      flexWrap: 'wrap',
-      gap: '0.5rem',
-      transition: 'all 0.3s ease',
-      boxShadow: scrollPosition > 50 
-        ? '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-        : 'none'
-    },
-    logo: {
-      fontSize: 'clamp(1.2rem, 4vw, 1.5rem)',
-      fontWeight: 'bold',
-      color: colors.primary,
-      flex: '1',
-      transition: 'color 0.5s ease',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '0.5rem'
-    },
-    logoIcon: {
-      fontSize: '1.8rem',
-      animation: 'pulse 2s infinite ease-in-out',
-      display: 'inline-block',
-      '@keyframes pulse': {
-        '0%': { transform: 'scale(1)' },
-        '50%': { transform: 'scale(1.1)' },
-        '100%': { transform: 'scale(1)' }
-      }
-    },
-    mobileMenuButton: {
-      display: 'none',
-      backgroundColor: colors.primary,
-      border: 'none',
-      fontSize: '1.5rem',
-      cursor: 'pointer',
-      padding: '0.5rem',
-      '@media (max-width: 768px)': {
-        display: 'block'
-      },
-      transition: 'transform 0.3s ease'
-    },
-    nav: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: 'clamp(0.5rem, 2vw, 2rem)',
-      flexWrap: 'wrap',
-      '@media (max-width: 768px)': {
-        display: menuOpen ? 'flex' : 'none',
-        flexDirection: 'column',
-        alignItems: 'flex-start',
-        width: '100%',
-        padding: '1rem 0',
-        gap: '1rem',
-        animation: menuOpen ? 'slideDown 0.3s ease-in-out' : 'none',
-        '@keyframes slideDown': {
-          '0%': { opacity: 0, transform: 'translateY(-20px)' },
-          '100%': { opacity: 1, transform: 'translateY(0)' }
-        }
-      }
-    },
-    navItem: {
-      fontSize: 'clamp(0.875rem, 1vw, 1rem)',
-      color: colors.primary,
-      cursor: 'pointer',
-      textDecoration: 'none',
-      padding: '0.5rem 0',
-      transition: 'all 0.3s ease',
-      position: 'relative',
-      '@media (max-width: 768px)': {
-        width: '100%', 
-        padding: '0.75rem 0'
-      }
-    },
-    
-    // Button styles with enhanced animations
-    buttonOutline: {
-      padding: 'clamp(0.4rem, 1vw, 0.5rem) clamp(0.75rem, 2vw, 1.25rem)',
-      border: `1px solid ${colors.secondary}`,
-      borderRadius: '0.375rem',
-      backgroundColor: 'transparent',
-      color: colors.primary,
-      fontSize: 'clamp(0.875rem, 1vw, 1rem)',
-      cursor: 'pointer',
-      transition: 'all 0.3s ease',
-      display: 'inline-block',
-      textAlign: 'center',
-      position: 'relative',
-      overflow: 'hidden',
-      '@media (max-width: 768px)': {
-        width: '100%',
-        marginTop: '0.5rem'
-      }
-    },
-    buttonFilled: {
-      padding: 'clamp(0.4rem, 1vw, 0.5rem) clamp(0.75rem, 2vw, 1.25rem)',
-      border: 'none',
-      borderRadius: '0.375rem',
-      backgroundColor: colors.primary,
-      color: '#ffffff',
-      fontSize: 'clamp(0.875rem, 1vw, 1rem)',
-      cursor: 'pointer',
-      transition: 'all 0.3s ease',
-      display: 'inline-block',
-      textAlign: 'center',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-      '@media (max-width: 768px)': {
-        width: '100%',
-        marginTop: '0.5rem'
-      }
-    },
-    
-    // Hero section styles with dynamic background
-    hero: {
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 'clamp(2rem, 5vw, 4rem) clamp(1rem, 3vw, 2rem)',
-      textAlign: 'center',
-      background: `linear-gradient(135deg, ${colors.background} 0%, #f9fafb 100%)`,
-      position: 'relative',
-      overflow: 'hidden',
-      transition: 'background 0.5s ease'
-    },
-    heroBubble: {
-      position: 'absolute',
-      borderRadius: '50%',
-      background: colors.accent,
-      opacity: '0.4',
-      filter: 'blur(40px)',
-      zIndex: '0',
-      animation: 'float 8s infinite ease-in-out'
-    },
-    title: {
-      fontSize: 'clamp(1.5rem, 5vw, 3rem)',
-      fontWeight: 'bold',
-      color: colors.primary,
-      marginBottom: 'clamp(0.75rem, 2vw, 1rem)',
-      letterSpacing: '-0.025em',
-      lineHeight: '1.2',
-      maxWidth: '90%',
-      position: 'relative',
-      zIndex: '1',
-      transition: 'color 0.5s ease',
-      textShadow: '0 2px 10px rgba(255, 255, 255, 0.5)'
-    },
-    subtitle: {
-      fontSize: 'clamp(0.875rem, 3vw, 1.25rem)',
-      color: '#4b5563',
-      marginBottom: 'clamp(1.5rem, 4vw, 2rem)',
-      maxWidth: 'min(800px, 90%)',
-      lineHeight: '1.5',
-      position: 'relative',
-      zIndex: '1'
-    },
-    
-    // Search box styles with focus animation
-    searchContainer: {
-      width: '100%',
-      maxWidth: 'min(700px, 90%)',
-      marginBottom: 'clamp(1.5rem, 5vw, 3rem)',
-      position: 'relative',
-      zIndex: '1',
-      transition: 'transform 0.3s ease',
-      transform: isSearchFocused ? 'scale(1.02)' : 'scale(1)'
-    },
-    searchForm: {
-      display: 'flex',
-      width: '100%',
-      flexDirection: 'row',
-      '@media (maxWidth: 480px)': {
-        flexDirection: 'column'
-      },
-      boxShadow: isSearchFocused 
-        ? '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-        : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-      borderRadius: '0.375rem',
-      transition: 'box-shadow 0.3s ease'
-    },
-    searchInput: {
-      flex: '1',
-      padding: 'clamp(0.5rem, 2vw, 0.75rem) clamp(0.75rem, 2vw, 1rem)',
-      borderRadius: '0.375rem',
-      border: `1px solid ${isSearchFocused ? colors.secondary : '#d1d5db'}`,
-      fontSize: 'clamp(0.875rem, 2vw, 1rem)',
-      outline: 'none',
-      transition: 'all 0.3s ease',
-      '@media (minWidth: 481px)': {
-        borderRadius: '0.375rem 0 0 0.375rem'
-      }
-    },
-    searchButton: {
-      padding: 'clamp(0.5rem, 2vw, 0.75rem) clamp(1rem, 3vw, 1.5rem)',
-      backgroundColor: colors.primary,
-      color: 'white',
-      border: 'none',
-      borderRadius: '0.375rem',
-      cursor: 'pointer',
-      fontSize: 'clamp(0.875rem, 2vw, 1rem)',
-      fontWeight: '500',
-      whiteSpace: 'nowrap',
-      transition: 'all 0.3s ease',
-      '@media (minWidth: 481px)': {
-        borderRadius: '0 0.375rem 0.375rem 0'
-      },
-      '@media (maxWidth: 480px)': {
-        marginTop: '0.5rem'
-      }
-    },
-    
-    // Section styles with animated backgrounds
-    featuresSection: {
-      padding: 'clamp(2rem, 5vw, 4rem) clamp(1rem, 3vw, 2rem)',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      backgroundColor: '#ffffff',
-      position: 'relative',
-      overflow: 'hidden'
-    },
-    sectionTitle: {
-      fontSize: 'clamp(1.25rem, 4vw, 2rem)',
-      fontWeight: 'bold',
-      color: colors.primary,
-      marginBottom: 'clamp(1.5rem, 4vw, 2rem)',
-      textAlign: 'center',
-      maxWidth: '90%',
-      transition: 'color 0.5s ease',
-      position: 'relative'
-    },
-    sectionTitleUnderline: {
-      content: '""',
-      display: 'block',
-      width: '80px',
-      height: '4px',
-      backgroundColor: colors.secondary,
-      margin: '0.5rem auto 0',
-      borderRadius: '2px',
-      transition: 'background-color 0.5s ease'
-    },
-    sectionContent: {
-      fontSize: 'clamp(0.875rem, 3vw, 1.2rem)',
-      color: '#4b5563',
-      maxWidth: 'min(800px, 90%)',
-      margin: '0 auto clamp(1.5rem, 4vw, 2rem)',
-      lineHeight: '1.5',
-      position: 'relative'
-    },
-    
-    // Features grid styles with dynamic animations
-    featuresGrid: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(min(250px, 100%), 1fr))',
-      gap: 'clamp(1rem, 3vw, 2rem)',
-      width: '100%',
-      maxWidth: 'min(1200px, 90%)',
-      position: 'relative'
-    },
-    featureCard: {
-      backgroundColor: colors.background,
-      borderRadius: '0.5rem',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-      padding: 'clamp(1rem, 3vw, 1.5rem)',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      textAlign: 'center',
-      transition: 'all 0.5s ease',
-      height: '100%',
-      justifyContent: 'flex-start',
-      position: 'relative',
-      overflow: 'hidden'
-    },
-    featureIcon: {
-      width: 'clamp(40px, 10vw, 50px)',
-      height: 'clamp(40px, 10vw, 50px)',
-      backgroundColor: colors.accent,
-      borderRadius: '50%',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 'clamp(0.75rem, 2vw, 1rem)',
-      fontSize: 'clamp(1.25rem, 3vw, 1.5rem)',
-      transition: 'all 0.5s ease',
-      position: 'relative',
-      zIndex: '2'
-    },
-    featureTitle: {
-      fontSize: 'clamp(1rem, 3vw, 1.25rem)',
-      fontWeight: 'bold',
-      color: colors.primary,
-      marginBottom: 'clamp(0.4rem, 1vw, 0.5rem)',
-      transition: 'color 0.5s ease',
-      position: 'relative',
-      zIndex: '2'
-    },
-    featureDescription: {
-      color: '#4b5563',
-      lineHeight: '1.5',
-      fontSize: 'clamp(0.875rem, 2vw, 1rem)',
-      position: 'relative',
-      zIndex: '2'
-    },
-    
-    // Property listings styles with enhanced cards
-    recentListingsSection: {
-      padding: 'clamp(2rem, 5vw, 4rem) clamp(1rem, 3vw, 2rem)',
-      background: `linear-gradient(135deg, #f9fafb 0%, ${colors.background} 100%)`,
-      transition: 'background 0.5s ease',
-      position: 'relative',
-      overflow: 'hidden'
-    },
-    propertiesGrid: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))',
-      gap: 'clamp(1rem, 3vw, 2rem)',
-      width: '100%',
-      maxWidth: 'min(1200px, 90%)',
-      margin: '0 auto',
-      position: 'relative'
-    },
-    propertyCard: {
-      backgroundColor: '#ffffff',
-      borderRadius: '0.5rem',
-      overflow: 'hidden',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-      cursor: 'pointer',
-      transition: 'all 0.4s ease',
-      height: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-      position: 'relative'
-    },
-    propertyImageWrapper: {
-      position: 'relative',
-      overflow: 'hidden',
-      height: 'clamp(150px, 30vw, 200px)',
-    },
-    propertyImage: {
-      width: '100%',
-      height: 'clamp(150px, 30vw, 200px)',
-      backgroundColor: '#e5e7eb',
-      objectFit: 'cover',
-      transition: 'transform 0.6s ease'
-    },
-    propertyImageOverlay: {
-      position: 'absolute',
-      inset: '0',
-      backgroundColor: 'rgba(0, 0, 0, 0.2)',
-      opacity: '0',
-      transition: 'opacity 0.4s ease'
-    },
-    propertyDetails: {
-      padding: 'clamp(1rem, 3vw, 1.5rem)',
-      display: 'flex',
-      flexDirection: 'column',
-      flex: '1',
-      position: 'relative',
-      zIndex: '1'
-    },
-    propertyTitle: {
-      fontSize: 'clamp(1rem, 3vw, 1.25rem)',
-      fontWeight: 'bold',
-      color: '#1f2937',
-      marginBottom: 'clamp(0.4rem, 1vw, 0.5rem)',
-      transition: 'color 0.3s ease'
-    },
-    propertyLocation: {
-      color: colors.secondary,
-      fontSize: 'clamp(0.75rem, 2vw, 0.875rem)',
-      marginBottom: 'clamp(0.4rem, 1vw, 0.5rem)',
-      transition: 'color 0.5s ease',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '0.25rem'
-    },
-    propertyPrice: {
-      fontSize: 'clamp(0.95rem, 2.5vw, 1.125rem)',
-      fontWeight: 'bold',
-      color: '#1f2937',
-      marginBottom: 'clamp(0.4rem, 1vw, 0.5rem)',
-      transition: 'color 0.3s ease'
-    },
-    propertyFeatures: {
-      display: 'flex',
-      gap: 'clamp(0.5rem, 2vw, 1rem)',
-      marginTop: 'auto',
-      color: '#6b7280',
-      fontSize: 'clamp(0.75rem, 2vw, 0.875rem)',
-      flexWrap: 'wrap'
-    },
-    propertyTag: {
-      position: 'absolute',
-      top: '10px',
-      right: '10px',
-      backgroundColor: colors.primary,
-      color: 'white',
-      padding: '0.25rem 0.5rem',
-      borderRadius: '0.25rem',
-      fontSize: '0.75rem',
-      fontWeight: 'bold',
-      zIndex: '2',
-      transition: 'background-color 0.5s ease'
-    },
-    
-    // CTA section styles with dynamic background
-    ctaSection: {
-      padding: 'clamp(2rem, 5vw, 4rem) clamp(1rem, 3vw, 2rem)',
-      backgroundColor: colors.primary,
-      color: '#ffffff',
-      textAlign: 'center',
-      position: 'relative',
-      overflow: 'hidden',
-      transition: 'background-color 0.5s ease'
-    },
-    ctaBackground: {
-      position: 'absolute',
-      inset: '0',
-      background: `radial-gradient(circle at 20% 30%, ${colors.secondary}22 0%, transparent 50%), 
-                  radial-gradient(circle at 80% 60%, ${colors.secondary}22 0%, transparent 50%)`,
-      opacity: '0.6',
-      transition: 'background 0.5s ease'
-    },
-    ctaTitle: {
-      fontSize: 'clamp(1.25rem, 4vw, 2rem)',
-      fontWeight: 'bold',
-      marginBottom: 'clamp(0.75rem, 2vw, 1rem)',
-      maxWidth: '90%',
-      margin: '0 auto',
-      position: 'relative',
-      zIndex: '1'
-    },
-    ctaDescription: {
-      fontSize: 'clamp(0.875rem, 3vw, 1.125rem)',
-      maxWidth: 'min(700px, 90%)',
-      margin: '0 auto clamp(1.5rem, 4vw, 2rem)',
-      lineHeight: '1.5',
-      position: 'relative',
-      zIndex: '1'
-    },
-    ctaButton: {
-      padding: 'clamp(0.5rem, 2vw, 0.75rem) clamp(1.5rem, 4vw, 2rem)',
-      backgroundColor: '#ffffff',
-      color: colors.secondary,
-      border: 'none',
-      borderRadius: '0.375rem',
-      fontSize: 'clamp(0.875rem, 2vw, 1rem)',
-      fontWeight: '500',
-      cursor: 'pointer',
-      transition: 'all 0.3s ease',
-      position: 'relative',
-      zIndex: '1',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-    },
-    
-    // Footer styles
-    footer: {
-      marginTop: 'auto',
-      backgroundColor: '#1f2937',
-      padding: 'clamp(2rem, 5vw, 3rem) clamp(1rem, 3vw, 2rem)',
-      color: '#ffffff',
-      position: 'relative'
-    },
-    footerContent: {
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      maxWidth: 'min(1200px, 90%)',
-      margin: '0 auto',
-      textAlign: 'center',
-      position: 'relative',
-      zIndex: '1'
-    },
-    footerLinks: {
-      display: 'flex',
-      gap: 'clamp(1rem, 3vw, 2rem)',
-      marginBottom: 'clamp(1.5rem, 4vw, 2rem)',
-      flexWrap: 'wrap',
-      justifyContent: 'center'
-    },
-    footerLink: {
-      color: '#e5e7eb',
-      textDecoration: 'none',
-      cursor: 'pointer',
-      transition: 'color 0.3s',
-      fontSize: 'clamp(0.875rem, 2vw, 1rem)',
-      position: 'relative',
-      '&:after': {
-        content: '""',
-        position: 'absolute',
-        width: '0',
-        height: '2px',
-        bottom: '-4px',
-        left: '0',
-        backgroundColor: colors.secondary,
-        transition: 'width 0.3s ease'
-      }
-    },
-    footerCopyright: {
-      color: '#9ca3af',
-      fontSize: 'clamp(0.75rem, 2vw, 0.875rem)'
-    }
-  };
-
-  // Common section style for community and contact sections
-  const commonSectionStyle = {
-    padding: 'clamp(2rem, 5vw, 4rem) clamp(1rem, 3vw, 2rem)', 
-    textAlign: 'center', 
-    backgroundColor: '#f9fafb',
-    position: 'relative',
-    overflow: 'hidden'
-  };
-
-  // Animation effect for staggered entrance
-  const getAnimationDelay = (index) => ({
-    animation: 'fadeInUp 0.6s ease forwards',
-    animationDelay: `${0.1 + (index * 0.1)}s`,
-    opacity: '0',
-    '@keyframes fadeInUp': {
-      '0%': { opacity: 0, transform: 'translateY(20px)' },
-      '100%': { opacity: 1, transform: 'translateY(0)' }
-    }
-  });
-
   return (
-    <div style={styles.container}>
-      {/* Header with Navigation */}
-      <header style={styles.header}>
-        <div style={styles.logo}>
-          <span style={styles.logoIcon}>🏠</span>
-          ZIT AccommoHub
-        </div>
-        
-        {/* Mobile menu toggle button */}
-        <button 
-          style={{
-            display: window.innerWidth <= 768 ? 'block' : 'none',
-            backgroundColor: 'transparent',
-            border: 'none',
-            fontSize: '1.5rem',
-            cursor: 'pointer',
-            padding: '0.5rem',
-            transform: menuOpen ? 'rotate(90deg)' : 'rotate(0)',
-            transition: 'transform 0.3s ease'
-          }}
-          onClick={() => setMenuOpen(!menuOpen)}
-          aria-label="Toggle menu"
-        >
-          {menuOpen ? '✕' : '☰'}
-        </button>
-        
-        {/* Navigation Menu */}
-        
-        <nav style={{
-          ...styles.nav,
-          display: window.innerWidth > 768 ? 'flex' : menuOpen ? 'flex' : 'none',
-          flexDirection: window.innerWidth > 768 ? 'row' : 'column',
-          alignItems: window.innerWidth > 768 ? 'center' : 'flex-start',
-          width: window.innerWidth > 768 ? 'auto' : '100%',
-          padding: window.innerWidth > 768 ? '0' : '1rem 0',
-          gap: window.innerWidth > 768 ? 'clamp(0.5rem, 2vw, 2rem)' : '1rem'
-        }}>
-          {['home', 'services', 'community', 'contact'].map((item) => (
-            <div 
-              key={item}
-              style={{
-                ...styles.navItem,
-                borderBottom: hoveredItem === item ? '2px solidrgb(42, 0, 110)' : '2px solid transparent',
-                width: window.innerWidth > 768 ? 'auto' : '100%',
-                padding: window.innerWidth > 768 ? '0.5rem 0' : '0.75rem 0'
-              }}
-              onMouseEnter={() => setHoveredItem(item)}
-              onMouseLeave={() => setHoveredItem(null)}
-              onClick={() => handleNavigation(item)}
-            >
-              {item.charAt(0).toUpperCase() + item.slice(1)}
-            </div>
-          ))}
-          <button 
-            style={{
-              ...styles.buttonOutline,
-              backgroundColor: hoveredItem === 'signin' ? '#f3f4f6' : 'transparent',
-              width: window.innerWidth > 768 ? 'auto' : '100%',
-              marginTop: window.innerWidth > 768 ? '0' : '0.5rem'
+    <div className="app-container">
+      {/* Streamlined Navigation */}
+      <nav className={`navbar navbar-expand-lg sticky-top navbar-light bg-white shadow-sm ${isScrolled ? 'border-bottom' : ''}`}>
+        <div className="container">
+          <a
+            className="navbar-brand fw-bold text-primary"
+            href="#home"
+            onClick={(e) => {
+              e.preventDefault();
+              handleNavigation('home');
             }}
-            onMouseEnter={() => setHoveredItem('signin')}
-            onMouseLeave={() => setHoveredItem(null)}
-            onClick={() => handleNavigation('signin')}
           >
-            Sign in
-          </button>
-          <button 
-            style={{
-              ...styles.buttonFilled,
-              backgroundColor: hoveredItem === 'register' ? '#5b21b6' : '#6d28d9',
-              width: window.innerWidth > 768 ? 'auto' : '100%',
-              marginTop: window.innerWidth > 768 ? '0' : '0.5rem'
-            }}
-            onMouseEnter={() => setHoveredItem('register')}
-            onMouseLeave={() => setHoveredItem(null)}
-            onClick={() => handleNavigation('register')}
+            🏠 NexNest
+          </a>
+          <button
+            className="navbar-toggler border-0"
+            type="button"
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-controls="navbarNav"
+            aria-expanded={menuOpen}
+            aria-label="Toggle navigation"
           >
-            Register
+            <span className="navbar-toggler-icon"></span>
           </button>
-        </nav>
-      </header>
-
-      {/* Hero Section (Home) */}
-      <section id="home" style={styles.hero}>
-        <h1 style={styles.title}>Find Your Perfect Student Accommodation</h1>
-        <p style={styles.subtitle}>
-          Discover the best boarding houses and student accommodations near Copperbelt University.
-          We connect students with safe, comfortable, and affordable housing options.
-        </p>
-        {/* Search Box */}
-        <div style={styles.searchContainer}>
-          <form style={styles.searchForm} onSubmit={(e) => e.preventDefault()}>
-            <input 
-              type="text" 
-              placeholder="Search by location, price, or amenities..." 
-              style={{
-                ...styles.searchInput,
-                borderRadius: window.innerWidth > 480 ? '0.375rem 0 0 0.375rem' : '0.375rem'
-              }}
-              aria-label="Search accommodations"
-            />
-            <button type="submit" style={{
-              ...styles.searchButton,
-              borderRadius: window.innerWidth > 480 ? '0 0.375rem 0.375rem 0' : '0.375rem',
-              marginTop: window.innerWidth > 480 ? '0' : '0.5rem'
-            }}>
-              Search
-            </button>
-          </form>
+          <div className={`collapse navbar-collapse ${menuOpen ? 'show' : ''}`} id="navbarNav">
+            <ul className="navbar-nav ms-auto align-items-center">
+              {[
+                { key: 'home', label: 'Home' },
+                { key: 'services', label: 'Services' },
+                { key: 'community', label: 'Community' },
+                { key: 'contact', label: 'Contact' }
+              ].map((item) => (
+                <li className="nav-item" key={item.key}>
+                  <a
+                    className="nav-link px-3"
+                    href={`#${item.key}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleNavigation(item.key);
+                    }}
+                  >
+                    {item.label}
+                  </a>
+                </li>
+              ))}
+              <li className="nav-item ms-2">
+                <button 
+                  className="btn btn-outline-primary btn-sm me-2" 
+                  onClick={() => handleNavigation('signin')}
+                >
+                  Sign In
+                </button>
+              </li>
+              <li className="nav-item">
+                <button 
+                  className="btn btn-primary btn-sm" 
+                  onClick={() => handleNavigation('register')}
+                >
+                  Register
+                </button>
+              </li>
+            </ul>
+          </div>
         </div>
-      </section>
+      </nav>
 
-      {/* Features Section (Services) */}
-      <section id="services" style={styles.featuresSection}>
-        <h2 style={styles.sectionTitle}>Our Services</h2>
-        <div style={styles.featuresGrid}>
-          {[
-            {
-              icon: '🔍',
-              title: 'Verified Listings',
-              description: 'All accommodations are personally verified by our team to ensure safety, comfort, and accuracy.'
-            },
-            {
-              icon: '💰',
-              title: 'Student Budget Friendly',
-              description: 'Find accommodations that fit your budget with transparent pricing and no hidden fees.'
-            },
-            {
-              icon: '📍',
-              title: 'Prime Locations',
-              description: 'All listings are within walking distance or a short commute to Copperbelt University.'
-            },
-            {
-              icon: '📱',
-              title: 'Easy Booking',
-              description: 'Book viewings, contact landlords, and secure your accommodation all through our platform.'
-            }
-          ].map((feature, index) => (
-            <div 
-              key={index} 
-              style={{
-                ...styles.featureCard,
-                transform: hoveredItem === `feature${index}` ? 'translateY(-5px)' : 'none',
-                boxShadow: hoveredItem === `feature${index}` ? 
-                  '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' : 
-                  '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-              }}
-              onMouseEnter={() => setHoveredItem(`feature${index}`)}
-              onMouseLeave={() => setHoveredItem(null)}
-            >
-              <div style={styles.featureIcon}>{feature.icon}</div>
-              <h3 style={styles.featureTitle}>{feature.title}</h3>
-              <p style={styles.featureDescription}>{feature.description}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Community Section */}
-      <section id="community" style={commonSectionStyle}>
-        <h2 style={styles.sectionTitle}>Our Community</h2>
-        <p style={styles.sectionContent}>
-          Join a vibrant community of students and landlords. Engage, share experiences, and grow together.
-          We regularly host meetups, workshops, and events to help you connect with fellow students and find
-          the perfect roommates or accommodation partners.
-        </p>
-      </section>
-
-      {/* Recent Listings Section */}
-      <section style={styles.recentListingsSection}>
-        <h2 style={styles.sectionTitle}>Featured Accommodations</h2>
-        <div style={styles.propertiesGrid}>
-          {[
-            {
-              id: 'property1',
-              title: 'Modern Student Suite',
-              location: 'Riverside, 5 min to CBU',
-              price: 'K1,500 / month',
-              features: ['Single Room', 'Wi-Fi', 'Shared Kitchen']
-            },
-            {
-              id: 'property2',
-              title: 'Cozy Shared House',
-              location: 'Jambo Drive, 10 min to CBU',
-              price: 'K1,200 / month',
-              features: ['Shared Room', 'Water Included', 'Security']
-            },
-            {
-              id: 'property3',
-              title: 'Premium Student Apartment',
-              location: 'University Avenue, 2 min to CBU',
-              price: 'K2,000 / month',
-              features: ['Private Studio', 'All Utilities', 'Study Room']
-            }
-          ].map((property) => (
-            <div 
-              key={property.id}
-              style={{
-                ...styles.propertyCard,
-                transform: hoveredItem === property.id ? 'translateY(-5px)' : 'none',
-                boxShadow: hoveredItem === property.id ? 
-                  '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' : 
-                  '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-              }}
-              onMouseEnter={() => setHoveredItem(property.id)}
-              onMouseLeave={() => setHoveredItem(null)}
-              onClick={() => navigate(`/property/${property.id}`)}
-            >
-              <div style={styles.propertyImage}>
-                <img src="/api/placeholder/400/200" alt={property.title} style={styles.propertyImage} />
+      {/* Direct Hero Section - No excessive spacing */}
+      <section id="home" ref={homeRef} className="hero bg-light py-5">
+        <div className="container">
+          <div className="row align-items-center">
+            <div className="col-lg-6">
+              <h1 className="display-5 fw-bold mb-3 text-dark">
+                Find Your Perfect Student Home Near Your University
+              </h1>
+              <p className="lead mb-4 text-muted">
+                Discover quality, affordable student accommodation with verified landlords and transparent pricing in Kitwe.
+              </p>
+              
+              {/* Immediate Search - Above the fold */}
+              <div className="search-container mb-4">
+                <form className="d-flex" onSubmit={(e) => e.preventDefault()}>
+                  <input
+                    type="text"
+                    className="form-control form-control-lg me-2"
+                    placeholder="Search by area, price range, or features..."
+                    aria-label="Search accommodations"
+                  />
+                  <button type="submit" className="btn btn-primary btn-lg px-4">
+                    Search
+                  </button>
+                </form>
               </div>
-              <div style={styles.propertyDetails}>
-                <h3 style={styles.propertyTitle}>{property.title}</h3>
-                <p style={styles.propertyLocation}>{property.location}</p>
-                <p style={styles.propertyPrice}>{property.price}</p>
-                <div style={styles.propertyFeatures}>
-                  {property.features.map((feature, index) => (
-                    <span key={index}>{index > 0 ? `• ${feature}` : feature}</span>
+              
+              <div className="d-flex gap-3">
+                <button 
+                  className="btn btn-outline-primary" 
+                  onClick={() => handleNavigation('viewall')}
+                >
+                  Browse All Properties
+                </button>
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={() => handleNavigation('register')}
+                >
+                  Get Started
+                </button>
+              </div>
+            </div>
+            
+            <div className="col-lg-6">
+              {/* Quick Stats - Updated with more appealing content */}
+              <div className="row g-3">
+                <div className="col-6">
+                  <div className="card text-center border-0 bg-white shadow-sm">
+                    <div className="card-body py-3">
+                      <h3 className="text-primary mb-1">300+</h3>
+                      <small className="text-muted">Active Listings</small>
+                    </div>
+                  </div>
+                </div>
+                <div className="col-6">
+                  <div className="card text-center border-0 bg-white shadow-sm">
+                    <div className="card-body py-3">
+                      <h3 className="text-success mb-1">From As Low As K450</h3>
+                      <small className="text-muted">Starting Price</small>
+                    </div>
+                  </div>
+                </div>
+                <div className="col-6">
+                  <div className="card text-center border-0 bg-white shadow-sm">
+                    <div className="card-body py-3">
+                      <h3 className="text-info mb-1">98%</h3>
+                      <small className="text-muted">Student Satisfaction</small>
+                    </div>
+                  </div>
+                </div>
+                <div className="col-6">
+                  <div className="card text-center border-0 bg-white shadow-sm">
+                    <div className="card-body py-3">
+                      <h3 className="text-warning mb-1">Fast</h3>
+                      <small className="text-muted">Response Time</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Featured Properties - Now shows immediately */}
+      <section className="properties py-5">
+        <div className="container">
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <div>
+              <h2 className="h3 mb-1">Available Student Accommodation</h2>
+              <p className="text-muted small mb-0">
+                {hasLoadedAPI ? 'Live listings updated regularly' : 'Featured properties near CBU campus'}
+              </p>
+            </div>
+            <button 
+              className="btn btn-outline-primary btn-sm" 
+              onClick={() => handleNavigation('viewall')}
+            >
+              View All Properties
+            </button>
+          </div>
+          
+          <div className="row">
+            {featuredProperties.slice(0, 8).map((property) => (
+              <div className="col-md-6 " key={property.id}>
+                <div className="card h-100 border-0 shadow-sm">
+                  <div className="position-relative">
+                    <img 
+                      src={property.image} 
+                      className="card-img-top" 
+                      alt={property.title}
+                      style={{ height: '200px', objectFit: 'cover' }}
+                      loading="lazy"
+                    />
+                    {property.tag && (
+                      <span className={`badge position-absolute top-0 end-0 m-2 ${
+                        property.tag === 'Popular' ? 'bg-success' :
+                        property.tag === 'Budget' ? 'bg-info' :
+                        property.tag === 'Premium' ? 'bg-warning' :
+                        property.tag === 'Luxury' ? 'bg-dark' : 'bg-primary'
+                      }`}>
+                        {property.tag}
+                      </span>
+                    )}
+                  </div>
+                  <div className="card-body d-flex flex-column">
+                    <h5 className="card-title mb-2">{property.title}</h5>
+                    <p className="text-muted small mb-2">
+                      📍 {property.location}
+                    </p>
+                    <p className="fw-bold text-primary mb-3">{property.price}</p>
+                    <div className="mb-3">
+                      {property.features.slice(0, 3).map((feature, index) => (
+                        <span key={index} className="badge bg-light text-dark me-1 mb-1">
+                          {feature}
+                        </span>
+                      ))}
+                    </div>
+                    <button
+                      className="btn btn-primary btn-sm mt-auto"
+                      onClick={() => navigate('/PropertyDetailsPage', { state: { propertyId: property.id } })}
+                    >
+                      View Details
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Enhanced Services Section */}
+      <section id="services" ref={servicesRef} className="py-5 bg-light">
+        <div className="container">
+          <h2 className="h3 text-center mb-5">Why Students Choose Us</h2>
+          <div className="row g-4">
+            {[
+              {
+                icon: '🏆',
+                title: 'Trusted by Students',
+                description: 'Over 2,000 CBU students have found their perfect accommodation through our platform.',
+              },
+              {
+                icon: '💰',
+                title: 'Best Value Guarantee',
+                description: 'Compare prices easily and find the best deals with no hidden fees or booking charges.',
+              },
+              {
+                icon: '🚶‍♂️',
+                title: 'Walk to Campus',
+                description: 'All properties are within easy walking distance or short transport to CBU main campus.',
+              },
+              {
+                icon: '🤝',
+                title: 'Direct Connections',
+                description: 'Chat directly with verified property owners and get quick responses to your inquiries.',
+              },
+            ].map((feature, index) => (
+              <div className="col-md-6 col-lg-3" key={index}>
+                <div className="text-center">
+                  <div className="fs-2 mb-3">{feature.icon}</div>
+                  <h4 className="h5 mb-3">{feature.title}</h4>
+                  <p className="text-muted small">{feature.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Community Section - Enhanced */}
+      <section id="community" ref={communityRef} className="py-5">
+        <div className="container">
+          <div className="row align-items-center">
+            <div className="col-lg-8">
+              <h2 className="h3 mb-3">Join Our Student Community</h2>
+              <p className="lead text-muted mb-3">
+                Connect with fellow CBU students, share housing tips, find roommates, and get insider advice from our active community.
+              </p>
+              <div className="d-flex align-items-center gap-4">
+                <div className="text-center">
+                  <strong className="text-primary fs-5">100 plus</strong>
+                  <div className="small text-muted">Active Members</div>
+                </div>
+                <div className="text-center">
+                  <strong className="text-success fs-5">24/7</strong>
+                  <div className="small text-muted">Community Support</div>
+                </div>
+                <div className="text-center">
+                  <strong className="text-info fs-5">Free</strong>
+                  <div className="small text-muted">To Join</div>
+                </div>
+              </div>
+            </div>
+            <div className="col-lg-4 text-lg-end">
+              <button className="btn btn-outline-primary btn-lg">
+                Join Community
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Contact Section - Enhanced */}
+      <section id="contact" ref={contactRef} className="py-5 bg-dark text-white">
+        <div className="container">
+          <div className="row">
+            <div className="col-lg-8">
+              <h2 className="h3 mb-4">Need Help Finding Accommodation?</h2>
+              <p className="mb-4">Our team is here to help you find the perfect student accommodation near CBU campus.</p>
+              <div className="row">
+                <div className="col-md-6">
+                  <p className="mb-2">
+                    <strong>📧 Email:</strong> <a href="mailto:brianchanda02@gmail.com" className="text-white">brianchanda02@gmail.com</a>
+                  </p>
+                  <p className="mb-2">
+                    <strong>📱 WhatsApp:</strong> <a href="tel:+260972526777" className="text-white">+260 972 526 777</a>
+                  </p>
+                </div>
+                <div className="col-md-6">
+                  <p className="mb-2">
+                    <strong>📍 Location:</strong> CBU Campus Area, Kitwe
+                  </p>
+                  <p className="mb-2">
+                    <strong>⏰ Support:</strong> 8AM - 8PM Daily
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="col-lg-4 text-lg-end">
+              <button 
+                className="btn btn-light btn-lg"
+                onClick={() => handleNavigation('register')}
+              >
+                Start Your Search Today
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      
+
+      {/* Footer */}
+      <footer className="mt-auto py-5 bg-dark text-white">
+        <div className="container">
+          <div className="row gy-4">
+            <div className="col-md-4">
+              <h5 className="fw-bold mb-3 d-flex align-items-center">
+                <i className="bi bi-building-fill me-2"></i>
+               NexNest
+              </h5>
+              <p className="mb-3">
+                Your trusted partner for finding safe and affordable student housing at Copperbelt University.
+              </p>
+              <div className="d-flex gap-3">
+                {['facebook', 'twitter-x', 'instagram', 'linkedin'].map((platform) => (
+                  <a href="#" className="text-white" key={platform}>
+                    <i className={`bi bi-${platform} fs-5`}></i>
+                  </a>
+                ))}
+              </div>
+            </div>
+            <div className="col-md-8">
+              <div className="row">
+                <div className="col-sm-4">
+                  <h6 className="fw-bold mb-3">Quick Links</h6>
+                  <ul className="list-unstyled mb-0">
+                    {['Home', 'Browse Listings', 'Saved Properties', 'My Account'].map((link) => (
+                      <li className="mb-2" key={link}>
+                        <a href="#" className="text-decoration-none text-white-50 hover-white">
+                          {link}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="col-sm-4">
+                  <h6 className="fw-bold mb-3">Resources</h6>
+                  <ul className="list-unstyled mb-0">
+                    {['FAQs', 'Student Guide', 'Safety Tips', 'Blog'].map((resource) => (
+                      <li className="mb-2" key={resource}>
+                        <a href="#" className="text-decoration-none text-white-50 hover-white">
+                          {resource}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="col-sm-4">
+                  <h6 className="fw-bold mb-3">Contact Us</h6>
+                  <ul className="list-unstyled mb-0">
+                    <li className="mb-2 d-flex align-items-center">
+                      <i className="bi bi-geo-alt me-2"></i>
+                      <span className="text-white-50">CBU Campus, Kitwe</span>
+                    </li>
+                    <li className="mb-2 d-flex align-items-center">
+                      <i className="bi bi-envelope me-2"></i>
+                      <span className="text-white-50">support@NexNest.ac.zm</span>
+                    </li>
+                    <li className="mb-2 d-flex align-items-center">
+                      <i className="bi bi-telephone me-2"></i>
+                      <span className="text-white-50">+260 972 526777</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <div className="col-12 mt-4">
+              <hr className="border-secondary" />
+              <div className="d-flex flex-column flex-sm-row justify-content-between align-items-center mt-3">
+                <p className="mb-0 text-white-50">
+                  © {new Date().getFullYear()} NexNest. All rights reserved.
+                </p>
+                <div className="mt-3 mt-sm-0">
+                  {['Privacy Policy', 'Terms of Service', 'Sitemap'].map((link) => (
+                    <a href="#" className="text-decoration-none me-3 text-white-50 hover-white" key={link}>
+                      {link}
+                    </a>
                   ))}
                 </div>
               </div>
             </div>
-          ))}
+          </div>
         </div>
-      </section>
-
-      {/* Call to Action Section */}
-      <section style={styles.ctaSection}>
-        <h2 style={styles.ctaTitle}>Ready to Find Your Student Home?</h2>
-        <p style={styles.ctaDescription}>
-          Join hundreds of Copperbelt University students who have found their perfect accommodation through ZIT AccommoHub.
-        </p>
-        <button 
-          style={{
-            ...styles.ctaButton,
-            backgroundColor: hoveredItem === 'ctaButton' ? '#f9fafb' : '#ffffff',
-            transform: hoveredItem === 'ctaButton' ? 'scale(1.05)' : 'scale(1)'
-          }}
-          onMouseEnter={() => setHoveredItem('ctaButton')}
-          onMouseLeave={() => setHoveredItem(null)}
-          onClick={() => handleNavigation('register')}
-        >
-          Get Started Today
-        </button>
-      </section>
-
-      {/* Contact Section */}
-      <section id="contact" style={commonSectionStyle}>
-        <h2 style={styles.sectionTitle}>Contact Us</h2>
-        <p style={styles.sectionContent}>
-          Have questions? Reach out to us via email at <a href="mailto:brianchanda02@gmail.com" style={{color: '#6d28d9'}}>brianchanda02@gmail.com</a> or call us at <a href="tel:+260972526777" style={{color: '#6d28d9'}}>+260 972526777</a>.
-        </p>
-      </section>
-
-      {/* Footer */}
-<footer style={styles.footer}>
-  <div style={styles.footerContent}>
-    <div style={styles.footerLinks}>
-      {['About Us', 'Services', 'Community', 'Contact'].map((item, index) => (
-        <span 
-          key={index}
-          style={{
-            ...styles.footerLink,
-            color: hoveredItem === `footer${item.replace(' ', '')}` ? '#ffffff' : '#e5e7eb'
-          }}
-          onMouseEnter={() => setHoveredItem(`footer${item.replace(' ', '')}`)}
-          onMouseLeave={() => setHoveredItem(null)}
-          onClick={() => handleNavigation(item.toLowerCase().replace(' ', ''))}
-        >
-          {item}
-        </span>
-      ))}
+      </footer>
     </div>
-    <p style={styles.footerCopyright}>
-      © 2025 ZIT AccommoHub. All rights reserved.
-    </p>
-  </div>
-</footer>
-</div>
   );
 };
 
