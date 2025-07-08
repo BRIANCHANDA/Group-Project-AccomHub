@@ -3,7 +3,7 @@ import configureOpenAPI from "../configure-open-api";
 import createApp from "./libs/create-app";
 import authRouter from "./routes/authRoute";
 import propertiesRouter from "./routes/propertyRoute";
-import bookingRouter from "./routes/bookingRoute";
+
 import reviewsRouter from "./routes/reviewAuth";
 import messagesRouter from "./routes/messagesAuth";
 
@@ -12,7 +12,7 @@ import propertyImageRouter from "./routes/propertyImagesRoute";
 import propertyDetailRouter from "./routes/propertyDetailsRoute";
 
 import propertyListing from "./routes/PropertyListingRoute";
-import inquiryRouter from "./routes/InquiryRoute";
+
 import propertyDetails from './routes/details';
 
 
