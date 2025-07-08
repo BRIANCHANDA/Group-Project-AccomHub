@@ -1,14 +1,14 @@
 import serveEmojiFavicon from '../middlewares/favicon';
 import { pinoLogger } from '../middlewares/logger'
-//import { notFound, onError } from "stoker/middlewares";
+import { notFound, onError } from "stoker/middlewares";
 import { OpenAPIHono } from '@hono/zod-openapi';
-//import { defaultHook } from 'stoker/openapi';
+import { defaultHook } from 'stoker/openapi';
 
 
 export function createRouter() {
     return new OpenAPIHono({
       strict: false,
-      //defaultHook,
+      defaultHook,
     });
   }
   
@@ -17,7 +17,7 @@ export function createRouter() {
     app.use(serveEmojiFavicon("📝"));
     app.use(pinoLogger());
   
-    //app.notFound(notFound);
-    //app.onError(onError);
+    app.notFound(notFound);
+    app.onError(onError);
     return app;
   }
