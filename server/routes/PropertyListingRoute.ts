@@ -1,4 +1,3 @@
-
 import { createRoute, z } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 import { properties, propertyDetails, propertyImages, users } from "../db/schemas/mgh_db";
@@ -6,7 +5,7 @@ import { db } from "../db";
 import { propertyTypeEnum } from '../db/schemas/mgh_db'; 
 import { createRouter } from "../libs/create-app";
 import * as HttpStatusCodes from "stoker/http-status-codes";
-import { and, eq, gte, lte, sql } from "drizzle-orm";
+import { and, eq, gte, lte, sql, inArray } from "drizzle-orm";
 import axios from "axios";
 import NodeCache from "node-cache";
 
@@ -14,6 +13,23 @@ const propertyListing = createRouter();
 
 // Get property type values from enum for validation
 const propertyTypeValues = ['apartment', 'house', 'shared_room', 'single_room'] as const;
+
+// Define common university values (can be expanded)
+const universityValues = [
+   'University of Zambia (UNZA)',
+  'Copperbelt University (CBU)',
+  'Mulungushi University',
+  'Zambia Open University',
+  'Cavendish University',
+  'Texila American University',
+  'Information and Communications University',
+  'Levy Mwanawasa Medical University',
+  'Rockview University',
+  'Kwame Nkrumah University',
+  'University of Lusaka',
+  'Chalimbana University',
+  'Other'
+] as const;
 
 /**
  * Helper function to safely parse decimal values from string
@@ -25,9 +41,6 @@ const safeParseDecimal = (value?: string): number | undefined => {
   const parsed = parseFloat(value);
   return isNaN(parsed) ? undefined : parsed;
 };
-
-
-
 
 // Get all properties with detailed information for student view
 propertyListing.openapi(
@@ -65,6 +78,8 @@ propertyListing.openapi(
             .refine(val => !isNaN(val), "Bedrooms must be a valid integer")
             .refine(val => val >= 0, "Bedrooms must be zero or positive")
             .optional(),
+          // University filter
+          university: z.enum(universityValues).optional(),
           // Map parameters
           neLat: z.string()
             .transform(val => parseFloat(val))
@@ -108,6 +123,8 @@ propertyListing.openapi(
                         isAvailable: z.boolean(),
                         latitude: z.number().optional(),
                         longitude: z.number().optional(),
+                        targetUniversity: z.string(), // Added target university
+                        distanceToUniversity: z.number().optional(), // Added distance info
                         details: z.object({
                           bedrooms: z.number().optional(),
                           bathrooms: z.number().optional(),
@@ -140,12 +157,14 @@ propertyListing.openapi(
                         monthlyRent: z.number(),
                         latitude: z.number(),
                         longitude: z.number(),
+                        targetUniversity: z.string(), // Added target university
                         imageUrl: z.string().optional(),
                       })
                     ])
                   ),
                   totalCount: z.number(),
                   hasMore: z.boolean(),
+                  universities: z.array(z.string()).optional(), // Available universities filter
                 }),
               })
             }
@@ -195,6 +214,11 @@ propertyListing.openapi(
         // Base query conditions
         let conditions = [eq(properties.isAvailable, true)];
         
+        // Add university filter if specified
+        if (query.university) {
+          conditions.push(eq(properties.targetUniversity, query.university));
+        }
+        
         if (query.propertyType) {
           conditions.push(eq(properties.propertyType, query.propertyType));
         }
@@ -227,6 +251,14 @@ propertyListing.openapi(
         const countResult = await countQuery;
         const totalCount = Number(countResult[0].count);
         
+        // Get distinct universities for filter options
+        const universitiesResult = await db
+          .selectDistinct({ university: properties.targetUniversity })
+          .from(properties)
+          .where(eq(properties.isAvailable, true));
+        
+        const availableUniversities = universitiesResult.map(u => u.university).filter(Boolean);
+        
         // Define the limit and offset
         const limit = query.limit ?? 10;
         const offset = query.offset ?? 0;
@@ -243,6 +275,7 @@ propertyListing.openapi(
             isAvailable: properties.isAvailable,
             latitude: sql<string>`${properties.latitude}::text`,
             longitude: sql<string>`${properties.longitude}::text`,
+            targetUniversity: properties.targetUniversity,
             landlordId: properties.landlordId,
           })
           .from(properties)
@@ -278,6 +311,7 @@ propertyListing.openapi(
               monthlyRent,
               latitude: latitude || 0,
               longitude: longitude || 0,
+              targetUniversity: property.targetUniversity,
               imageUrl: primaryImage?.imageUrl,
             });
             continue;
@@ -332,6 +366,14 @@ propertyListing.openapi(
             .where(eq(users.userId, property.landlordId))
             .limit(1);
           
+          // Calculate distance to university if coordinates are available
+          let distanceToUniversity: number | undefined;
+          if (latitude && longitude) {
+            // This would be replaced with actual distance calculation logic
+            // For now using a placeholder calculation
+            distanceToUniversity = Math.sqrt(Math.pow(latitude, 2) + Math.pow(longitude, 2));
+          }
+          
           enrichedProperties.push({
             propertyId: property.propertyId,
             title: property.title,
@@ -342,6 +384,8 @@ propertyListing.openapi(
             isAvailable: property.isAvailable,
             latitude: latitude ?? undefined,
             longitude: longitude ?? undefined,
+            targetUniversity: property.targetUniversity,
+            distanceToUniversity,
             details: details ? {
               bedrooms: details.bedrooms || undefined,
               bathrooms: details.bathrooms || undefined,
@@ -371,6 +415,7 @@ propertyListing.openapi(
             properties: enrichedProperties,
             totalCount: adjustedTotal,
             hasMore: (offset + enrichedProperties.length) < adjustedTotal,
+            universities: availableUniversities,
           }
         };
         
@@ -395,7 +440,9 @@ propertyListing.openapi(
         return c.json(serverErrorResponse, HttpStatusCodes.INTERNAL_SERVER_ERROR);
       }
     }
-  );
+);
+
+
 
 propertyListing.openapi(
   createRoute({
@@ -496,5 +543,105 @@ propertyListing.openapi(
   }
 );
 
+
+
+propertyListing.openapi(
+  createRoute({
+    tags: ["propertyListing"],
+    method: "patch",
+    path: "/propertyListing/{id}/publish",
+    request: {
+      params: z.object({
+        id: z.string().pipe(z.coerce.number().int().positive()),
+      }),
+    },
+    responses: {
+      [HttpStatusCodes.OK]: {
+        content: {
+          "application/json": {
+            schema: z.object({
+              success: z.literal(true),
+              message: z.string(),
+              property: z.object({
+                propertyId: z.number(),
+                isAvailable: z.boolean(),
+              }),
+            }),
+          },
+        },
+        description: "Property successfully published",
+      },
+      [HttpStatusCodes.NOT_FOUND]: {
+        content: {
+          "application/json": {
+            schema: z.object({
+              success: z.literal(false),
+              error: z.string(),
+            }),
+          },
+        },
+        description: "Property not found",
+      },
+      [HttpStatusCodes.INTERNAL_SERVER_ERROR]: {
+        content: {
+          "application/json": {
+            schema: z.object({
+              success: z.literal(false),
+              error: z.string(),
+            }),
+          },
+        },
+        description: "Server error occurred",
+      },
+    },
+  }),
+  async (c) => {
+    try {
+      const { id } = c.req.valid("param");
+      const propertyId = Number(id);
+
+      // Publish the property by setting isAvailable to true
+      const [updatedProperty] = await db
+        .update(properties)
+        .set({ isAvailable: true })
+        .where(eq(properties.propertyId, propertyId))
+        .returning({ 
+          propertyId: properties.propertyId,
+          isAvailable: properties.isAvailable
+        });
+
+      if (!updatedProperty) {
+        return c.json(
+          {
+            success: false,
+            error: "Property not found",
+          },
+          HttpStatusCodes.NOT_FOUND
+        );
+      }
+
+      return c.json(
+        {
+          success: true,
+          message: "Property listing has been successfully published",
+          property: {
+            propertyId: updatedProperty.propertyId,
+            isAvailable: updatedProperty.isAvailable,
+          },
+        },
+        HttpStatusCodes.OK
+      );
+    } catch (error) {
+      console.error("Error publishing property:", error);
+      return c.json(
+        {
+          success: false,
+          error: "Internal server error",
+        },
+        HttpStatusCodes.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+);
 
 export default propertyListing;

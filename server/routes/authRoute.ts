@@ -29,7 +29,7 @@ const registerSchema = z.object({
   password: z.string().min(6),
   firstName: z.string().min(2),
   lastName: z.string().min(2),
-  userType: z.enum(["student", "landlord"]),
+  userType: z.enum(["student", "landlord","admin"]),
   phoneNumber: z.string().optional(),
 });
 
@@ -275,8 +275,11 @@ authRouter
       });
 
       const token = generateToken(newUser.userId, userType as "student" | "landlord" | "admin", approved);
-      
-      
+
+      const message = approved
+        ? "Registration successful"
+        : "Registration successful. Your account is pending admin approval.";
+
       return c.json({
         message,
         user: {

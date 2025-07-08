@@ -1,6 +1,6 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
-import { eq, and, sql } from "drizzle-orm";
+import { desc, eq, and, sql, SQL,gte } from "drizzle-orm";
 import { reviews, properties, users } from "../db/schemas/mgh_db";
 import { db } from "../db";
 import { createRouter } from "../libs/create-app";
@@ -292,4 +292,35 @@ reviewRouter.openapi(
   }
 );
 
+
+// Add this to your existing reviewRouter
+reviewRouter.openapi(
+  createRoute({
+    tags: ["Reviews"],
+    method: "get",
+    path: "/reviews/average",
+    responses: {
+      [HttpStatusCodes.OK]: {
+        content: {
+          "application/json": {
+            schema: z.object({
+              average: z.number().nullable().describe("Overall average rating across all properties. Null if no reviews exist")
+            }),
+          },
+        },
+        description: "Overall average rating of all properties",
+      },
+    },
+  }),
+  async (c) => {
+    // Calculate overall average rating
+    const [result] = await db.select({
+      average: sql<number | null>`ROUND(AVG(${reviews.rating})::numeric, 2)`
+    }).from(reviews);
+
+    return c.json({ average: result?.average ?? null });
+  }
+);
+
 export default reviewRouter;
+

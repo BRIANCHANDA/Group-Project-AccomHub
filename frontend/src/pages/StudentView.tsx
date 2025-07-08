@@ -12,6 +12,7 @@ interface Property {
   images?: string[];
   description?: string;
   isAvailable?: boolean;
+  targetUniversity?: string;
   landlord?: {
     landlordId?: number;
     name?: string;
@@ -45,6 +46,7 @@ interface FormattedProperty {
   available: boolean;
   featured: boolean;
   rating: number;
+  targetUniversity: string;
   landlord: {
     name: string;
     email?: string;
@@ -61,6 +63,15 @@ interface FormattedProperty {
   coordinates?: { lat: number; lng: number };
   createdAt?: string;
 }
+
+const universityOptions = [
+  { value: 'all', label: 'All Universities' },
+  { value: 'University of Zambia (UNZA)', label: 'University of Zambia' },
+  { value: 'Copperbelt University (CBU)', label: 'Copperbelt University' },
+  { value: 'Mulungushi University', label: 'Mulungushi University' },
+  { value: 'Zambia Catholic University', label: 'Zambia Catholic University' },
+  { value: 'Other', label: 'Other' }
+];
 
 const StudentDashboard: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState('all');
@@ -79,11 +90,15 @@ const StudentDashboard: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [userName, setUserName] = useState('Student'); // State for user's name
+  const [universityFilter, setUniversityFilter] = useState('all');
 
-  // Check for user in state
+  // Detect if the device is mobile
+  const isMobile = window.innerWidth <= 768;
+
   useEffect(() => {
     if (location.state?.studentId) {
       setUserName(location.state.name || 'Student');
+      setStudentId(location.state.studentId);
     }
   }, [location.state]);
 
@@ -219,6 +234,7 @@ const StudentDashboard: React.FC = () => {
       bathrooms: property.details?.bathrooms,
       size: property.details?.squareMeters,
       available: property.isAvailable ?? true,
+      targetUniversity: property.targetUniversity || 'Not specified',
       featured: false,
       rating: 4.0,
       landlord,
@@ -245,7 +261,7 @@ const StudentDashboard: React.FC = () => {
         const propertiesArray = Array.isArray(data) ? data : (data.data?.properties || []);
         const formattedProperties = propertiesArray
           .map(formatPropertyData)
-          .filter((p): p is FormattedProperty => p !== null);
+          .filter((p: FormattedProperty | null): p is FormattedProperty => p !== null);
         setPropertiesData(formattedProperties);
         setError(null);
       } catch (err) {
@@ -277,48 +293,73 @@ const StudentDashboard: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const filteredListings = useMemo(() => {
-    let filtered = propertiesData.filter(listing => {
-      if (!listing) return false;
-      if (typeFilter !== 'all' && listing.type !== typeFilter) return false;
-      const numericPrice = parseInt(listing.price.replace(/[^\d]/g, ''), 10) || 0;
-      if (priceFilter === 'under1500' && numericPrice >= 1500) return false;
-      if (priceFilter === '1500to2000' && (numericPrice < 1500 || numericPrice > 2000)) return false;
-      if (priceFilter === 'above2000' && numericPrice <= 2000) return false;
-      if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase();
-        const inTitle = listing.title?.toLowerCase().includes(searchLower);
-        const inLocation = listing.location?.toLowerCase().includes(searchLower);
-        if (!inTitle && !inLocation) return false;
-      }
-      return true;
-    });
+ // Replace this section in your filteredListings useMemo:
 
-    if (sortOption === 'default') return filtered;
+const filteredListings = useMemo(() => {
+  let filtered = propertiesData.filter(listing => {
+    if (!listing) return false;
 
-    return [...filtered].sort((a, b) => {
-      if (sortOption === 'priceLowToHigh') {
-        const priceA = parseInt(a.price.replace(/[^\d]/g, ''), 10) || 0;
-        const priceB = parseInt(b.price.replace(/[^\d]/g, ''), 10) || 0;
-        return priceA - priceB;
+    if (typeFilter !== 'all' && listing.type !== typeFilter) return false;
+
+    // FIXED: University filter with better string matching
+    if (universityFilter !== 'all') {
+      const propertyUniversity = (listing.targetUniversity || '').trim().toLowerCase();
+      const selectedUniversity = universityFilter.trim().toLowerCase();
+      
+      // Debug logging to see what we're comparing
+      console.log('Comparing:', {
+        propertyUniversity,
+        selectedUniversity,
+        match: propertyUniversity === selectedUniversity
+      });
+      
+      if (propertyUniversity !== selectedUniversity) {
+        return false;
       }
-      if (sortOption === 'priceHighToLow') {
-        const priceA = parseInt(a.price.replace(/[^\d]/g, ''), 10) || 0;
-        const priceB = parseInt(b.price.replace(/[^\d]/g, ''), 10) || 0;
-        return priceB - priceA;
+    }
+
+    const numericPrice = parseInt(listing.price.replace(/[^\d]/g, ''), 10) || 0;
+    if (priceFilter === 'under1500' && numericPrice >= 1500) return false;
+    if (priceFilter === '1500to2000' && (numericPrice < 1500 || numericPrice > 2000)) return false;
+    if (priceFilter === 'above2000' && numericPrice <= 2000) return false;
+    
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      const inTitle = listing.title?.toLowerCase().includes(searchLower);
+      const inLocation = listing.location?.toLowerCase().includes(searchLower);
+      // ADDED: Also search in university field
+      const inUniversity = listing.targetUniversity?.toLowerCase().includes(searchLower);
+      if (!inTitle && !inLocation && !inUniversity) return false;
+    }
+    return true;
+  });
+
+  // Rest of your sorting logic remains the same...
+  if (sortOption === 'default') return filtered;
+
+  return [...filtered].sort((a, b) => {
+    if (sortOption === 'priceLowToHigh') {
+      const priceA = parseInt(a.price.replace(/[^\d]/g, ''), 10) || 0;
+      const priceB = parseInt(b.price.replace(/[^\d]/g, ''), 10) || 0;
+      return priceA - priceB;
+    }
+    if (sortOption === 'priceHighToLow') {
+      const priceA = parseInt(a.price.replace(/[^\d]/g, ''), 10) || 0;
+      const priceB = parseInt(b.price.replace(/[^\d]/g, ''), 10) || 0;
+      return priceB - priceA;
+    }
+    if (sortOption === 'ratingHighToLow') {
+      return b.rating - a.rating;
+    }
+    if (sortOption === 'newestFirst') {
+      if (a.createdAt && b.createdAt) {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
-      if (sortOption === 'ratingHighToLow') {
-        return b.rating - a.rating;
-      }
-      if (sortOption === 'newestFirst') {
-        if (a.createdAt && b.createdAt) {
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        }
-        return b.id - a.id;
-      }
-      return 0;
-    });
-  }, [propertiesData, typeFilter, priceFilter, searchTerm, sortOption]);
+      return b.id - a.id;
+    }
+    return 0;
+  });
+}, [propertiesData, typeFilter, priceFilter, searchTerm, sortOption, universityFilter]); // Make sure universityFilter is in dependencies
 
   useEffect(() => {
     const calculatedTotalPages = Math.ceil(filteredListings.length / itemsPerPage) || 1;
@@ -359,6 +400,192 @@ const StudentDashboard: React.FC = () => {
     }
     setMenuOpen(false);
   };
+  const handleRateProperty = (property: FormattedProperty) => {
+    setRatingModal({ isOpen: true, property });
+  };
+
+  const submitRating = async (rating: number, comment: string) => {
+    if (!ratingModal.property) {
+      console.error('Missing property information');
+      return;
+    }
+
+    if (!studentId) {
+      console.error('Student ID is required to submit rating');
+      alert('Unable to submit rating. Please log in again.');
+      return;
+    }
+    console.log('Submitting rating with:', {
+      propertyId: ratingModal.property.id,
+      reviewerId: studentId,
+      rating: rating,
+      comment: comment,
+    });
+
+
+    try {
+      const response = await fetch('/api/reviews/reviews', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          propertyId: ratingModal.property.id,
+          reviewerId: studentId,
+          rating: rating,
+          comment: comment,
+        }),
+      });
+
+      if (response.ok) {
+        // Show success message
+        console.log('Rating submitted successfully');
+        // You could add a toast notification here
+      } else {
+        console.error('Failed to submit rating');
+      }
+    } catch (error) {
+      console.error('Error submitting rating:', error);
+    }
+  };
+
+  //for rating
+  const [ratingModal, setRatingModal] = useState<{
+    isOpen: boolean;
+    property: FormattedProperty | null;
+  }>({ isOpen: false, property: null });
+  const [studentId, setStudentId] = useState<number | null>(null);
+
+  const RatingModal = ({
+    property,
+    isOpen,
+    onClose,
+    onSubmit
+  }: {
+    property: FormattedProperty | null;
+    isOpen: boolean;
+    onClose: () => void;
+    onSubmit: (rating: number, comment: string) => void;
+  }) => {
+    const [rating, setRating] = useState(0);
+    const [comment, setComment] = useState('');
+    const [hoveredRating, setHoveredRating] = useState(0);
+
+
+    const handleSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (rating > 0) {
+        if (!studentId) {
+          alert('Please log in to submit a rating');
+          navigate('/login')
+        }
+        onSubmit(rating, comment);
+        setRating(0);
+        setComment('');
+        onClose();
+
+      }
+    };
+
+    if (!isOpen || !property) return null;
+
+    return (
+      <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title">Rate Property</h5>
+              <button type="button" className="btn-close" onClick={onClose}></button>
+            </div>
+            <form onSubmit={handleSubmit}>
+              <div className="modal-body">
+                <div className="mb-3">
+                  <h6>{property.title}</h6>
+                  <p className="text-muted small">{property.location}</p>
+                </div>
+
+                <div className="rating-section">
+                  <label className="form-label">Your Rating</label>
+                  <div className="star-rating-container">
+                    <div className="d-flex gap-1 justify-content-center">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          className={`star-button ${star <= (hoveredRating || rating) ? 'star-filled' : 'star-empty'
+                            }`}
+                          onClick={() => setRating(star)}
+                          onMouseEnter={() => setHoveredRating(star)}
+                          onMouseLeave={() => setHoveredRating(0)}
+                        >
+                          <div className="css-star"></div>
+                        </button>
+                      ))}
+                    </div>
+                    <div className={`text-center rating-text ${rating > 0 ? 'has-rating' : ''}`}>
+                      <small>
+                        {rating === 0 ? 'Click to rate' : `You rated: ${rating} star${rating > 1 ? 's' : ''}`}
+                      </small>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="comment-section">
+                  <label className="form-label">Comment (Optional)</label>
+                  <textarea
+                    className="form-control"
+                    rows={3}
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    placeholder="Share your experience with this property..."
+                  ></textarea>
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-secondary" onClick={onClose}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-primary" disabled={rating === 0}>
+                    Submit Rating
+                  </button>
+                </div>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+
+
+  <div className={isMobile ? "col-6" : "col-12 col-md-6 col-lg-3"}>
+    <div className="dropdown">
+      <button
+        className="btn filter-btn dropdown-toggle w-100"
+        type="button"
+        data-bs-toggle="dropdown"
+        aria-expanded="false"
+        id="universityFilterDropdown"
+      >
+        <i className="bi bi-building me-1"></i>
+        {universityOptions.find(u => u.value === universityFilter)?.label || 'University'}
+      </button>
+      <ul className="dropdown-menu" aria-labelledby="universityFilterDropdown">
+        {universityOptions.map(option => (
+          <li key={option.value}>
+            <a
+              className="dropdown-item"
+              href="#"
+              onClick={(e) => handleDropdownItemClick(e, () => setUniversityFilter(option.value))}
+            >
+              {option.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </div>
 
   const StarRating = ({ rating }: { rating: number }) => {
     const fullStars = Math.floor(rating);
@@ -425,34 +652,71 @@ const StudentDashboard: React.FC = () => {
   const renderGridCard = (listing: FormattedProperty) => (
     <div className="property-card h-100">
       <div className="property-image-container">
-        <img src={listing.image} className="card-img-top" alt={listing.title} />
-        {listing.featured && <span className="property-tag">Featured</span>}
+        <img
+          src={listing.image}
+          className="card-img-top"
+          alt={listing.title}
+          style={isMobile ? { height: '150px', objectFit: 'cover' } : {}}
+        />
+        {listing.featured && !isMobile && <span className="property-tag">Featured</span>}
       </div>
       <div className="card-body d-flex flex-column p-3">
         <div className="d-flex justify-content-between mb-2">
-          <h5 className="property-title mb-0">{listing.title}</h5>
-          <button className="btn btn-sm btn-link p-0 border-0">
-            <i className="bi bi-bookmark"></i>
-          </button>
+          <h5 className="property-title mb-0" style={isMobile ? { fontSize: '1rem', lineHeight: '1.2' } : {}}>
+            {isMobile ? listing.title.substring(0, 30) + '...' : listing.title}
+          </h5>
+          {!isMobile && (
+            <button className="btn btn-sm btn-link p-0 border-0">
+              <i className="bi bi-bookmark"></i>
+            </button>
+          )}
         </div>
-        <p className="property-location mb-2"><i className="bi bi-geo-alt-fill me-1"></i>{listing.location}</p>
-        <div className="mb-2"><StarRating rating={listing.rating} /></div>
+        <p className="property-location mb-2">
+          <i className="bi bi-geo-alt-fill me-1"></i>
+          {isMobile ? listing.location.substring(0, 25) + '...' : listing.location}
+        </p>
+        <p className="property-university mb-2 small text-muted">
+          <i className="bi bi-building me-1"></i>
+          {listing.targetUniversity}
+        </p>
+
+
+        {!isMobile && (
+          <div className="mb-2"><StarRating rating={listing.rating} /></div>
+        )}
         <p className="property-price mb-3">{listing.price}</p>
-        <div className="d-flex flex-wrap gap-1 mb-3">
-          {listing.amenities.slice(0, 3).map((amenity, index) => (
-            <span key={index} className="feature-badge">{amenity}</span>
-          ))}
-          {listing.amenities.length > 3 && <span className="feature-badge">+{listing.amenities.length - 3}</span>}
+        {!isMobile && (
+          <div className="d-flex flex-wrap gap-1 mb-3">
+            {listing.amenities.slice(0, 3).map((amenity, index) => (
+              <span key={index} className="feature-badge">{amenity}</span>
+            ))}
+            {listing.amenities.length > 3 && <span className="feature-badge">+{listing.amenities.length - 3}</span>}
+          </div>
+        )}
+        <div className={`d-flex gap-2 mt-auto ${isMobile ? 'justify-content-center' : ''}`}>
+          <button
+            className={`btn btn-outline-primary ${isMobile ? 'btn-sm w-100' : 'btn-sm flex-grow-1'}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleViewDetails(listing);
+            }}
+          >
+            {isMobile ? 'Details' : 'View Details'}
+          </button>
+          {!isMobile && (
+            <button
+              className="rate-property-btn small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRateProperty(listing);
+              }}
+              title="Rate Property"
+            >
+              <i className="bi bi-star"></i>
+              Rate
+            </button>
+          )}
         </div>
-        <button
-          className="btn btn-outline-primary btn-sm mt-auto"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleViewDetails(listing);
-          }}
-        >
-          View Details
-        </button>
       </div>
     </div>
   );
@@ -460,44 +724,75 @@ const StudentDashboard: React.FC = () => {
   const renderListCard = (listing: FormattedProperty) => (
     <div className="property-card mb-3">
       <div className="row g-0">
-        <div className="col-md-4 col-lg-3">
-          <div className="property-image-container">
-            <img src={listing.image} className="card-img-top" alt={listing.title} />
-            {listing.featured && <span className="property-tag">Featured</span>}
+        {!isMobile && (
+          <div className="col-md-4 col-lg-3">
+            <div className="property-image-container">
+              <img src={listing.image} className="card-img-top" alt={listing.title} />
+              {listing.featured && <span className="property-tag">Featured</span>}
+            </div>
           </div>
-        </div>
-        <div className="col-md-8 col-lg-9">
+        )}
+        <div className={isMobile ? "col-12" : "col-md-8 col-lg-9"}>
           <div className="card-body d-flex flex-column p-3">
             <div className="d-flex justify-content-between mb-2">
               <div>
-                <h5 className="property-title mb-1">{listing.title}</h5>
-                <p className="property-location mb-1"><i className="bi bi-geo-alt-fill me-1"></i>{listing.location}</p>
-                <div className="mb-2"><StarRating rating={listing.rating} /></div>
+                <h5 className="property-title mb-1" style={isMobile ? { fontSize: '1rem' } : {}}>
+                  {isMobile ? listing.title.substring(0, 40) + '...' : listing.title}
+                </h5>
+                <p className="property-location mb-1">
+                  <i className="bi bi-geo-alt-fill me-1"></i>
+                  {isMobile ? listing.location.substring(0, 30) + '...' : listing.location}
+                </p>
+                <p className="property-university mb-1 small text-muted">
+                  <i className="bi bi-building me-1"></i>
+                  {listing.targetUniversity}
+                </p>
+                {!isMobile && (
+                  <div className="mb-2"><StarRating rating={listing.rating} /></div>
+                )}
               </div>
-              <p className="property-price fs-5">{listing.price}</p>
+              <p className={`property-price ${isMobile ? 'fs-6' : 'fs-5'}`}>{listing.price}</p>
             </div>
-            <p className="card-text small mb-2 d-none d-lg-block">{listing.description.substring(0, 100)}...</p>
-            <div className="d-flex flex-wrap gap-1 mb-3">
-              {listing.amenities.map((amenity, index) => (
-                <span key={index} className="feature-badge">{amenity}</span>
-              ))}
-            </div>
-            <div className="d-flex gap-2 mt-auto">
+            {!isMobile && (
+              <>
+                <p className="card-text small mb-2 d-none d-lg-block">{listing.description.substring(0, 100)}...</p>
+                <div className="d-flex flex-wrap gap-1 mb-3">
+                  {listing.amenities.map((amenity, index) => (
+                    <span key={index} className="feature-badge">{amenity}</span>
+                  ))}
+                </div>
+              </>
+            )}
+            <div className={`d-flex gap-2 mt-auto ${isMobile ? 'justify-content-center' : ''}`}>
               <button
-                className="btn btn-outline-primary btn-sm"
+                className={`btn btn-outline-primary ${isMobile ? 'btn-sm w-100' : 'btn-sm'}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleViewDetails(listing);
                 }}
               >
-                View Details
+                {isMobile ? 'Details' : 'View Details'}
               </button>
+              {!isMobile && (
+                <button
+                  className="rate-property-btn small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRateProperty(listing);
+                  }}
+                  title="Rate this Property"
+                >
+                  <i className="bi bi-star"></i>
+                  Rate
+                </button>
+              )}
             </div>
           </div>
         </div>
       </div>
     </div>
   );
+
 
   if (isLoading) {
     return (
@@ -512,7 +807,7 @@ const StudentDashboard: React.FC = () => {
   return (
     <div className="app-container">
       <div className="alert-banner" role="alert">
-        <strong>Welcome to CBU Student Housing!</strong> Find your perfect accommodation for this academic year.
+        <strong>Welcome to  Student Housing!</strong> Find your perfect accommodation for this academic year.
         <button type="button" className="btn-close" aria-label="Close" onClick={() => { }}></button>
       </div>
 
@@ -609,19 +904,21 @@ const StudentDashboard: React.FC = () => {
           <p className="text-muted">Find your perfect student housing near your Univeristy</p>
         </div>
 
+
         <div className="filter-card mb-4">
           <div className="row g-2 align-items-center">
-            <div className="col-12 col-md-6 col-lg-3">
+            <div className={isMobile ? "col-12 mb-2" : "col-12 col-md-6 col-lg-3"}>
               <input
                 type="text"
                 className="form-control"
-                placeholder="Search by location or property name"
+                placeholder={isMobile ? "Search..." : "Search by location or property name"}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && setCurrentPage(1)}
               />
             </div>
-            <div className="col-12 col-md-6 col-lg-3">
+
+            <div className={isMobile ? "col-6" : "col-12 col-md-6 col-lg-3"}>
               <div className="dropdown">
                 <button
                   className="btn filter-btn dropdown-toggle w-100"
@@ -673,7 +970,8 @@ const StudentDashboard: React.FC = () => {
                 </ul>
               </div>
             </div>
-            <div className="col-12 col-md-6 col-lg-3">
+
+            <div className={isMobile ? "col-6" : "col-12 col-md-6 col-lg-3"}>
               <div className="dropdown">
                 <button
                   className="btn filter-btn dropdown-toggle w-100"
@@ -692,13 +990,46 @@ const StudentDashboard: React.FC = () => {
                         : 'Above K2,000'}
                 </button>
                 <ul className="dropdown-menu" aria-labelledby="priceFilterDropdown">
-                  <li><a className="dropdown-item" href="#" onClick={(e) => { e.preventDefault(); setPriceFilter('all'); }}>Any Price</a></li>
-                  <li><a className="dropdown-item" href="#" onClick={(e) => { e.preventDefault(); setPriceFilter('under1500'); }}>Under K1,500</a></li>
-                  <li><a className="dropdown-item" href="#" onClick={(e) => { e.preventDefault(); setPriceFilter('1500to2000'); }}>K1,500 - K2,000</a></li>
-                  <li><a className="dropdown-item" href="#" onClick={(e) => { e.preventDefault(); setPriceFilter('above2000'); }}>Above K2,000</a></li>
+                  <li><a className="dropdown-item" href="#" onClick={(e) => handleDropdownItemClick(e, () => setPriceFilter('all'))}>Any Price</a></li>
+                  <li><a className="dropdown-item" href="#" onClick={(e) => handleDropdownItemClick(e, () => setPriceFilter('under1500'))}>Under K1,500</a></li>
+                  <li><a className="dropdown-item" href="#" onClick={(e) => handleDropdownItemClick(e, () => setPriceFilter('1500to2000'))}>K1,500 - K2,000</a></li>
+                  <li><a className="dropdown-item" href="#" onClick={(e) => handleDropdownItemClick(e, () => setPriceFilter('above2000'))}>Above K2,000</a></li>
                 </ul>
               </div>
             </div>
+
+            {/* University Filter Dropdown - Now properly integrated */}
+            <div className={isMobile ? "col-6" : "col-12 col-md-6 col-lg-3"}>
+              <div className="dropdown">
+                <button
+                  className="btn filter-btn dropdown-toggle w-100"
+                  type="button"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false"
+                  id="universityFilterDropdown"
+                >
+                  <i className="bi bi-building me-1"></i>
+                  {universityOptions.find(u => u.value === universityFilter)?.label || 'University'}
+                </button>
+                <ul className="dropdown-menu" aria-labelledby="universityFilterDropdown">
+                  {universityOptions.map(option => (
+                    <li key={option.value}>
+                      <a
+                        className="dropdown-item"
+                        href="#"
+                        onClick={(e) => handleDropdownItemClick(e, () => setUniversityFilter(option.value))}
+                      >
+                        {option.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Second row for view toggle and items per page on mobile */}
+          <div className="row g-2 align-items-center mt-2">
             <div className="col-12 col-md-6 col-lg-3 d-flex align-items-center">
               <div className="btn-group me-2">
                 <button
@@ -726,10 +1057,10 @@ const StudentDashboard: React.FC = () => {
                   {itemsPerPage} per page
                 </button>
                 <ul className="dropdown-menu" aria-labelledby="itemsPerPageDropdown">
-                  <li><a className="dropdown-item" href="#" onClick={(e) => { e.preventDefault(); setItemsPerPage(4); }}>4 per page</a></li>
-                  <li><a className="dropdown-item" href="#" onClick={(e) => { e.preventDefault(); setItemsPerPage(8); }}>8 per page</a></li>
-                  <li><a className="dropdown-item" href="#" onClick={(e) => { e.preventDefault(); setItemsPerPage(12); }}>12 per page</a></li>
-                  <li><a className="dropdown-item" href="#" onClick={(e) => { e.preventDefault(); setItemsPerPage(16); }}>16 per page</a></li>
+                  <li><a className="dropdown-item" href="#" onClick={(e) => handleDropdownItemClick(e, () => setItemsPerPage(4))}>4 per page</a></li>
+                  <li><a className="dropdown-item" href="#" onClick={(e) => handleDropdownItemClick(e, () => setItemsPerPage(8))}>8 per page</a></li>
+                  <li><a className="dropdown-item" href="#" onClick={(e) => handleDropdownItemClick(e, () => setItemsPerPage(12))}>12 per page</a></li>
+                  <li><a className="dropdown-item" href="#" onClick={(e) => handleDropdownItemClick(e, () => setItemsPerPage(16))}>16 per page</a></li>
                 </ul>
               </div>
             </div>
@@ -739,39 +1070,43 @@ const StudentDashboard: React.FC = () => {
         <div className="row mb-4">
           <div className="col-12 d-flex justify-content-between align-items-center">
             <p className="mb-0">
-              <span className="fw-bold">{filteredListings.length}</span> properties found
-              {typeFilter !== 'all' && ` • Type: ${typeFilter.charAt(0).toUpperCase() + typeFilter.slice(1)}`}
-              {priceFilter !== 'all' &&
+              <span className="fw-bold">{filteredListings.length}</span>
+              {isMobile ? ' found' : ' properties found'}
+              {!isMobile && typeFilter !== 'all' && ` • Type: ${typeFilter.charAt(0).toUpperCase() + typeFilter.slice(1)}`}
+              {!isMobile && priceFilter !== 'all' &&
                 ` • Price: ${priceFilter === 'under1500' ? 'Under K1,500' : priceFilter === '1500to2000' ? 'K1,500 - K2,000' : 'Above K2,000'}`}
-              {searchTerm && ` • Search: "${searchTerm}"`}
+              {!isMobile && universityFilter !== 'all' && ` • University: ${universityOptions.find(u => u.value === universityFilter)?.label}`}
+              {!isMobile && searchTerm && ` • Search: "${searchTerm}"`}
             </p>
-            <div className="dropdown">
-              <button
-                className="btn btn-sm filter-btn dropdown-toggle"
-                type="button"
-                data-bs-toggle="dropdown"
-                aria-expanded="false"
-                id="sortDropdown"
-              >
-                <i className="bi bi-sort-down me-1"></i>
-                {sortOption === 'default'
-                  ? 'Sort by: Default'
-                  : sortOption === 'priceLowToHigh'
-                    ? 'Sort by: Price (Low to High)'
-                    : sortOption === 'priceHighToLow'
-                      ? 'Sort by: Price (High to Low)'
-                      : sortOption === 'ratingHighToLow'
-                        ? 'Sort by: Rating (High to Low)'
-                        : 'Sort by: Newest First'}
-              </button>
-              <ul className="dropdown-menu dropdown-menu-end" aria-labelledby="sortDropdown">
-                <li><a className="dropdown-item" href="#" onClick={(e) => { e.preventDefault(); setSortOption('default'); }}>Default</a></li>
-                <li><a className="dropdown-item" href="#" onClick={(e) => { e.preventDefault(); setSortOption('priceLowToHigh'); }}>Price: Low to High</a></li>
-                <li><a className="dropdown-item" href="#" onClick={(e) => { e.preventDefault(); setSortOption('priceHighToLow'); }}>Price: High to Low</a></li>
-                <li><a className="dropdown-item" href="#" onClick={(e) => { e.preventDefault(); setSortOption('ratingHighToLow'); }}>Rating: High to Low</a></li>
-                <li><a className="dropdown-item" href="#" onClick={(e) => { e.preventDefault(); setSortOption('newestFirst'); }}>Newest First</a></li>
-              </ul>
-            </div>
+            {!isMobile && (
+              <div className="dropdown">
+                <button
+                  className="btn btn-sm filter-btn dropdown-toggle"
+                  type="button"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false"
+                  id="sortDropdown"
+                >
+                  <i className="bi bi-sort-down me-1"></i>
+                  {sortOption === 'default'
+                    ? 'Sort by: Default'
+                    : sortOption === 'priceLowToHigh'
+                      ? 'Sort by: Price (Low to High)'
+                      : sortOption === 'priceHighToLow'
+                        ? 'Sort by: Price (High to Low)'
+                        : sortOption === 'ratingHighToLow'
+                          ? 'Sort by: Rating (High to Low)'
+                          : 'Sort by: Newest First'}
+                </button>
+                <ul className="dropdown-menu dropdown-menu-end" aria-labelledby="sortDropdown">
+                  <li><a className="dropdown-item" href="#" onClick={(e) => { e.preventDefault(); setSortOption('default'); }}>Default</a></li>
+                  <li><a className="dropdown-item" href="#" onClick={(e) => { e.preventDefault(); setSortOption('priceLowToHigh'); }}>Price: Low to High</a></li>
+                  <li><a className="dropdown-item" href="#" onClick={(e) => { e.preventDefault(); setSortOption('priceHighToLow'); }}>Price: High to Low</a></li>
+                  <li><a className="dropdown-item" href="#" onClick={(e) => { e.preventDefault(); setSortOption('ratingHighToLow'); }}>Rating: High to Low</a></li>
+                  <li><a className="dropdown-item" href="#" onClick={(e) => { e.preventDefault(); setSortOption('newestFirst'); }}>Newest First</a></li>
+                </ul>
+              </div>
+            )}
           </div>
         </div>
 
@@ -813,7 +1148,7 @@ const StudentDashboard: React.FC = () => {
           <div className="row mb-4 justify-content-center">
             {viewMode === 'grid' ? (
               <div className="col-12">
-                <div className="row row-cols-2 row-cols-md-2 row-cols-lg-3 g-3">
+                <div className={`row g-3 ${isMobile ? 'row-cols-1' : 'row-cols-2 row-cols-md-2 row-cols-lg-3'}`}>
                   {currentItems.map((listing) => (
                     <div key={listing.id} className="col">
                       {renderGridCard(listing)}
@@ -822,6 +1157,7 @@ const StudentDashboard: React.FC = () => {
                 </div>
               </div>
             ) : (
+
               <div className="col-12 col-lg-10 mx-auto">
                 {currentItems.map((listing) => (
                   <div key={listing.id} className="col-12 mb-3">
@@ -835,11 +1171,17 @@ const StudentDashboard: React.FC = () => {
 
         {filteredListings.length > 0 && (
           <div className="row mb-3">
-            <div className="col-12">
+            <div className="col-12" >
               <Pagination />
             </div>
           </div>
         )}
+        <RatingModal
+          property={ratingModal.property}
+          isOpen={ratingModal.isOpen}
+          onClose={() => setRatingModal({ isOpen: false, property: null })}
+          onSubmit={submitRating}
+        />
       </div>
 
       <footer className="mt-auto">

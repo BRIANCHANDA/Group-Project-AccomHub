@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState,useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 import './bootstrap-5.3.5-dist/css/bootstrap.min.css';
@@ -11,14 +11,85 @@ const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [colorScheme, setColorScheme] = useState('purple');
+  
+  // Human verification states
+  const [captchaQuestion, setCaptchaQuestion] = useState('');
+  const [captchaAnswer, setCaptchaAnswer] = useState('');
+  const [userCaptchaAnswer, setUserCaptchaAnswer] = useState('');
+  const [captchaVerified, setCaptchaVerified] = useState(false);
 
-  const loginMessage = location.state?.message || '';
-  const propertyId = location.state?.propertyId;
+  // Extract state from location
+  const {
+    message: loginMessage,
+    propertyId,
+    receiverId,
+    receiverName,
+    receiverType,
+    propertyTitle,
+    propertyData,
+    from,
+  } = location.state || {};
 
   console.log('LoginPage mounted', {
     locationState: location.state,
     propertyId,
+    receiverId,
+    from,
   });
+
+  // Generate random math CAPTCHA
+  const generateCaptcha = () => {
+    const operations = ['+', '-', '*'];
+    const operation = operations[Math.floor(Math.random() * operations.length)];
+    let num1, num2, answer;
+    
+    switch (operation) {
+      case '+':
+        num1 = Math.floor(Math.random() * 20) + 1;
+        num2 = Math.floor(Math.random() * 20) + 1;
+        answer = num1 + num2;
+        break;
+      case '-':
+        num1 = Math.floor(Math.random() * 20) + 10;
+        num2 = Math.floor(Math.random() * 10) + 1;
+        answer = num1 - num2;
+        break;
+      case '*':
+        num1 = Math.floor(Math.random() * 10) + 1;
+        num2 = Math.floor(Math.random() * 10) + 1;
+        answer = num1 * num2;
+        break;
+      default:
+        num1 = 5;
+        num2 = 3;
+        answer = 8;
+    }
+    
+    const question = `${num1} ${operation} ${num2} = ?`;
+    setCaptchaQuestion(question);
+    setCaptchaAnswer(answer.toString());
+    setCaptchaVerified(false);
+    setUserCaptchaAnswer('');
+  };
+
+  // Initialize CAPTCHA on component mount
+  useEffect(() => {
+    generateCaptcha();
+  }, []);
+
+  // Verify CAPTCHA answer
+  const verifyCaptcha = () => {
+    if (userCaptchaAnswer.trim() === captchaAnswer) {
+      setCaptchaVerified(true);
+      setError('');
+      return true;
+    } else {
+      setCaptchaVerified(false);
+      setError('Incorrect verification. Please try again.');
+      generateCaptcha(); // Generate new question
+      return false;
+    }
+  };
 
   const colorSchemes = {
     purple: {
@@ -64,6 +135,13 @@ const LoginPage = () => {
       return;
     }
 
+    // Verify human verification first
+    if (!captchaVerified) {
+      if (!verifyCaptcha()) {
+        return;
+      }
+    }
+
     setIsLoading(true);
 
     try {
@@ -73,7 +151,11 @@ const LoginPage = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ 
+          email, 
+          password,
+          humanVerified: captchaVerified // Send verification status to backend
+        }),
       });
 
       const data = await response.json();
@@ -97,24 +179,37 @@ const LoginPage = () => {
 
       console.log('Preparing redirect:', {
         propertyId,
+        receiverId,
         studentId: user.id,
         userType: user.userType,
+        from,
       });
 
       if (user.userType === 'student') {
-        if (propertyId) {
-          console.log('Redirecting to inquiry:', { propertyId, studentId: user.id });
-          navigate(`/inquiry`, {
+        if (from === '/inquiry' && propertyId && receiverId) {
+          console.log('Redirecting to messages:', {
+            studentId: user.id,
+            propertyId,
+            receiverId,
+          });
+          navigate('/inquiry', {
             state: {
               studentId: user.id,
               propertyId,
+              receiverId,
+              receiverName,
+              receiverType,
+              propertyTitle,
+              propertyData,
               fromLogin: true,
             },
           });
         } else {
           console.log('Redirecting to studentdashboard');
           navigate('/studentdashboard', {
-            state: { studentId: user.id },
+            state: { studentId: user.id,
+              
+             },
           });
         }
       } else if (user.userType === 'landlord') {
@@ -133,6 +228,9 @@ const LoginPage = () => {
     } catch (err) {
       console.error('Login error:', err);
       setError(err instanceof Error ? err.message : 'An error occurred during sign in');
+      // Reset CAPTCHA on login error
+      generateCaptcha();
+      setCaptchaVerified(false);
     } finally {
       setIsLoading(false);
     }
@@ -388,6 +486,60 @@ const LoginPage = () => {
           .input-field::placeholder {
             color: rgb(33, 36, 41);
           }
+          .captcha-container {
+            background-color: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            text-align: center;
+            position: relative;
+          }
+          .captcha-question {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: ${currentScheme.primary};
+            background: white;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            display: inline-block;
+            margin-bottom: 0.75rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          }
+          .captcha-input {
+            width: 80px;
+            padding: 0.5rem;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-right: 0.5rem;
+          }
+          .captcha-input:focus {
+            outline: none;
+            border-color: ${currentScheme.primary};
+            box-shadow: 0 0 0 2px ${currentScheme.accent};
+          }
+          .captcha-refresh {
+            background: none;
+            border: none;
+            color: ${currentScheme.primary};
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+          }
+          .captcha-refresh:hover {
+            background-color: ${currentScheme.accent};
+          }
+          .captcha-verified {
+            border-color: #22c55e;
+            background-color: #f0fdf4;
+          }
+          .captcha-verified .captcha-question {
+            color: #22c55e;
+          }
           .submit-button {
             width: 100%;
             padding: 0.975rem;
@@ -427,6 +579,11 @@ const LoginPage = () => {
           .submit-button.loading {
             background: ${currentScheme.secondary};
             cursor: not-allowed;
+          }
+          .submit-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
           }
           .forgot-link {
             color: ${currentScheme.primary};
@@ -716,76 +873,159 @@ const LoginPage = () => {
                     fill="currentColor"
                     viewBox="0 0 16 16"
                   >
-                    <path d="M16 8.049c0-4.446-3.582-8.05-8-8.05C3.58 0-.002 3.603-.002 8.05c0 4.017 2.926 7.347 6.75 7.951v-5.625h-2.03V8.05H6.75V6.275c0-2.017 1.195-3.131 3.022-3.131.876 0 1.791.157 1.791.157v1.98h-1.009c-.993 0-1.303 .621-1.303 1.258v1.51h2.218l-.354 2.326H9.25V16c3.824-.604 6.75-3.934 6.75-7.951z" />
+                    <path d="M16 8.049c0-4.446-3.582-8.05-8-8.05C3.58 0-.002 3.603-.002 8.05c0 4.017 2.926 7.347 6.75 7.951v-5.625h-2.03V8.05H6.75V6.275c0-2.017 1.195-3.125 3.125v1.372h-1.732V8.05H6.75v1.375H4.719v5.625C1.418 15.397-.002 12.067-.002 8.05c0-4.446 3.582-8.05 8-8.05s8 3.604 8 8.049z" />
                   </svg>
                   Continue with Facebook
                 </button>
               </div>
 
-              <div className="separator">OR</div>
+              <div className="separator">or</div>
 
               <form onSubmit={handleSubmit}>
                 <div className="mb-3">
-                  <label className="form-label fw-medium mb-2">Email Address</label>
+                  <label htmlFor="email" className="form-label fw-medium">
+                    Email Address
+                  </label>
                   <input
                     type="email"
+                    id="email"
+                    className="input-field"
+                    placeholder="Enter your email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="input-field"
-                    placeholder="Your email"
                     required
                   />
-                </div>
-
-                <div className="mb-3">
-                  <label className="form-label fw-medium mb-2">Password</label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="input-field"
-                    placeholder="Your password"
-                    required
-                  />
-                </div>
-
-                <div className="text-end mb-4">
-                  <a href="#" className="forgot-link">
-                    Forgot Password?
-                  </a>
                 </div>
 
                 <div className="mb-4">
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className={`submit-button ${isLoading ? 'loading' : ''}`}
-                  >
-                    {isLoading ? 'Signing In...' : 'Sign In'}
-                  </button>
+                  <label htmlFor="password" className="form-label fw-medium">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    id="password"
+                    className="input-field"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
                 </div>
 
-                <div className="register-section">
-                  <span className="text-muted">Don't have an account yet?</span>{' '}
-                  <span className="register-link" onClick={handleNavigation}>
-                    Create an Account
-                  </span>
+                <div className={`captcha-container ${captchaVerified ? 'captcha-verified' : ''}`}>
+                  <div className="d-flex align-items-center justify-content-center mb-2">
+                    <span className="me-2 text-muted small">Human Verification:</span>
+                    <button
+                      type="button"
+                      className="captcha-refresh"
+                      onClick={generateCaptcha}
+                      title="Refresh question"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        fill="currentColor"
+                        viewBox="0 0 16 16"
+                      >
+                        <path fillRule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                        <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="captcha-question">{captchaQuestion}</div>
+                  <div className="d-flex align-items-center justify-content-center">
+                    <input
+                      type="number"
+                      className="captcha-input"
+                      value={userCaptchaAnswer}
+                      onChange={(e) => setUserCaptchaAnswer(e.target.value)}
+                      placeholder="?"
+                      required
+                    />
+                    {captchaVerified && (
+                      <span className="text-success ms-2">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="20"
+                          height="20"
+                          fill="currentColor"
+                          viewBox="0 0 16 16"
+                        >
+                          <path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/>
+                        </svg>
+                      </span>
+                    )}
+                  </div>
                 </div>
+
+                <div className="d-flex justify-content-between align-items-center mb-4">
+                  <div className="form-check">
+                    <input className="form-check-input" type="checkbox" id="rememberMe" />
+                    <label className="form-check-label text-muted small" htmlFor="rememberMe">
+                      Remember me
+                    </label>
+                  </div>
+                  <a href="#" className="forgot-link">
+                    Forgot password?
+                  </a>
+                </div>
+
+                <button
+                  type="submit"
+                  className={`submit-button ${isLoading ? 'loading' : ''}`}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <div className="d-flex align-items-center justify-content-center">
+                      <div
+                        className="spinner-border spinner-border-sm me-2"
+                        role="status"
+                        aria-hidden="true"
+                      ></div>
+                      Signing In...
+                    </div>
+                  ) : (
+                    'Sign In'
+                  )}
+                </button>
               </form>
+
+              <div className="register-section mt-4">
+                <p className="mb-2 text-muted">
+                  Don't have an account?{' '}
+                  <span className="register-link" onClick={handleNavigation}>
+                    Create one here
+                  </span>
+                </p>
+              </div>
             </div>
           </div>
         </main>
 
         <footer className="footer">
-          <div className="container footer-content">
+          <div className="footer-content">
             <div className="footer-logo">NexNest</div>
             <div className="footer-links">
-              <a href="#" className="footer-link">About</a>
-              <a href="#" className="footer-link">Privacy Policy</a>
-              <a href="#" className="footer-link">Terms of Service</a>
-              <a href="#" className="footer-link">Contact</a>
+              <a href="#" className="footer-link">
+                About Us
+              </a>
+              <a href="#" className="footer-link">
+                Contact
+              </a>
+              <a href="#" className="footer-link">
+                Privacy Policy
+              </a>
+              <a href="#" className="footer-link">
+                Terms of Service
+              </a>
+              <a href="#" className="footer-link">
+                Help Center
+              </a>
             </div>
-            <div className="footer-copyright">© 2025 NexNest. All rights reserved.</div>
+            <div className="footer-copyright">
+              © 2024 NexNest. All rights reserved.
+            </div>
           </div>
         </footer>
       </div>

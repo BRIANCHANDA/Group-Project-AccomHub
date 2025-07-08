@@ -40,6 +40,7 @@ interface PropertyDataType {
   address: string;
   monthlyRent: string;
   isAvailable: boolean;
+    targetUniversity: string;
   details: PropertyDetails;
   location?: {
     latitude: number | null;
@@ -85,6 +86,7 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
     address: '',
     monthlyRent: '',
     isAvailable: true,
+     targetUniversity: '',
     details: {
       bedrooms: 1,
       bathrooms: 1,
@@ -93,6 +95,25 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
       amenities: [],
     },
   };
+
+
+const AVAILABLE_UNIVERSITIES = [
+  'University of Zambia (UNZA)',
+  'Copperbelt University (CBU)',
+  'Mulungushi University (MU)',
+  'Zambia Open University',
+  'Cavendish University',
+  'Texila American University',
+  'Information and Communications University',
+  'Levy Mwanawasa Medical University',
+  'Rockview University',
+  'Kwame Nkrumah University',
+  'University of Lusaka',
+  'Chalimbana University',
+  'Other'
+];
+
+
 
   const [propertyData, setPropertyData] = useState(initialPropertyData);
   const [formStage, setFormStage] = useState<FormStage>(FormStage.PROPERTY_DETAILS);
@@ -274,6 +295,7 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
     if (!propertyData.monthlyRent || parseFloat(propertyData.monthlyRent) <= 0) {
       newErrors.monthlyRent = 'Valid monthly rent is required';
     }
+    if (!propertyData.targetUniversity) newErrors.targetUniversity = 'Target university is required';
     if (!propertyData.propertyType) newErrors.propertyType = 'Property type is required';
     if (geocodedLocation.status !== 'success' || geocodedLocation.latitude === null || geocodedLocation.longitude === null) {
       newErrors.address = 'Valid geocoded address is required';
@@ -497,6 +519,7 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           landlordId: parseInt(landlordId),
+           targetUniversity: propertyData.targetUniversity,
         }),
       });
 
@@ -521,6 +544,7 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
           address: propertyData.address,
           monthlyRent: parseFloat(propertyData.monthlyRent),
           isAvailable: propertyData.isAvailable,
+          targetUniversity: propertyData.targetUniversity,
           ...(propertyData.location &&
             propertyData.location.latitude !== null &&
             propertyData.location.longitude !== null && {
@@ -748,7 +772,7 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
             <X size={24} />
           </button>
         </div>
-
+ <div className="modal-body">
         {landlordIdError && (
           <div className="error-banner">
             {landlordIdError}
@@ -806,6 +830,31 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
                     </>
                   )}
                 </div>
+
+
+<div className="form-group">
+  <label htmlFor="target-university">Target University*</label>
+  <select
+    id="target-university"
+    name="targetUniversity"
+    value={propertyData.targetUniversity}
+    onChange={handleChange}
+    required
+    className={errors.targetUniversity ? 'input-error' : ''}
+  >
+    <option value="">Select target university</option>
+    {AVAILABLE_UNIVERSITIES.map((university) => (
+      <option key={university} value={university}>
+        {university}
+      </option>
+    ))}
+  </select>
+  {errors.targetUniversity && (
+    <span className="error-message">{errors.targetUniversity}</span>
+  )}
+</div>
+
+
 
                 <div className="form-group full-width address-input-container">
                   <label htmlFor="property-address">Address*</label>
@@ -1091,6 +1140,7 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
           </form>
         )}
       </div>
+    </div>
     </div>
   );
 };

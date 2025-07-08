@@ -229,6 +229,7 @@ const propertySchema = z.object({
   isAvailable: z.boolean().default(true),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
+   targetUniversity: z.string().min(1).max(255), 
 });
 
 const updatePropertySchema = propertySchema.partial();
@@ -324,6 +325,7 @@ propertyRouter.openapi(
           "application/json": {
             schema: z.object({
               landlordId: z.number().int().positive("Landlord ID must be a positive integer"),
+               targetUniversity: z.string().min(1).max(255), 
             }),
           },
         },
@@ -356,7 +358,7 @@ propertyRouter.openapi(
   }),
   async (c) => {
     try {
-      const { landlordId } = c.req.valid("json");
+      const { landlordId ,targetUniversity} = c.req.valid("json");
 
       const [newDraft] = await safeDbOperation(
         async () => {
@@ -369,6 +371,7 @@ propertyRouter.openapi(
               monthlyRent: 1,
               isAvailable: false,
               location: sql`ST_GeogFromText('POINT(0 0)')`,
+              targetUniversity
             })
             .returning({ propertyId: properties.propertyId });
         },
@@ -406,6 +409,7 @@ propertyRouter.openapi(
               latitude: z.number().optional(),
               longitude: z.number().optional(),
               description: z.string().max(200, "Description too long").optional(),
+                targetUniversity: z.string().min(1, "Target university is required").max(255),
             }),
           },
         },
@@ -479,6 +483,7 @@ propertyRouter.openapi(
               address: formattedAddress,
               monthlyRent: propertyData.monthlyRent,
               propertyType: propertyData.propertyType ?? "apartment",
+                targetUniversity: propertyData.targetUniversity,
               location: sql`ST_GeogFromText('POINT(${longitude} ${latitude})')`,
             })
             .returning({
@@ -488,6 +493,7 @@ propertyRouter.openapi(
               address: properties.address,
               latitude: sql`ST_Y(ST_Transform(location::geometry, 4326))`.as('latitude'),
               longitude: sql`ST_X(ST_Transform(location::geometry, 4326))`.as('longitude'),
+               targetUniversity: properties.targetUniversity,
             });
         },
         "create property"
@@ -500,6 +506,7 @@ propertyRouter.openapi(
             ...newProperty,
             propertyType: newProperty.propertyType ?? "apartment",
             formattedAddress,
+             targetUniversity: newProperty.targetUniversity,
           },
         },
         HttpStatusCodes.CREATED
@@ -615,7 +622,7 @@ propertyRouter.openapi(
   }
 );
 
-// Random properties
+// Random properties with university filtering
 propertyRouter.openapi(
   createRoute({
     tags: ["Properties"],
@@ -630,6 +637,7 @@ propertyRouter.openapi(
           }
           return num;
         }).default("8").optional(),
+        university: z.string().optional(),
       }),
     },
     responses: {
@@ -645,6 +653,7 @@ propertyRouter.openapi(
                 features: z.array(z.string()),
                 image: z.string().nullable(),
                 tag: z.string().nullable().optional(),
+                university: z.string(),
               }),
             ),
           },
@@ -655,10 +664,17 @@ propertyRouter.openapi(
   }),
   async (c) => {
     try {
-      const { limit = 8 } = c.req.valid("query");
-      const randomPropertyIds = await db.select({ propertyId: properties.propertyId })
+      const { limit = 8, university } = c.req.valid("query");
+      
+      let query = db.select({ propertyId: properties.propertyId })
         .from(properties)
-        .where(eq(properties.isAvailable, true))
+        .where(eq(properties.isAvailable, true));
+      
+      if (university) {
+        query = query.where(eq(properties.targetUniversity, university));
+      }
+
+      const randomPropertyIds = await query
         .orderBy(sql`RANDOM()`)
         .limit(limit);
 
@@ -674,6 +690,7 @@ propertyRouter.openapi(
         description: properties.description,
         image: propertyImages.imageUrl,
         tag: properties.propertyType,
+        university: properties.targetUniversity,
       }).from(properties)
       .leftJoin(
         propertyImages,
@@ -693,6 +710,7 @@ propertyRouter.openapi(
         features: property.description ? [property.description] : ['No description available'],
         image: property.image || '/placeholder-property.jpg',
         tag: property.tag || 'property',
+        university: property.university,
       }));
 
       return c.json(formattedProperties);
@@ -750,11 +768,13 @@ propertyRouter.openapi(
 );
 
 // Add this to your propertyRouter
+
+// Admin properties list with targetUniversity
 propertyRouter.openapi(
   createRoute({
     tags: ["Properties"],
     method: "get",
-    path: "/properties/properties", // Endpoint matches your frontend request
+    path: "/properties/properties",
     responses: {
       [HttpStatusCodes.OK]: {
         content: {
@@ -768,9 +788,9 @@ propertyRouter.openapi(
                 monthlyRent: z.number(),
                 isAvailable: z.boolean(),
                 propertyType: z.string(),
-                // Add landlord info as requested in your frontend
                 landlordName: z.string().optional(),
                 landlordEmail: z.string().optional(),
+                targetUniversity: z.string(),
               })
             ),
           },
@@ -781,7 +801,6 @@ propertyRouter.openapi(
   }),
   async (c) => {
     try {
-      // Fetch properties with landlord info
       const allProperties = await db
         .select({
           propertyId: properties.propertyId,
@@ -793,6 +812,7 @@ propertyRouter.openapi(
           propertyType: properties.propertyType,
           landlordName: users.firstName,
           landlordEmail: users.email,
+          targetUniversity: properties.targetUniversity,
         })
         .from(properties)
         .leftJoin(users, eq(properties.landlordId, users.userId));
@@ -801,10 +821,11 @@ propertyRouter.openapi(
         allProperties.map(p => ({
           ...p,
           monthlyRent: Number(p.monthlyRent),
-          propertyType: p.propertyType || 'apartment', // Provide default value for null
+          propertyType: p.propertyType || 'apartment',
           description: p.description || undefined,
           landlordName: p.landlordName || undefined,
           landlordEmail: p.landlordEmail || undefined,
+          targetUniversity: p.targetUniversity,
         })),
         HttpStatusCodes.OK
       );
@@ -882,8 +903,7 @@ propertyRouter.openapi(
     }
   }
 );
-
-// Update property
+// Update property endpoint
 propertyRouter.openapi(
   createRoute({
     tags: ["Properties"],
@@ -891,7 +911,7 @@ propertyRouter.openapi(
     path: "/properties/{id}",
     request: {
       params: z.object({
-        id: z.string().pipe(z.coerce.number().int().positive()),
+        id: z.string().transform(Number),
       }),
       body: {
         content: {
@@ -907,115 +927,102 @@ propertyRouter.openapi(
           "application/json": {
             schema: z.object({
               message: z.string(),
-              data: propertySchema,
+              property: z.object({
+                propertyId: z.number(),
+                title: z.string(),
+                address: z.string(),
+                monthlyRent: z.number(),
+                isAvailable: z.boolean(),
+                propertyType: z.string(),
+                targetUniversity: z.string(),
+                latitude: z.number().nullable(),
+                longitude: z.number().nullable(),
+              }),
             }),
           },
         },
         description: "Property updated successfully",
       },
-      [HttpStatusCodes.NOT_FOUND]: {
-        content: {
-          "application/json": {
-            schema: z.object({
-              message: z.string(),
-            }),
-          },
-        },
-        description: "Property not found",
-      },
       [HttpStatusCodes.BAD_REQUEST]: {
-        content: {
-          "application/json": {
-            schema: z.object({
-              message: z.string(),
-              error: z.string().optional(),
-            }),
-          },
-        },
         description: "Invalid input",
+      },
+      [HttpStatusCodes.NOT_FOUND]: {
+        description: "Property not found",
       },
     },
   }),
   async (c) => {
     try {
-      const { id } = c.req.valid("param");
+      const { id: propertyId } = c.req.valid("param");
       const updateData = c.req.valid("json");
 
-      const currentProperty = await findPropertyById(id);
-      if (!currentProperty) {
+      // Validate property exists
+      const existingProperty = await findPropertyById(propertyId);
+      if (!existingProperty) {
         throw new HTTPException(HttpStatusCodes.NOT_FOUND, {
           message: "Property not found",
         });
       }
 
-      let formattedUpdateData: any = {
-        ...updateData,
-        monthlyRent: updateData.monthlyRent != null ? Number(updateData.monthlyRent) : undefined,
-      };
+      // Handle geocoding if address is being updated
+      let latitude = updateData.latitude ?? existingProperty.latitude;
+      let longitude = updateData.longitude ?? existingProperty.longitude;
+      let formattedAddress = updateData.address ?? existingProperty.address;
 
-      if (updateData.address && updateData.address !== currentProperty.address) {
+      if (updateData.address && updateData.address !== existingProperty.address) {
         const geocodingResult = await geocodeAddressWithFallback(updateData.address);
         if (!geocodingResult.success || !geocodingResult.latitude || !geocodingResult.longitude) {
           throw new HTTPException(HttpStatusCodes.BAD_REQUEST, {
-            message: "Invalid address or geocoding failed",
+            message: "Failed to geocode the provided address",
             error: geocodingResult.error,
           });
         }
-        formattedUpdateData = {
-          ...formattedUpdateData,
-          location: sql`ST_GeogFromText('POINT(${geocodingResult.longitude} ${geocodingResult.latitude})')`,
-          address: geocodingResult.formattedAddress || updateData.address,
-        };
+        latitude = geocodingResult.latitude;
+        longitude = geocodingResult.longitude;
+        formattedAddress = geocodingResult.formattedAddress || updateData.address;
       }
 
+      // Perform the update
       const [updatedProperty] = await safeDbOperation(
         async () => {
           return await db.update(properties)
-            .set(formattedUpdateData)
-            .where(eq(properties.propertyId, id))
+            .set({
+              ...updateData,
+              address: formattedAddress,
+              latitude,
+              longitude,
+              updatedAt: new Date(),
+            })
+            .where(eq(properties.propertyId, propertyId))
             .returning({
               propertyId: properties.propertyId,
-              landlordId: properties.landlordId,
               title: properties.title,
-              description: properties.description,
-              propertyType: properties.propertyType,
               address: properties.address,
               monthlyRent: properties.monthlyRent,
               isAvailable: properties.isAvailable,
-              latitude: sql`ST_Y(ST_Transform(location::geometry, 4326))`.as('latitude'),
-              longitude: sql`ST_X(ST_Transform(location::geometry, 4326))`.as('longitude'),
+              propertyType: properties.propertyType,
+              targetUniversity: properties.targetUniversity,
+              latitude: properties.latitude,
+              longitude: properties.longitude,
             });
         },
-        `update property ${id}`
+        `update property ${propertyId}`
       );
-
-      if (!updatedProperty) {
-        throw new HTTPException(HttpStatusCodes.NOT_FOUND, {
-          message: "Property not found after update",
-        });
-      }
 
       return c.json({
         message: "Property updated successfully",
-        data: {
-          ...updatedProperty,
-          propertyId: updatedProperty.propertyId,
-          monthlyRent: Number(updatedProperty.monthlyRent) || undefined,
-        },
+        property: updatedProperty,
       }, HttpStatusCodes.OK);
     } catch (error) {
-      if (error instanceof HTTPException || error instanceof ValidationError || error instanceof DatabaseError) {
-        throw error;
-      }
-      console.error(`Error updating property ${id}:`, error);
+      if (error instanceof HTTPException) throw error;
+      console.error("Error updating property:", error);
       throw new HTTPException(HttpStatusCodes.INTERNAL_SERVER_ERROR, {
-        message: "Error updating property",
+        message: "Failed to update property",
         error: error instanceof Error ? error.message : "Unknown error",
       });
     }
   }
 );
-
 // Delete property
 propertyRouter.openapi(
   createRoute({

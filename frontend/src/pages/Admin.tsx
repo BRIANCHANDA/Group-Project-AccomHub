@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { EyeOff } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell, AreaChart, Area
@@ -11,17 +12,55 @@ import {
   Mail, Phone, Clock, CheckCircle, XCircle, AlertCircle, UserPlus, Lock,
   User
 } from 'lucide-react';
-import './admin.css';
-import 'bootstrap/dist/css/bootstrap.min.css';
-import 'bootstrap/dist/js/bootstrap.bundle.min.js';
+import './admin.css'
+// Property interface
+interface Property {
+  id: string | number;
+  title?: string;
+  description?: string;
+  location: string;
+  price: string;
+  status: string;
+  inquiries: number;
+  imageUrl?: string | null;
+  propertyType?: string;
+  landlordName: string;
+  landlordEmail: string;
+}
+
+// User interface
+interface UserData {
+  userId: string | number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  userType: string;
+  phoneNumber: string | null;
+  createdAt: string;
+  approved?: boolean;
+}
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
   const [name, setName] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  // Authentication state
+  // Authentication state
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  // State declarations
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [userData, setUserData] = useState<UserData[]>([]);
 
   // Mock data based on schema
   const dashboardStats = {
@@ -33,141 +72,12 @@ const Dashboard = () => {
     occupancyRate: 87
   };
 
-  // Corrected Property interface
-  interface Property {
-    id: string | number;
-    title?: string;
-    description?: string;
-    location: string;
-    price: string; // Keep as string to match display format
-    status: string; // Changed to required since we always set it
-    inquiries: number; // Changed to required
-    imageUrl?: string | null;
-    propertyType?: string;
-    landlordName: string; // Added based on your requirements
-    landlordEmail: string; // Added based on your requirements
-  }
-
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Interface definition - matches your API response
-  interface UserData {
-    userId: string | number;
-    firstName: string;
-    lastName: string;
-    email: string;
-    userType: string;
-    phoneNumber: string | null;
-    createdAt: string; // API returns string, not Date
-    approved?: boolean;
-  }
-
-  const [userData, setUserData] = useState<UserData[]>([]);
-
-  useEffect(() => {
-    const fetchProperties = async () => {
-      try {
-        // Fixed endpoint URL
-        const response = await fetch('/api/properties/properties/properties');
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch properties: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        // Map the API response to Property interface
-        const mappedProperties = data.map((prop: any) => ({
-          id: prop.propertyId.toString(),
-          title: prop.title || 'No Title',
-          description: prop.description || '',
-          location: prop.address,
-          price: `K${prop.monthlyRent} / month`, // Formatted price string
-          status: prop.isAvailable ? 'Available' : 'Occupied',
-          inquiries: 0, // Default value
-          imageUrl: null, // Placeholder
-          propertyType: prop.propertyType,
-          landlordName: prop.landlordName || 'Unknown',
-          landlordEmail: prop.landlordEmail || ''
-        }));
-
-        setProperties(mappedProperties);
-      } catch (error) {
-        console.error('Error fetching properties:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchProperties();
-  }, []);
-
-  useEffect(() => {
-    // Fetch function
-    const fetchUserData = async () => {
-      try {
-        const response = await fetch('/api/users/users');
-        if (!response.ok) {
-          throw new Error(`Failed to fetch userData: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        // Extract users array from the response
-        const users = data.users || [];
-
-        // Map API response to match our interface
-        const mappedUserData: UserData[] = users.map((user: any) => ({
-          userId: user.userId.toString(),
-          firstName: user.firstName || '',
-          lastName: user.lastName || '',
-          email: user.email || '',
-          userType: user.userType || '',
-          phoneNumber: user.phoneNumber,
-          createdAt: user.createdAt || '',
-          approved: user.approved
-        }));
-
-        setUserData(mappedUserData);
-
-        // Set name if needed (using first user as example)
-        if (mappedUserData.length > 0) {
-          const firstUser = mappedUserData[0];
-          setName(`${firstUser.firstName} ${firstUser.lastName}`);
-        }
-      } catch (error) {
-        console.error('Error fetching users:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchUserData();
-  }, []);
-
   const [propertyStats, setPropertyStats] = useState({
     total: 0,
     available: 0,
     unavailable: 0,
     byType: {}
   });
-
-  useEffect(() => {
-    // Fetch property stats
-    const fetchPropertyStats = async () => {
-      try {
-        const response = await fetch('/api/properties/properties/count');
-        if (!response.ok) {
-          throw new Error('Failed to fetch property stats');
-        }
-        const data = await response.json();
-        setPropertyStats(data);
-      } catch (err) {
-        console.error('Error fetching property stats:', err);
-      }
-    };
-    fetchPropertyStats();
-  }, []);
 
   const [userStats, setUserStats] = useState({
     total: 0,
@@ -176,69 +86,256 @@ const Dashboard = () => {
     admin: 0
   });
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchUserStats = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch('/api/users/users');
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch user stats: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-
-        // Extract counts from the API response
-        const counts = data.counts || {
-          total: 0,
-          student: 0,
-          landlord: 0,
-          admin: 0
-        };
-
-        setUserStats(counts);
-
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
-        console.error('Error fetching user stats:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUserStats();
-  }, []);
-
-
-
   const [userTypeData, setUserTypeData] = useState([
     { name: 'Students', value: 0, color: '#3b82f6' },
     { name: 'Landlords', value: 0, color: '#10b981' },
     { name: 'Admins', value: 0, color: '#f59e0b' }
   ]);
 
+  const [propertyTypeData, setPropertyTypeData] = useState([
+    { type: 'Apartments', count: 0, percentage: 0 },
+    { type: 'Houses', count: 0, percentage: 0 },
+    { type: 'Shared Rooms', count: 0, percentage: 0 },
+    { type: 'Single Rooms', count: 0, percentage: 0 }
+  ]);
+
+  const notificationsData = [
+    { id: 1, message: 'New user registered: Chanda bRIAN', type: 'info', date: '2025-05-28 10:00' },
+    { id: 2, message: 'Property added: Team Kuno Boarding house', type: 'success', date: '2025-05-27 15:30' }
+  ];
+
+  const topProperties = [
+    { id: 1, name: 'Sunset Apartments', rating: 4.8, revenue: 15000, image: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=300&h=200&fit=crop' },
+    { id: 2, name: 'Campus View House', rating: 4.6, revenue: 12500, image: 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=300&h=200&fit=crop' },
+    { id: 3, name: 'Student Plaza', rating: 4.5, revenue: 11000, image: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=300&h=200&fit=crop' }
+  ];
+
+
+  // Authentication check - this should be the first useEffect
+  // Authentication and authorization check - this should be the first useEffect
   useEffect(() => {
-    const fetchUserTypeStats = async () => {
+    const checkAuthenticationAndRole = async () => {
       try {
-        const response = await fetch('/api/auth/user-type-stats');
-        if (!response.ok) throw new Error('Failed to fetch user type stats');
-        const data = await response.json();
-        setUserTypeData(data);
-      } catch (err) {
-        console.error('Error fetching user type stats:', err);
+        // Check if userId exists in location state
+
+        const adminId = location.state?.adminId
+
+        if (!adminId) {
+          console.log('No userId found in location state, redirecting to login...');
+          navigate('/adminLogin', { replace: true });
+          return;
+        }
+
+        // Fetch user details to verify admin role
+        try {
+          const response = await fetch(`/api/users/users/${adminId}`);
+
+          if (!response.ok) {
+            throw new Error('Failed to fetch user details');
+          }
+
+          const userData = await response.json();
+          const userType = userData.userType || userData.user?.userType;
+
+          // Check if user is admin
+          if (userType !== 'admin') {
+            console.log('User is not an admin, access denied');
+            navigate('/unauthorized', {
+              replace: true,
+              state: { message: 'Admin access required' }
+            });
+            return;
+          }
+
+          // If user is admin, set authenticated
+          setUserRole(userType);
+          setIsAuthenticated(true);
+          console.log('Admin user authenticated:', adminId);
+
+        } catch (apiError) {
+          console.error('Error verifying user role:', apiError);
+          navigate('/adminLogin', {
+            replace: true,
+            state: { error: 'Unable to verify user credentials' }
+          });
+        }
+
+      } catch (error) {
+        console.error('Authentication check error:', error);
+        navigate('/login', { replace: true });
+      } finally {
+        setAuthLoading(false);
       }
     };
 
-    fetchUserTypeStats();
-  }, []);
+    checkAuthenticationAndRole();
+  }, [location.state, navigate]);
+
+  // Utility functions
+  const showToast = (message: string, type: string = 'success') => {
+    console.log(`${type.toUpperCase()}: ${message}`);
+    // You can implement a proper toast notification here
+  };
+
+  const refreshProperties = async () => {
+    // Re-fetch properties
+    fetchProperties();
+  };
+
+  // Fetch Properties
+  const fetchProperties = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/properties/properties/properties');
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch properties: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      const mappedProperties = data.map((prop: any) => ({
+        id: prop.propertyId.toString(),
+        title: prop.title || 'No Title',
+        description: prop.description || '',
+        location: prop.address,
+        price: `K${prop.monthlyRent} / month`,
+        status: prop.isAvailable ? 'Available' : 'Occupied',
+        inquiries: 0,
+        imageUrl: prop.imageUrl || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=300&h=200&fit=crop',
+        propertyType: prop.propertyType,
+        landlordName: prop.landlordName || 'Unknown',
+        landlordEmail: prop.landlordEmail || ''
+      }));
+
+      setProperties(mappedProperties);
+    } catch (error) {
+      console.error('Error fetching properties:', error);
+      setError('Failed to fetch properties');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch Users
+  const fetchUserData = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/users/users');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch userData: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const users = data.users || [];
+
+      const mappedUserData: UserData[] = users.map((user: any) => ({
+        userId: user.userId.toString(),
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email || '',
+        userType: user.userType || '',
+        phoneNumber: user.phoneNumber,
+        createdAt: user.createdAt || '',
+        approved: user.approved
+      }));
+
+      setUserData(mappedUserData);
 
 
+      // Find the current admin user using adminId from location state
+      const adminId = location.state?.adminId;
+      if (adminId && mappedUserData.length > 0) {
+        const currentAdmin = mappedUserData.find(user => user.userId === adminId.toString());
+        if (currentAdmin) {
+          setName(`${currentAdmin.firstName} ${currentAdmin.lastName}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      setError('Failed to fetch users');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+
+
+  const resetSettings = () => {
+    // Reset to default values
+    setHasChanges(false);
+    showToast('Settings reset to default');
+  };
+  // Fetch Property Stats
+  const fetchPropertyStats = async () => {
+    try {
+      const response = await fetch('/api/properties/properties/count');
+      if (!response.ok) {
+        throw new Error('Failed to fetch property stats');
+      }
+      const data = await response.json();
+      setPropertyStats(data);
+    } catch (err) {
+      console.error('Error fetching property stats:', err);
+    }
+  };
+
+  // Fetch User Stats
+  const fetchUserStats = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/users/users');
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch user stats: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const counts = data.counts || {
+        total: 0,
+        student: 0,
+        landlord: 0,
+        admin: 0
+      };
+
+      setUserStats(counts);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      console.error('Error fetching user stats:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch User Type Stats
+  const fetchUserTypeStats = async () => {
+    try {
+      const response = await fetch('/api/auth/user-type-stats');
+      if (!response.ok) throw new Error('Failed to fetch user type stats');
+      const data = await response.json();
+      setUserTypeData(data);
+    } catch (err) {
+      console.error('Error fetching user type stats:', err);
+    }
+  };
+
+  // Fetch Property Type Stats
+  const fetchPropertyTypeStats = async () => {
+    try {
+      const response = await fetch('/api/properties/properties/type-stats');
+      if (!response.ok) throw new Error('Failed to fetch property type stats');
+      const data = await response.json();
+      setPropertyTypeData(data);
+    } catch (err) {
+      console.error('Error fetching property type stats:', err);
+    }
+  };
+
+  // Handle Unpublish
   const handleUnpublish = async (propertyId: any) => {
     try {
-      const response = await fetch(`/api/propertyListing/${propertyId}/unpublish`, {
+      const response = await fetch(`   /api/PropertyListingRoute/propertyListing/${propertyId}/unpublish`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -247,7 +344,6 @@ const Dashboard = () => {
         throw new Error('Failed to unpublish property');
       }
 
-      // Refresh properties or update state
       refreshProperties();
       closeModal();
       showToast('Listing unpublished successfully');
@@ -259,57 +355,56 @@ const Dashboard = () => {
   };
 
 
+  // Handle Republish
+  const handleRepublish = async (propertyId: any) => {
+    try {
+      const response = await fetch(`/api/PropertyListingRoute/propertyListing/${propertyId}/publish`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' }
+      });
 
-
-
-
-  const [propertyTypeData, setPropertyTypeData] = useState([
-    { type: 'Apartments', count: 0, percentage: 0 },
-    { type: 'Houses', count: 0, percentage: 0 },
-    { type: 'Shared Rooms', count: 0, percentage: 0 },
-    { type: 'Single Rooms', count: 0, percentage: 0 }
-  ]);
-
-  useEffect(() => {
-    const fetchPropertyTypeStats = async () => {
-      try {
-        const response = await fetch('/api/properties/properties/type-stats');
-        if (!response.ok) throw new Error('Failed to fetch property type stats');
-        const data = await response.json();
-        setPropertyTypeData(data);
-      } catch (err) {
-        console.error('Error fetching property type stats:', err);
+      if (!response.ok) {
+        throw new Error('Failed to republish property');
       }
-    };
 
-    fetchPropertyTypeStats();
-  }, []);
+      refreshProperties();
+      closeModal();
+      showToast('Listing republished successfully');
 
-  const inquiryStats = {
-    total: 432,
-    pending: 120,
-    responded: 250,
-    closed: 62
+    } catch (error) {
+      showToast('Error republishing listing', 'error');
+      console.error('Republish error:', error);
+    }
   };
 
 
 
-  const reviewsData = [
-    { id: 1, property: 'Sunset Apartments', user: 'John Doe', rating: 4.8, comment: 'Great location!', date: '2025-05-20' },
-    { id: 2, property: 'Campus View', user: 'Jane Smith', rating: 4.5, comment: 'Very clean.', date: '2025-05-19' }
-  ];
+  // useEffect hooks
+  useEffect(() => {
+    fetchProperties();
+  }, []);
 
-  const notificationsData = [
-    { id: 1, message: 'New user registered: John Doe', type: 'info', date: '2025-05-28 10:00' },
-    { id: 2, message: 'Property added: Sunset Apartments', type: 'success', date: '2025-05-27 15:30' }
-  ];
+  useEffect(() => {
+    fetchUserData();
+  }, []);
 
-  const topProperties = [
-    { id: 1, name: 'Sunset Apartments', rating: 4.8, inquiries: 45, revenue: 15000, image: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=300&h=200&fit=crop' },
-    { id: 2, name: 'Campus View House', rating: 4.6, inquiries: 38, revenue: 12500, image: 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=300&h=200&fit=crop' },
-    { id: 3, name: 'Student Plaza', rating: 4.5, inquiries: 32, revenue: 11000, image: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=300&h=200&fit=crop' }
-  ];
+  useEffect(() => {
+    fetchPropertyStats();
+  }, []);
 
+  useEffect(() => {
+    fetchUserStats();
+  }, []);
+
+  useEffect(() => {
+    fetchUserTypeStats();
+  }, []);
+
+  useEffect(() => {
+    fetchPropertyTypeStats();
+  }, []);
+
+  // Sidebar Component
   const Sidebar = () => {
     const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -323,7 +418,7 @@ const Dashboard = () => {
               <Home size={20} />
             </span>
             <div className="logo-text">
-              <h1 className="sidebar-title">NexNest</h1>
+              <h1 className="sidebar-title" style={{ color: 'black' }}>NexNest</h1>
               <p className="sidebar-subtitle">Admin Dashboard</p>
             </div>
           </div>
@@ -347,8 +442,6 @@ const Dashboard = () => {
             { id: 'overview', name: 'Overview', icon: Home },
             { id: 'properties', name: 'Properties', icon: Building },
             { id: 'users', name: 'Users', icon: Users },
-            { id: 'inquiries', name: 'Inquiries', icon: MessageSquare },
-            { id: 'reviews', name: 'Reviews', icon: Star },
             { id: 'notifications', name: 'Notifications', icon: Bell },
             { id: 'settings', name: 'Settings', icon: Settings },
           ].map((item) => {
@@ -370,13 +463,13 @@ const Dashboard = () => {
     );
   };
 
-  const StatsCard = ({ title, value, icon: Icon, color }) => (
+  // Stats Card Component
+  const StatsCard = ({ title, value, icon: Icon, color }: any) => (
     <div className="stats-card">
       <div className="flex items-center justify-between">
         <div>
           <p className="stats-title">{title}</p>
           <p className="stats-value">{value}</p>
-
         </div>
         <div className={`icon-container ${color}`}>
           <Icon className="h-6 w-6 text-white" />
@@ -385,44 +478,31 @@ const Dashboard = () => {
     </div>
   );
 
+  // Overview Tab Component
   const OverviewTab = () => (
     <div className="space-y-6">
       <div className="stats-grid">
         <StatsCard
           title="Total Properties"
           value={propertyStats.total.toLocaleString()}
-
           icon={Building}
           color="bg-gradient-to-r from-blue-500 to-blue-600"
         />
         <StatsCard
           title="Total Users"
           value={userStats.total.toLocaleString()}
-
           icon={Users}
           color="bg-gradient-to-r from-green-500 to-green-600"
         />
         <StatsCard
-          title="Total Inquiries"
-          value={dashboardStats.totalInquiries.toLocaleString()}
-
-          icon={MessageSquare}
-          color="bg-gradient-to-r from-purple-500 to-purple-600"
-        />
-        <StatsCard
           title="Average Rating"
           value={dashboardStats.averageRating.toFixed(1)}
-
           icon={Star}
           color="bg-gradient-to-r from-yellow-500 to-yellow-600"
         />
-
-
       </div>
 
       <div className="charts-grid">
-
-
         <div className="chart-card">
           <h3 className="chart-title">User Distribution</h3>
           <ResponsiveContainer width="100%" height={300}>
@@ -453,7 +533,6 @@ const Dashboard = () => {
               <div key={index} className="property-type-item">
                 <div className="flex justify-between">
                   <span className="font-medium">{item.type}</span>
-                  <br />
                   <span>{item.count} ({item.percentage}%)</span>
                 </div>
                 <div className="progress-bar">
@@ -485,7 +564,7 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <div className="property-revenue">
-                  <p className="revenue-amount">{property.revenue.toLocaleString()}</p>
+                  <p className="revenue-amount">K{property.revenue.toLocaleString()}</p>
                   <p className="revenue-label">monthly</p>
                 </div>
               </div>
@@ -496,11 +575,11 @@ const Dashboard = () => {
     </div>
   );
 
+  // Properties Tab Component
   const PropertiesTab = () => (
     <div className="space-y-6">
       <div className="header-section">
         <h2 className="section-title">Properties Management</h2>
-
       </div>
 
       <div className="card">
@@ -523,75 +602,102 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Property</th>
-                <th>Type</th>
-                <th>Location</th>
-                <th>Rent</th>
-                
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {properties.map((property) => (
-                <tr key={property.id}>
-                  <td>
-                    <div className="flex items-center">
-                      <img className="table-image" src={property.imageUrl} alt="" />
-                      <div className="ml-4">
-                        <div className="table-title">{property.title}</div>
-                        <div className="table-subtitle">ID: {property.id}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <span className="type-badge">Property Type:{property.propertyType}</span>
-                  </td>
-                  <td>
-                    <div className="flex items-center">
-                      <MapPin className="h-4 w-4 text-gray-400 mr-1" />
-                      Location: {property.location}
-                    </div>
-                  </td>
-                  <td className="font-medium">
-                    {property.price.toLocaleString()}
-                  </td>
-
-                  <td>
-                    <div className="action-buttons">
-                      <button
-                        className="action-icon view"
-                        onClick={() => openModal('viewProperty', property)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </button>
-
-                      <button
-                        className="action-icon unpublish flex items-center gap-1 bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded transition-colors"
-                        onClick={() => openModal('unpublishProperty', property)}
-                      >
-                        <EyeOff className="h-4 w-4" />
-                        <span className="text-xs">Unpublish</span>
-                      </button>
-                    </div>
-                  </td>
+        {isLoading ? (
+          <div className="loading-container">
+            <div className="loading-spinner"></div>
+            <p>Loading properties...</p>
+          </div>
+        ) : (
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Property</th>
+                  <th>Type</th>
+                  <th>Location</th>
+                  <th>Rent</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {properties
+                  .filter(property =>
+                    property.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    property.location.toLowerCase().includes(searchTerm.toLowerCase())
+                  )
+                  .map((property) => (
+                    <tr key={property.id}>
+                      <td>
+                        <div className="flex items-center">
+                          <img className="table-image" src={property.imageUrl || ''} alt="" />
+                          <div className="ml-4">
+                            <div className="table-title">{property.title}</div>
+                            <div className="table-subtitle">ID: {property.id}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="type-badge">{property.propertyType}</span>
+                      </td>
+                      <td>
+                        <div className="flex items-center">
+                          <MapPin className="h-4 w-4 text-gray-400 mr-1" />
+                          {property.location}
+                        </div>
+                      </td>
+                      <td className="font-medium">
+                        {property.price}
+                     </td>
+                    <td>
+                      <div className="actions-cell">
+                        <div className="action-row">
+                          <button
+                            className="action-btn view"
+                            onClick={() => openModal('viewProperty', property)}
+                            title="View Details"
+                          >
+                            <Eye size={14} />
+                            <span>View</span>
+                          </button>
+                        </div>
+                        <div className="action-row">
+                          {property.status === 'Available' ? (
+                            <button
+                              className="action-btn unpublish"
+                              onClick={() => openModal('unpublishProperty', property)}
+                              title="Unpublish Property"
+                            >
+                              <EyeOff size={14} />
+                              <span>Unpublish</span>
+                            </button>
+                          ) : (
+                            <button
+                              className="action-btn republish"
+                              onClick={() => openModal('republishProperty', property)}
+                              title="Republish Property"
+                            >
+                              <Eye size={14} />
+                              <span>Republish</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
 
+  // Users Tab Component
   const UsersTab = () => (
     <div className="space-y-6">
       <div className="header-section">
         <h2 className="section-title">Users Management</h2>
-
       </div>
 
       <div className="card">
@@ -614,7 +720,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {isLoading ? (
+        {loading ? (
           <div className="loading-container">
             <div className="loading-spinner"></div>
             <p>Loading users...</p>
@@ -680,7 +786,10 @@ const Dashboard = () => {
                       </td>
                       <td className="join-date">
                         <Calendar className="h-4 w-4 inline-icon" />
-                        {user.createdAt === "string" ? "N/A" : user.createdAt}
+                        {user.createdAt && user.createdAt !== "string"
+                          ? new Date(user.createdAt).toLocaleDateString()
+                          : "N/A"
+                        }
                       </td>
                       <td>
                         <div className="action-buttons">
@@ -691,8 +800,6 @@ const Dashboard = () => {
                           >
                             <Eye className="h-4 w-4" />
                           </button>
-
-
                         </div>
                       </td>
                     </tr>
@@ -700,7 +807,7 @@ const Dashboard = () => {
               </tbody>
             </table>
 
-            {userData.length === 0 && !isLoading && (
+            {userData.length === 0 && !loading && (
               <div className="empty-state">
                 <Users className="h-12 w-12" />
                 <h3>No Users Found</h3>
@@ -713,136 +820,7 @@ const Dashboard = () => {
     </div>
   );
 
-  const InquiriesTab = () => (
-    <div className="space-y-6">
-      <div className="header-section">
-        <h2 className="section-title">Inquiries Overview</h2>
-      </div>
-
-      <div className="stats-grid">
-        <StatsCard
-          title="Total Inquiries"
-          value={inquiryStats.total.toLocaleString()}
-          icon={MessageSquare}
-          color="bg-gradient-to-r from-purple-500 to-purple-600"
-        />
-        <StatsCard
-          title="Pending"
-          value={inquiryStats.pending.toLocaleString()}
-          icon={Clock}
-          color="bg-gradient-to-r from-yellow-500 to-yellow-600"
-        />
-        <StatsCard
-          title="Responded"
-          value={inquiryStats.responded.toLocaleString()}
-          icon={CheckCircle}
-          color="bg-gradient-to-r from-green-500 to-green-600"
-        />
-        <StatsCard
-          title="Closed"
-          value={inquiryStats.closed.toLocaleString()}
-          icon={XCircle}
-          color="bg-gradient-to-r from-blue-500 to-blue-600"
-        />
-      </div>
-
-      <div className="card">
-        <div className="card-header">
-          <h3 className="card-title">Inquiry Trends</h3>
-        </div>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={[
-            { name: 'Pending', count: inquiryStats.pending },
-            { name: 'Responded', count: inquiryStats.responded },
-            { name: 'Closed', count: inquiryStats.closed }
-          ]}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="count" fill="#3b82f6" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-
-  const ReviewsTab = () => (
-    <div className="space-y-6">
-      <div className="header-section">
-        <h2 className="section-title">Reviews Management</h2>
-      </div>
-
-      <div className="card">
-        <div className="card-header">
-          <div className="search-filter">
-            <div className="search-container">
-              <Search className="search-icon" />
-              <input
-                type="text"
-                placeholder="Search reviews..."
-                className="search-input"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <button className="filter-button">
-              <Filter className="h-4 w-4" />
-              <span>Filter</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Property</th>
-                <th>User</th>
-                <th>Rating</th>
-                <th>Comment</th>
-                <th>Date</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {reviewsData.map((review) => (
-                <tr key={review.id}>
-                  <td className="table-title">{review.property}</td>
-                  <td>{review.user}</td>
-                  <td>
-                    <div className="flex items-center">
-                      <Star className="h-4 w-4 text-yellow-400 mr-1" />
-                      {review.rating}
-                    </div>
-                  </td>
-                  <td>{review.comment}</td>
-                  <td>{review.date}</td>
-                  <td>
-                    <div className="action-buttons">
-                      <button
-                        className="action-icon view"
-                        onClick={() => openModal('viewReview', review)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </button>
-                      <button
-                        className="action-icon delete"
-                        onClick={() => openModal('deleteReview', review)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-
+  // Notifications Tab Component
   const NotificationsTab = () => (
     <div className="space-y-6">
       <div className="header-section">
@@ -873,42 +851,390 @@ const Dashboard = () => {
       </div>
     </div>
   );
+  // Settings Tab Component
+  const SettingsTab = () => {
+    const [settings, setSettings] = useState({
+      // System Settings
+      siteName: 'NexNest',
+      siteDescription: 'Student Accommodation Platform',
+      maintenanceMode: false,
+      allowRegistrations: true,
+      requireEmailVerification: true,
 
-  const SettingsTab = () => (
-    <div className="space-y-6">
-      <div className="header-section">
-        <h2 className="section-title">Settings</h2>
-      </div>
+      // Property Settings
+      maxPropertiesPerLandlord: 10,
+      autoApproveProperties: false,
+      propertyImageLimit: 5,
+      featuredPropertyDuration: 30, // days
 
-      <div className="card">
-        <div className="card-header">
-          <h3 className="card-title">Account Settings</h3>
+      // User Settings
+      autoApproveUsers: false,
+      maxInquiriesPerDay: 5,
+      sessionTimeout: 60, // minutes
+
+      // Notification Settings
+      emailNotifications: true,
+      smsNotifications: false,
+      webhookNotifications: false,
+      notificationFrequency: 'immediate', // immediate, daily, weekly
+
+      // Security Settings
+      passwordMinLength: 8,
+      requireStrongPassword: true,
+      maxLoginAttempts: 5,
+      accountLockoutDuration: 30, // minutes
+    });
+
+    const [activeSettingsTab, setActiveSettingsTab] = useState('system');
+    const [hasChanges, setHasChanges] = useState(false);
+
+    const handleSettingChange = (key: string, value: any) => {
+      setSettings(prev => ({
+        ...prev,
+        [key]: value
+      }));
+      setHasChanges(true);
+    };
+
+    const saveSettings = async () => {
+      try {
+        // Simulate API call
+        console.log('Saving settings:', settings);
+        // const response = await fetch('/api/admin/settings', {
+        //   method: 'PUT',
+        //   headers: { 'Content-Type': 'application/json' },
+        //   body: JSON.stringify(settings)
+        // });
+
+        showToast('Settings saved successfully');
+        setHasChanges(false);
+      } catch (error) {
+        showToast('Failed to save settings', 'error');
+      }
+    };
+    return (
+      <div className="space-y-6">
+        <div className="header-section">
+          <h2 className="section-title">System Settings</h2>
+          {hasChanges && (
+            <div className="settings-alert">
+              <AlertCircle className="h-4 w-4" />
+              <span>You have unsaved changes</span>
+            </div>
+          )}
         </div>
-        <div className="settings-form">
-          <div className="form-group">
-            <label className="form-label">Email</label>
-            <div className="input-group">
-              <Mail className="input-icon" />
-              <input type="email" className="form-input" defaultValue="admin@example.com" />
+
+        {/* Settings Navigation */}
+        <div className="settings-nav">
+          {[
+            { id: 'system', name: 'System', icon: Settings },
+            { id: 'properties', name: 'Properties', icon: Building },
+            { id: 'users', name: 'Users', icon: Users },
+            { id: 'notifications', name: 'Notifications', icon: Bell },
+            { id: 'security', name: 'Security', icon: Lock },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveSettingsTab(tab.id)}
+                className={`settings-tab-btn ${activeSettingsTab === tab.id ? 'active' : ''}`}
+              >
+                <Icon className="h-4 w-4" />
+                <span>{tab.name}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* System Settings */}
+        {activeSettingsTab === 'system' && (
+          <div className="card">
+            <div className="card-header">
+              <h3 className="card-title">System Configuration</h3>
+            </div>
+            <div className="settings-form">
+              <div className="form-group">
+                <label className="form-label">Site Name</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={settings.siteName}
+                  onChange={(e) => handleSettingChange('siteName', e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Site Description</label>
+                <textarea
+                  className="form-input"
+                  rows={3}
+                  value={settings.siteDescription}
+                  onChange={(e) => handleSettingChange('siteDescription', e.target.value)}
+                />
+              </div>
+              <div className="form-group checkbox-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={settings.maintenanceMode}
+                    onChange={(e) => handleSettingChange('maintenanceMode', e.target.checked)}
+                  />
+                  <span>Maintenance Mode</span>
+                </label>
+                <p className="form-help">Temporarily disable public access to the site</p>
+              </div>
+              <div className="form-group checkbox-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={settings.allowRegistrations}
+                    onChange={(e) => handleSettingChange('allowRegistrations', e.target.checked)}
+                  />
+                  <span>Allow New Registrations</span>
+                </label>
+              </div>
             </div>
           </div>
-          <div className="form-group">
-            <label className="form-label">Password</label>
-            <div className="input-group">
-              <Lock className="input-icon" />
-              <input type="password" className="form-input" defaultValue="********" />
+        )}
+
+        {/* Property Settings */}
+        {activeSettingsTab === 'properties' && (
+          <div className="card">
+            <div className="card-header">
+              <h3 className="card-title">Property Management</h3>
+            </div>
+            <div className="settings-form">
+              <div className="form-group">
+                <label className="form-label">Max Properties per Landlord</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  min="1"
+                  max="50"
+                  value={settings.maxPropertiesPerLandlord}
+                  onChange={(e) => handleSettingChange('maxPropertiesPerLandlord', parseInt(e.target.value))}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Property Image Limit</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  min="1"
+                  max="20"
+                  value={settings.propertyImageLimit}
+                  onChange={(e) => handleSettingChange('propertyImageLimit', parseInt(e.target.value))}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Featured Property Duration (Days)</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  min="1"
+                  max="90"
+                  value={settings.featuredPropertyDuration}
+                  onChange={(e) => handleSettingChange('featuredPropertyDuration', parseInt(e.target.value))}
+                />
+              </div>
+              <div className="form-group checkbox-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={settings.autoApproveProperties}
+                    onChange={(e) => handleSettingChange('autoApproveProperties', e.target.checked)}
+                  />
+                  <span>Auto-approve Property Listings</span>
+                </label>
+                <p className="form-help">Automatically approve new property listings without manual review</p>
+              </div>
             </div>
           </div>
-          <div className="form-actions">
-            <button className="action-button primary">Save Changes</button>
-            <button className="action-button secondary">Cancel</button>
+        )}
+
+        {/* User Settings */}
+        {activeSettingsTab === 'users' && (
+          <div className="card">
+            <div className="card-header">
+              <h3 className="card-title">User Management</h3>
+            </div>
+            <div className="settings-form">
+              <div className="form-group">
+                <label className="form-label">Max Inquiries per Day</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  min="1"
+                  max="50"
+                  value={settings.maxInquiriesPerDay}
+                  onChange={(e) => handleSettingChange('maxInquiriesPerDay', parseInt(e.target.value))}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Session Timeout (Minutes)</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  min="15"
+                  max="480"
+                  value={settings.sessionTimeout}
+                  onChange={(e) => handleSettingChange('sessionTimeout', parseInt(e.target.value))}
+                />
+              </div>
+              <div className="form-group checkbox-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={settings.autoApproveUsers}
+                    onChange={(e) => handleSettingChange('autoApproveUsers', e.target.checked)}
+                  />
+                  <span>Auto-approve User Accounts</span>
+                </label>
+              </div>
+              <div className="form-group checkbox-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={settings.requireEmailVerification}
+                    onChange={(e) => handleSettingChange('requireEmailVerification', e.target.checked)}
+                  />
+                  <span>Require Email Verification</span>
+                </label>
+              </div>
+            </div>
           </div>
+        )}
+
+        {/* Notification Settings */}
+        {activeSettingsTab === 'notifications' && (
+          <div className="card">
+            <div className="card-header">
+              <h3 className="card-title">Notification Preferences</h3>
+            </div>
+            <div className="settings-form">
+              <div className="form-group">
+                <label className="form-label">Notification Frequency</label>
+                <select
+                  className="form-input"
+                  value={settings.notificationFrequency}
+                  onChange={(e) => handleSettingChange('notificationFrequency', e.target.value)}
+                >
+                  <option value="immediate">Immediate</option>
+                  <option value="daily">Daily Digest</option>
+                  <option value="weekly">Weekly Summary</option>
+                </select>
+              </div>
+              <div className="form-group checkbox-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={settings.emailNotifications}
+                    onChange={(e) => handleSettingChange('emailNotifications', e.target.checked)}
+                  />
+                  <span>Email Notifications</span>
+                </label>
+              </div>
+              <div className="form-group checkbox-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={settings.smsNotifications}
+                    onChange={(e) => handleSettingChange('smsNotifications', e.target.checked)}
+                  />
+                  <span>SMS Notifications</span>
+                </label>
+              </div>
+              <div className="form-group checkbox-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={settings.webhookNotifications}
+                    onChange={(e) => handleSettingChange('webhookNotifications', e.target.checked)}
+                  />
+                  <span>Webhook Notifications</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Security Settings */}
+        {activeSettingsTab === 'security' && (
+          <div className="card">
+            <div className="card-header">
+              <h3 className="card-title">Security Configuration</h3>
+            </div>
+            <div className="settings-form">
+              <div className="form-group">
+                <label className="form-label">Password Minimum Length</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  min="6"
+                  max="32"
+                  value={settings.passwordMinLength}
+                  onChange={(e) => handleSettingChange('passwordMinLength', parseInt(e.target.value))}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Max Login Attempts</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  min="3"
+                  max="10"
+                  value={settings.maxLoginAttempts}
+                  onChange={(e) => handleSettingChange('maxLoginAttempts', parseInt(e.target.value))}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Account Lockout Duration (Minutes)</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  min="5"
+                  max="1440"
+                  value={settings.accountLockoutDuration}
+                  onChange={(e) => handleSettingChange('accountLockoutDuration', parseInt(e.target.value))}
+                />
+              </div>
+              <div className="form-group checkbox-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={settings.requireStrongPassword}
+                    onChange={(e) => handleSettingChange('requireStrongPassword', e.target.checked)}
+                  />
+                  <span>Require Strong Passwords</span>
+                </label>
+                <p className="form-help">Must contain uppercase, lowercase, numbers, and special characters</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="settings-actions">
+          <button
+            className="action-button primary"
+            onClick={saveSettings}
+            disabled={!hasChanges}
+          >
+            <CheckCircle className="h-4 w-4" />
+            Save Changes
+          </button>
+          <button
+            className="action-button secondary"
+            onClick={resetSettings}
+          >
+            Reset to Default
+          </button>
         </div>
       </div>
-    </div>
-  );
-
-  const openModal = (type: React.SetStateAction<string>, item = null) => {
+    );
+  };
+  // Modal functions
+  const openModal = (type: string, item: any = null) => {
     setModalType(type);
     setSelectedItem(item);
     setShowModal(true);
@@ -920,290 +1246,176 @@ const Dashboard = () => {
     setSelectedItem(null);
   };
 
+  // Modal Component
   const Modal = () => {
     if (!showModal) return null;
 
     const renderModalContent = () => {
       switch (modalType) {
-        case 'addProperty':
-          return (
-            <>
-              <h5 className="modal-title">Add New Property</h5>
-              <div className="modal-body">
-                <div className="form-group">
-                  <label className="form-label">Property Name</label>
-                  <input type="text" className="form-input" placeholder="Enter property name" />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Type</label>
-                  <select className="form-input">
-                    <option>Apartment</option>
-                    <option>House</option>
-                    <option>Shared Room</option>
-                    <option>Single Room</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Monthly Rent</label>
-                  <input type="number" className="form-input" placeholder="Enter rent amount" />
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button className="action-button secondary" onClick={closeModal}>Cancel</button>
-                <button className="action-button primary">Add Property</button>
-              </div>
-            </>
-          );
         case 'viewProperty':
           return (
             <>
               <h5 className="modal-title">Property Details</h5>
               <div className="modal-body">
-                <p><strong>Name:</strong> {selectedItem?.name || selectedItem?.title || 'Unnamed Property'}</p>
-                <p><strong>Rating:</strong> {selectedItem?.rating || 'N/A'}</p>
-                <p><strong>Inquiries:</strong> {selectedItem?.inquiries || 0}</p>
-
-
-                {/* Additional basic info */}
-                <p><strong>Location:</strong> {selectedItem?.location || selectedItem?.address || 'Unknown'}</p>
+                <p><strong>Name:</strong> {selectedItem?.title || 'Unnamed Property'}</p>
+                <p><strong>Location:</strong> {selectedItem?.location || 'Unknown'}</p>
                 <p><strong>Price:</strong> {selectedItem?.price || 'N/A'}</p>
-                <p><strong>Status:</strong> {selectedItem?.status || (selectedItem?.isAvailable ? 'Available' : 'Unavailable')}</p>
+                <p><strong>Status:</strong> {selectedItem?.status || 'Unknown'}</p>
+                <p><strong>Type:</strong> {selectedItem?.propertyType || 'N/A'}</p>
+                <p><strong>Landlord:</strong> {selectedItem?.landlordName}</p>
+                <p><strong>Landlord Email:</strong> {selectedItem?.landlordEmail}</p>
               </div>
               <div className="modal-footer">
                 <button className="action-button secondary" onClick={closeModal}>Close</button>
               </div>
             </>
           );
-        case 'editProperty':
+
+        case 'unpublishProperty':
           return (
             <>
-              <h5 className="modal-title">Edit Property</h5>
+              <h5 className="modal-title">Unpublish Listing</h5>
               <div className="modal-body">
-                <div className="form-group">
-                  <label className="form-label">Property Name</label>
-                  <input type="text" className="form-input" defaultValue={selectedItem?.name} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Monthly Rent</label>
-                  <input type="number" className="form-input" defaultValue={selectedItem?.revenue} />
-                </div>
+                <p>Are you sure you want to unpublish <strong>"{selectedItem?.title}"</strong>?</p>
+                <p>The listing will be hidden from students but can be republished later.</p>
               </div>
               <div className="modal-footer">
                 <button className="action-button secondary" onClick={closeModal}>Cancel</button>
-                <button className="action-button primary">Save Changes</button>
-              </div>
-            </>
-          );
-        case 'deleteProperty':
-          return (
-            <>
-              <h5 className="modal-title">Delete Property</h5>
-              <div className="modal-body">
-                <p>Are you sure you want to delete <strong>{selectedItem?.name}</strong>?</p>
-              </div>
-              <div className="modal-footer">
-                <button className="action-button secondary" onClick={closeModal}>Cancel</button>
-                <button className="action-button danger">Delete</button>
+                <button
+                  className="action-button danger"
+                  onClick={() => handleUnpublish(selectedItem?.id)}
+                >
+                  Confirm Unpublish
+                </button>
               </div>
             </>
           );
 
+        case 'republishProperty':
+          return (
+            <>
+              <h5 className="modal-title">Republish Listing</h5>
+              <div className="modal-body">
+                <p>Are you sure you want to republish <strong>"{selectedItem?.title}"</strong>?</p>
+                <p>The listing will be visible to students again and they can make inquiries.</p>
+              </div>
+              <div className="modal-footer">
+                <button className="action-button secondary" onClick={closeModal}>Cancel</button>
+                <button
+                  className="action-button primary"
+                  onClick={() => handleRepublish(selectedItem?.id)}
+                >
+                  Confirm Republish
+                </button>
+              </div>
+            </>
+          );
         case 'viewUser':
           return (
             <>
-              <h5 className="modal-title">User Details    </h5>
+              <h5 className="modal-title">User Details</h5>
               <div className="modal-body">
                 <p><strong>Name:</strong> {selectedItem?.firstName} {selectedItem?.lastName}</p>
                 <p><strong>Email:</strong> {selectedItem?.email}</p>
                 <p><strong>Role:</strong> {selectedItem?.userType}</p>
                 <p><strong>Phone:</strong> {selectedItem?.phoneNumber || 'Not provided'}</p>
+                <p><strong>Account Creation Date:</strong> {
+                  selectedItem?.createdAt && selectedItem.createdAt !== "string"
+                    ? new Date(selectedItem.createdAt).toLocaleDateString()
+                    : "N/A"
+                }</p>
+              </div>
+              <div className="modal-footer">
+                <button className="action-button secondary" onClick={closeModal}>Close</button>
+              </div>
+            </>
+          );
 
-                <p><strong>Account Creation Date:</strong> {new Date(selectedItem?.createdAt).toLocaleDateString()}</p>
-              </div>
-              <div className="modal-footer">
-                <button className="action-button secondary" onClick={closeModal}>Close</button>
-              </div>
-            </>
-          );
-        case 'editUser':
-          return (
-            <>
-              <h5 className="modal-title">Edit User</h5>
-              <div className="modal-body">
-                <div className="form-group">
-                  <label className="form-label">Name</label>
-                  <input type="text" className="form-input" defaultValue={selectedItem?.name} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Email</label>
-                  <input type="email" className="form-input" defaultValue={selectedItem?.email} />
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button className="action-button secondary" onClick={closeModal}>Cancel</button>
-                <button className="action-button primary">Save Changes</button>
-              </div>
-            </>
-          );
-        case 'deleteUser':
-          return (
-            <>
-              <h5 className="modal-title">Delete User</h5>
-              <div className="modal-body">
-                <p>Are you sure you want to delete <strong>{selectedItem?.name}</strong>?</p>
-              </div>
-              <div className="modal-footer">
-                <button className="action-button secondary" onClick={closeModal}>Cancel</button>
-                <button className="action-button danger">Delete</button>
-              </div>
-            </>
-          );
-        case 'viewReview':
-          return (
-            <>
-              <h5 className="modal-title">Review Details</h5>
-              <div className="modal-body">
-                <p><strong>Property:</strong> {selectedItem?.property}</p>
-                <p><strong>User:</strong> {selectedItem?.user}</p>
-                <p><strong>Rating:</strong> {selectedItem?.rating}</p>
-                <p><strong>Comment:</strong> {selectedItem?.comment}</p>
-                <p><strong>Date:</strong> {selectedItem?.date}</p>
-              </div>
-              <div className="modal-footer">
-                <button className="action-button secondary" onClick={closeModal}>Close</button>
-              </div>
-            </>
-          );
-        case 'deleteReview':
-          return (
-            <>
-              <h5 className="modal-title">Delete Review</h5>
-              <div className="modal-body">
-                <p>Are you sure you want to delete review for <strong>{selectedItem?.property}</strong>?</p>
-              </div>
-              <div className="modal-footer">
-                <button className="action-button secondary" onClick={closeModal}>Cancel</button>
-                <button className="action-button danger">Delete</button>
-              </div>
-            </>
-          );
         default:
           return null;
       }
     };
-    // In your modal component
-    {
-      modalType === 'unpublishProperty' && (
-        <div className="p-4">
-          <h3 className="text-lg font-medium mb-3">Unpublish Listing</h3>
-          <p className="mb-4">
-            Are you sure you want to unpublish "{selectedProperty.title}"?
-            The listing will be hidden from students but can be republished later.
-          </p>
-
-          <div className="flex justify-end gap-2">
-            <button
-              className="px-3 py-1 border rounded"
-              onClick={closeModal}
-            >
-              Cancel
-            </button>
-            <button
-              className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600"
-              onClick={() => handleUnpublish(selectedProperty.propertyId)}
-            >
-              Confirm Unpublish
-            </button>
-          </div>
-        </div>
-      )
-    }
 
     return (
-      <div className="modal fade show" style={{ display: 'block' }}>
-        <div className="modal-dialog modal-lg">
-          <div className="modal-content">
-            <div className="modal-header">
-              {renderModalContent()}
-              <button className="btn-close" onClick={closeModal}></button>
-            </div>
-          </div>
+      <div className="modal-overlay" onClick={closeModal}>
+        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          {renderModalContent()}
         </div>
-        <div className="modal-backdrop fade show" onClick={closeModal}></div>
       </div>
     );
   };
 
-  const renderActiveTab = () => {
-    switch (activeTab) {
-      case 'overview': return <OverviewTab />;
-      case 'properties': return <PropertiesTab />;
-      case 'users': return <UsersTab />;
-      case 'inquiries': return <InquiriesTab />;
-      case 'reviews': return <ReviewsTab />;
-      case 'notifications': return <NotificationsTab />;
-      case 'settings': return <SettingsTab />;
-      default: return <OverviewTab />;
-    }
-  };
+  if (authLoading) {
+    return (
+      <div className="auth-loading">
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p>Verifying admin access...</p>
+        </div>
+      </div>
+    );
+  }
 
+  // Don't render if not authenticated or not admin
+  if (!isAuthenticated || userRole !== 'admin') {
+    return (
+      <div className="auth-error">
+        <div className="error-container">
+          <div className="error-icon">🚫</div>
+          <h2>Access Denied</h2>
+          <p>Admin privileges required to access this page.</p>
+          <button
+            className="action-button primary"
+            onClick={() => navigate('/login')}
+          >
+            Back to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+
+  // Main render (your existing return statement)
   return (
-    <div className="dashboard-container">
+    <div className="dashboard">
       <Sidebar />
-
-      <div className="main-container">
-        <header className="header">
-          <div className="header-content">
-            <div>
-              <h1 className="header-title">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h1>
-              <p className="header-subtitle">Welcome back, Admin</p>
-            </div>
-            <div className="header-actions">
-              <button className="notification-button">
-                <Bell className="h-5 w-5" />
-                <span className="notification-dot"></span>
-              </button>
-              <div className="user-profile">
-                <div className="user-details">
-                  <p className="user-name">NexNest Admin</p>
-                  <p className="user-role">Administrator</p>
-                </div>
-                <img
-                  className="user-image"
-                  src="https://images.unsplash.com/photo-147209-5785-5658abf4ff4e?w=60&h=60&fit=crop&crop=faces"
-                  alt="Profile"
-                />
+      <main className="main-content">
+        <header className="main-header">
+          <div className="header-left">
+            <h1 className="page-title">
+              {activeTab === 'overview' && 'Dashboard Overview'}
+              {activeTab === 'properties' && 'Properties'}
+              {activeTab === 'users' && 'Users'}
+              {activeTab === 'notifications' && 'Notifications'}
+              {activeTab === 'settings' && 'Settings'}
+            </h1>
+          </div>
+          <div className="header-right">
+            <div className="user-profile">
+              <div className="user-avatar">
+                <User className="h-5 w-5" />
               </div>
+              <span className="user-name">{name || 'Admin User'}</span>
             </div>
           </div>
         </header>
 
-        <main className="content">
-          {renderActiveTab()}
-        </main>
-      </div>
+        <div className="main-body">
+          {activeTab === 'overview' && <OverviewTab />}
+          {activeTab === 'properties' && <PropertiesTab />}
+          {activeTab === 'users' && <UsersTab />}
+          {activeTab === 'notifications' && <NotificationsTab />}
+          {activeTab === 'settings' && <SettingsTab />}
+        </div>
 
-      {showModal && <Modal />}
+      </main>
+
+      <Modal />
+
+     
     </div>
   );
 };
 
 export default Dashboard;
-
-
-function setLandlordName(landlordName: any) {
-  throw new Error('Function not implemented.');
-}
-
-function setIsLoading(arg0: boolean) {
-  throw new Error('Function not implemented.');
-}
-
-
-function setName(arg0: any) {
-  throw new Error('Function not implemented.');
-}
-
-function setError(message: any) {
-  throw new Error('Function not implemented.');
-}

@@ -113,10 +113,20 @@ const Dashboard = () => {
     if (showNotifications) setShowNotifications(false);
   };
 
+ 
   // Handle navigation to inquiries page
-  const handleInquiriesClick = () => {
-    navigate('/inquiries', { state: { landlordId } });
-  };
+const handleInquiriesClick = () => {
+  // Convert landlordId to number before passing
+  const landlordIdNumber = Number(landlordId);
+  
+  // Optional: Add validation to ensure it's a valid number
+  if (isNaN(landlordIdNumber)) {
+    console.error('Invalid landlordId:', landlordId);
+    return;
+  }
+  
+  navigate('/inquiries', { state: { landlordId: landlordIdNumber } });
+};
 
   // Fetch data when component mounts
   useEffect(() => {
@@ -449,10 +459,7 @@ const Dashboard = () => {
                 <Home size={18} />
                 <span>Dashboard</span>
               </div>
-              <div className="nav-item" onClick={handleInquiriesClick}>
-                <MessageSquare size={18} />
-                <span>Inquiries</span>
-              </div>
+              
             </div>
 
             {/* Stats Cards */}
@@ -612,6 +619,78 @@ const Dashboard = () => {
         />
       )}
 
+ <footer className="mt-auto">
+        <div className="container">
+          <div className="row gy-4">
+            <div className="col-md-4">
+              <h5 className="fw-bold mb-3 d-flex align-items-center">
+                <i className="bi bi-building-fill me-2"></i>
+                NexNest
+              </h5>
+              <p className="mb-3">Your trusted partner for finding safe and affordable student housing at Copperbelt University.</p>
+              <div className="d-flex gap-3">
+                {['facebook', 'twitter-x', 'instagram', 'linkedin'].map((platform) => (
+                  <a href="#" className="text-white" key={platform}>
+                    <i className={`bi bi-${platform} fs-5`}></i>
+                  </a>
+                ))}
+              </div>
+            </div>
+            <div className="col-md-8">
+              <div className="row">
+                <div className="col-sm-4">
+                  <h6 className="fw-bold mb-3">Quick Links</h6>
+                  <ul className="list-unstyled mb-0">
+                    {['Home', 'Browse Listings', 'Saved Properties', 'My Account'].map((link) => (
+                      <li className="mb-2" key={link}>
+                        <a href="#" className="text-decoration-none text-white-50 hover-white">{link}</a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="col-sm-4">
+                  <h6 className="fw-bold mb-3">Resources</h6>
+                  <ul className="list-unstyled mb-0">
+                    {['FAQs', 'Student Guide', 'Safety Tips', 'Blog'].map((resource) => (
+                      <li className="mb-2" key={resource}>
+                        <a href="#" className="text-decoration-none text-white-50 hover-white">{resource}</a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="col-sm-4">
+                  <h6 className="fw-bold mb-3">Contact Us</h6>
+                  <ul className="list-unstyled mb-0">
+                    <li className="mb-2 d-flex align-items-center">
+                      <i className="bi bi-geo-alt me-2"></i>
+                      <span className="text-white-50">CBU Campus, Kitwe</span>
+                    </li>
+                    <li className="mb-2 d-flex align-items-center">
+                      <i className="bi bi-envelope me-2"></i>
+                      <span className="text-white-50">support@nexnest.ac.zm</span>
+                    </li>
+                    <li className="mb-2 d-flex align-items-center">
+                      <i className="bi bi-telephone me-2"></i>
+                      <span className="text-white-50">+260 972 526777</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <div className="col-12 mt-4">
+              <hr className="border-secondary" />
+              <div className="d-flex flex-column flex-sm-row justify-content-between align-items-center mt-3">
+                <p className="mb-0 text-white-50">© {new Date().getFullYear()} NexNest. All rights reserved.</p>
+                <div className="mt-3 mt-sm-0">
+                  {['Privacy Policy', 'Terms of Service', 'Sitemap'].map((link) => (
+                    <a href="#" className="text-decoration-none me-3 text-white-50 hover-white" key={link}>{link}</a>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </footer>
       {/* CSS Styles */}
       <style jsx>{`
         /* Global Dashboard Styles - Ensure 100% width */
@@ -1066,9 +1145,130 @@ const Dashboard = () => {
   align-items: center;
   margin-top: 0.75rem;
 }
+
+/* Footer Styles */
+        .dashboard-footer {
+          background-color: ${currentTheme.CARD_BACKGROUND};
+          border-top: 1px solid ${currentTheme.BORDER};
+          margin-top: 3rem;
+          transition: background-color 0.3s ease;
+        }
+
+        .footer-container {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 2rem 1rem 1rem;
+        }
+
+        .footer-content {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+          gap: 2rem;
+          margin-bottom: 2rem;
+        }
+
+        .footer-section {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .footer-title {
+          font-size: 1.25rem;
+          font-weight: 700;
+          color: ${currentTheme.PRIMARY_COLOR};
+          margin: 0 0 0.5rem 0;
+        }
+
+        .footer-description {
+          color: ${currentTheme.TEXT_SECONDARY};
+          font-size: 0.875rem;
+          line-height: 1.5;
+          margin: 0;
+        }
+
+        .footer-heading {
+          font-size: 1rem;
+          font-weight: 600;
+          color: ${currentTheme.TEXT_PRIMARY};
+          margin: 0 0 1rem 0;
+        }
+
+        .footer-links {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+        }
+
+        .footer-links li {
+          margin-bottom: 0.5rem;
+        }
+
+        .footer-link {
+          color: ${currentTheme.TEXT_SECONDARY};
+          font-size: 0.875rem;
+          cursor: pointer;
+          transition: color 0.2s ease;
+        }
+
+        .footer-link:hover {
+          color: ${currentTheme.PRIMARY_COLOR};
+        }
+
+        .footer-social {
+          display: flex;
+          gap: 1rem;
+          flex-wrap: wrap;
+        }
+
+        .social-link {
+          color: ${currentTheme.TEXT_SECONDARY};
+          font-size: 0.875rem;
+          cursor: pointer;
+          transition: color 0.2s ease;
+        }
+
+        .social-link:hover {
+          color: ${currentTheme.PRIMARY_COLOR};
+        }
+
+        .footer-bottom {
+          border-top: 1px solid ${currentTheme.BORDER};
+          padding-top: 1rem;
+          text-align: center;
+        }
+
+        .footer-copyright {
+          color: ${currentTheme.TEXT_TERTIARY};
+          font-size: 0.875rem;
+          margin: 0;
+        }
+
+        /* Mobile responsive footer */
+        @media (max-width: 768px) {
+          .footer-content {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+          }
+          
+          .footer-container {
+            padding: 1.5rem 1rem 1rem;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .footer-content {
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+          }
+          
+          .footer-social {
+            justify-content: center;
+          }
+        }
       `}</style>
     </div>
   );
 };
+
 
 export default Dashboard;

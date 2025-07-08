@@ -20,8 +20,9 @@ body {
 
 .container {
   max-width: 1200px;
-  padding-right: 15px;
-  padding-left: 15px;
+    
+  padding-right: 3cm;
+  padding-left: 3cm;
   margin-right: auto;
   margin-left: auto;
 }
@@ -93,7 +94,7 @@ body {
   text-align: center;
   padding: 0.75rem;
   position: relative;
-  border-radius: 0;
+  border-radius: 3;
 }
 
 .section-title {
@@ -105,6 +106,7 @@ body {
   position: relative;
   display: block;
   width: 100%;
+  padding-top:3cm;
 }
 
 .section-title::after {
@@ -245,10 +247,7 @@ body {
   margin: 0.25rem;
 }
 
-.star-rating {
-  color: #f59e0b;
-  font-size: 0.9rem;
-}
+
 
 .pagination .page-link {
   color: var(--primary-color);
@@ -268,10 +267,7 @@ body {
   color: white;
 }
 
-.pagination .page-item.disabled .page-link {
-  color: #9ca3af;
-  background-color: #f3f4f6;
-}
+
 
 footer {
   background-color: #1a1a1a;
@@ -325,4 +321,731 @@ footer .hover-white:hover {
   .dropdown-menu {
     min-width: 150px;
   }
+}
+
+
+
+
+
+
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.navbar {
+  background-color: #fff;
+  transition: all 0.3s ease;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.navbar.scrolled {
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-brand {
+  font-weight: 700;
+  color: #4361ee !important;
+}
+
+.logo-icon {
+  font-size: 1.5rem;
+}
+
+.nav-link {
+  color: #212529 !important;
+  transition: color 0.3s ease;
+}
+
+.nav-link:hover {
+  color: #4361ee !important;
+}
+
+.filter-card {
+  background-color: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.filter-btn {
+  background-color: #fff;
+  border: 1px solid #dee2e6;
+  color: #212529;
+  transition: all 0.3s ease;
+}
+
+.filter-btn:hover {
+  background-color: #4361ee;
+  color: #fff;
+  border-color: #4361ee;
+}
+
+.view-toggle-btn {
+  border: 1px solid #dee2e6;
+  color: #212529;
+  background-color: #fff;
+  transition: all 0.3s ease;
+}
+
+.view-toggle-btn.active,
+.view-toggle-btn:hover {
+  background-color: #4361ee;
+  color: #fff;
+  border-color: #4361ee;
+}
+
+.property-card {
+  background-color: #fff;
+  border: none;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.property-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+}
+
+.property-image-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.card-img-top {
+  height: 200px;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.property-card:hover .card-img-top {
+  transform: scale(1.05);
+}
+
+.property-tag {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background-color: #4361ee;
+  color: #fff;
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.property-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #212529;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.property-location {
+  font-size: 0.875rem;
+  color: #6c757d;
+}
+
+.property-price {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #4361ee;
+}
+
+.feature-badge {
+  background-color: #e9ecef;
+  color: #495057;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+}
+
+.alert-banner {
+  background-color: #4361ee;
+  color: #fff;
+  padding: 0.75rem 1.25rem;
+  position: sticky;
+  top: 0;
+  z-index: 999;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.alert-banner .btn-close {
+  filter: invert(1);
+}
+
+.section-title {
+  font-weight: 700;
+  color: #212529;
+}
+
+.pagination .page-link {
+  color: #4361ee;
+  border: none;
+  margin: 0 0.25rem;
+  transition: all 0.3s ease;
+}
+
+.pagination .page-link:hover,
+.pagination .page-item.active .page-link {
+  background-color: #4361ee;
+  color: #fff;
+  border-radius: 0.25rem;
+}
+
+.pagination .page-item.disabled .page-link {
+  color: #adb5bd;
+}
+
+.footer {
+  background-color: #212529;
+  color: #fff;
+  padding: 3rem 0;
+  margin-top: auto;
+}
+
+.footer h5,
+.footer h6 {
+  color: #fff;
+}
+
+.footer a {
+  color: #adb5bd;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.footer a:hover {
+  color: #fff;
+}
+
+.footer hr {
+  border-color: #495057;
+}
+
+
+
+/* Enhanced Modal Backdrop */
+.modal.show {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Modal Dialog Enhancements */
+.modal-dialog {
+  transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+  max-width: 500px;
+  margin: 1.75rem auto; /* Add proper margin */
+}
+
+.modal-dialog-centered {
+  min-height: calc(100vh - 6rem); /* Increase margin space */
+  display: flex;
+  align-items: center;
+}
+
+/* Modal Content Styling */
+.modal-content {
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 8px 16px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  animation: modalSlideIn 0.3s ease-out;
+  max-height: calc(100vh - 6rem); /* Prevent modal from exceeding viewport */
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes modalSlideIn {
+  from {
+    transform: translateY(-50px) scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Modal Header */
+.modal-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 0.5rem 0.5rem;
+  border-bottom: none;
+  position: relative;
+  flex-shrink: 0; /* Prevent header from shrinking */
+}
+
+.modal-title {
+  font-weight: 600;
+  font-size: 1.25rem;
+  margin: 0;
+  letter-spacing: -0.025em;
+}
+
+.btn-close {
+  filter: invert(1);
+  opacity: 0.8;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.btn-close:hover {
+  opacity: 1;
+  transform: scale(1.1);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Modal Body */
+.modal-body {
+  padding: 1rem;
+  background: #fafbfc;
+  overflow-y: auto; /* Enable scrolling in body */
+  flex: 1; /* Allow body to grow and shrink */
+}
+
+/* Property Info Section */
+.modal-body h6 {
+  color: #2d3748;
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin-bottom: 0.25rem;
+  line-height: 0.5;
+}
+
+.modal-body .text-muted {
+  color: #718096 !important;
+  font-size: 0.9rem;
+  margin-bottom: 1.0rem; /* Add margin bottom for spacing */
+}
+
+/* Rating Section Styling */
+.rating-section {
+  background: white;
+  border-radius: 12px;
+  padding: 0.0rem; /* Further reduced padding */
+  margin-bottom: 0.7rem; /* Reduced margin bottom */
+  color: #3b82f6;
+  border: 3px solid #99a3b1;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04);
+}
+
+.form-label {
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 0.25rem; /* Further reduced margin bottom */
+  font-size: 1rem;
+}
+
+/* Star Rating Buttons */
+.star-rating-container {
+  padding: 0.0rem 0; /* Further reduced padding */
+}
+
+.star-button {
+  background: none !important;
+  border: none !important;
+  padding: 0.5rem !important;
+  margin: 0 0.25rem;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  cursor: pointer;
+}
+
+.star-button:before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 50%;
+  background: transparent;
+  transition: all 0.2s ease;
+  z-index: -1;
+}
+
+.star-button:hover:before {
+  background: radial-gradient(circle, rgba(255, 215, 0, 0.2) 0%, rgba(255, 215, 0, 0.05) 70%);
+  transform: scale(1.2);
+}
+
+.star-button:hover {
+  transform: translateY(-2px) scale(1.05);
+}
+
+.star-button:active {
+  transform: translateY(0) scale(0.95);
+}
+
+/* CSS Star Shape */
+.css-star {
+  position: relative;
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.css-star:before {
+  content: '★';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 32px;
+  line-height: 1;
+  transition: all 0.3s ease;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Star States */
+.star-empty .css-star:before {
+  color: #e2e8f0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.star-filled .css-star:before {
+  color: #ffd700;
+  text-shadow: 
+    0 0 10px rgba(255, 215, 0, 0.6),
+    0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.star-button:hover .css-star:before {
+  color: #ffed4e;
+  transform: translate(-50%, -50%) scale(1.1);
+  text-shadow: 
+    0 0 15px rgba(255, 237, 78, 0.8),
+    0 3px 6px rgba(0, 0, 0, 0.25);
+}
+
+/* Rating Text */
+.rating-text {
+  margin-top: 0.5rem; /* Reduced margin top */
+  padding: 0.25rem; /* Reduced padding */
+  border-radius: 8px;
+  background: #f7fafc;
+  transition: all 0.3s ease;
+}
+
+.rating-text.has-rating {
+  background: linear-gradient(135deg, #e6fffa, #f0fff4);
+  color: #2d3748;
+  font-weight: 500;
+}
+
+/* Comment Section */
+.comment-section {
+  background: white;
+  border-radius: 10px;
+  padding: 0.1rem; /* Reduced padding */
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.form-control {
+  border: 2px solid #e2e8f0;
+  border-radius: 5px;
+  padding: 0.5rem 0.6rem;
+  transition: all 0.2s ease;
+  font-size: 0.95rem;
+  line-height: 0.6;
+}
+
+.form-control:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  background-color: #fafbfc;
+}
+
+.form-control::placeholder {
+  color: #a0aec0;
+  font-style: italic;
+}
+
+/* Modal Footer */
+.modal-footer {
+  background: white;
+  padding: 1.5rem 2rem;
+  border-top: 0.3px solid #e2e8f0;
+  gap: 0.5rem;
+  flex-shrink: 0; /* Prevent footer from shrinking */
+}
+
+/* Button Styling */
+.btn {
+  padding: 0.5rem 0.5rem;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border: none;
+  min-width: 100px;
+  color: #3b82f6;
+}
+
+.btn-secondary {
+  background: #718096;
+  color: white;
+  box-shadow: 0 2px 4px rgba(113, 128, 150, 0.2);
+}
+
+.btn-secondary:hover {
+  background: #4a5568;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(113, 128, 150, 0.3);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary:disabled {
+  background: #cbd5e0;
+  color: #a0aec0;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Responsive Design */
+@media (max-width: 576px) {
+  .modal-dialog {
+    margin: 1rem;
+    max-width: calc(100vw - 2rem);
+  }
+  
+  .modal-content {
+    max-height: calc(100vh - 2rem);
+  }
+  
+  .modal-body {
+    padding: 1.5rem;
+  }
+  
+  .modal-header,
+  .modal-footer {
+    padding: 1.25rem 1.5rem;
+  }
+  
+  .star-button {
+    width: 50px;
+    height: 50px;
+    margin: 0 0.125rem;
+  }
+  
+  .css-star {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .css-star:before {
+    font-size: 28px;
+  }
+}
+
+/* Accessibility Enhancements */
+.star-button:focus {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* Loading State for Submit Button */
+.btn-loading {
+  position: relative;
+  color: transparent !important;
+}
+
+.btn-loading:after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 50%;
+  left: 50%;
+  margin-left: -8px;
+  margin-top: -8px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* Rating Button Styles */
+.rate-property-btn {
+  background: linear-gradient(135deg, #ffc107, #ff8f00);
+  border: none;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  box-shadow: 0 2px 4px rgba(255, 193, 7, 0.2);
+}
+
+.rate-property-btn:hover {
+  background: linear-gradient(135deg, #ff8f00, #f57c00);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(255, 193, 7, 0.3);
+  color: white;
+}
+
+.rate-property-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(255, 193, 7, 0.2);
+}
+
+.rate-property-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.3);
+}
+
+.rate-property-btn i {
+  font-size: 16px;
+}
+
+/* Small variant */
+.rate-property-btn.small {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.rate-property-btn.small i {
+  font-size: 14px;
+}
+
+/* Disabled state */
+.rate-property-btn:disabled {
+  background: #e0e0e0;
+  color: #9e9e9e;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.rate-property-btn:disabled:hover {
+  background: #e0e0e0;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Additional styles for star rating modal */
+.star-rating-container {
+  margin: 20px 0;
+}
+
+.star-button {
+  background: none;
+  border: none;
+  padding: 5px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.star-button:hover {
+  transform: scale(1.1);
+}
+
+.css-star {
+  width: 24px;
+  height: 24px;
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  transition: background-color 0.2s ease;
+}
+
+.star-empty .css-star {
+  background-color: #e0e0e0;
+}
+
+.star-filled .css-star {
+  background-color: #ffc107;
+}
+
+.rating-text {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #666;
+  transition: color 0.2s ease;
+}
+
+.rating-text.has-rating {
+  color: #ffc107;
+  font-weight: 500;
+}
+
+.comment-section {
+  margin-top: 20px;
+}
+.modal-dialog-scrollable .modal-body {
+  max-height: calc(100vh - 200px); /* Adjust as needed */
+  overflow-y: auto;
+}
+.property-university {
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+}
+
+.property-university i {
+  margin-right: 0.25rem;
 }

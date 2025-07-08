@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -27,38 +28,35 @@ const COLORS = {
   SECONDARY: '#f8f9fa',
   TEXT_DARK: '#212529',
   TEXT_LIGHT: '#6c757d',
-} as const;
+};
 
 // Star Rating Component
-const StarRating: React.FC<{ rating: number; small?: boolean }> = ({ 
-  rating, 
-  small = false 
-}) => {
+const StarRating: React.FC<{ rating: number; small?: boolean }> = ({ rating, small = false }) => {
   const stars = [];
   const size = small ? 'fs-6' : 'fs-5';
 
   for (let i = 1; i <= 5; i++) {
     if (i <= rating) {
       stars.push(
-        <i 
-          key={i} 
-          className={`bi bi-star-fill ${size} me-1`} 
+        <i
+          key={i}
+          className={`bi bi-star-fill ${size} me-1`}
           style={{ color: '#ffc107' }}
         />
       );
     } else if (i - 0.5 <= rating) {
       stars.push(
-        <i 
-          key={i} 
-          className={`bi bi-star-half ${size} me-1`} 
+        <i
+          key={i}
+          className={`bi bi-star-half ${size} me-1`}
           style={{ color: '#ffc107' }}
         />
       );
     } else {
       stars.push(
-        <i 
-          key={i} 
-          className={`bi bi-star ${size} me-1`} 
+        <i
+          key={i}
+          className={`bi bi-star ${size} me-1`}
           style={{ color: '#ffc107' }}
         />
       );
@@ -69,42 +67,35 @@ const StarRating: React.FC<{ rating: number; small?: boolean }> = ({
 };
 
 // Map View Updater Component
-const MapViewUpdater: React.FC<{ center: [number, number]; zoom: number }> = ({ 
-  center, 
-  zoom 
-}) => {
+const MapViewUpdater: React.FC<{ center: [number, number]; zoom: number }> = ({ center, zoom }) => {
   const map = useMap();
-  
+
   useEffect(() => {
     if (map && center && center.length === 2 && !isNaN(center[0]) && !isNaN(center[1])) {
       map.setView(center, zoom);
     }
   }, [center, zoom, map]);
-  
+
   return null;
 };
 
 // Property Map Component (Leaflet)
-const PropertyMap: React.FC<{
-  coordinates: { lat: number; lng: number };
-  radius: number;
-}> = ({ coordinates, radius }) => {
+const PropertyMap: React.FC<{ coordinates: { lat: number; lng: number }; radius: number }> = ({ coordinates, radius }) => {
   const [loading, setLoading] = useState(true);
 
   // Validate coordinates
-  const isValidCoordinates = coordinates && 
-    typeof coordinates.lat === 'number' && 
+  const isValidCoordinates =
+    coordinates &&
+    typeof coordinates.lat === 'number' &&
     typeof coordinates.lng === 'number' &&
-    !isNaN(coordinates.lat) && 
+    !isNaN(coordinates.lat) &&
     !isNaN(coordinates.lng) &&
-    coordinates.lat >= -90 && 
+    coordinates.lat >= -90 &&
     coordinates.lat <= 90 &&
-    coordinates.lng >= -180 && 
+    coordinates.lng >= -180 &&
     coordinates.lng <= 180;
 
-  const mapCenter: [number, number] = isValidCoordinates 
-    ? [coordinates.lat, coordinates.lng] 
-    : [0, 0];
+  const mapCenter: [number, number] = isValidCoordinates ? [coordinates.lat, coordinates.lng] : [0, 0];
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -158,7 +149,7 @@ const PropertyMap: React.FC<{
             </Marker>
             <Circle
               center={mapCenter}
-              radius={Math.max(radius * 1000, 100)} // Minimum 100m radius
+              radius={Math.max(radius * 1000, 100)}
               pathOptions={{
                 color: COLORS.PRIMARY,
                 opacity: 0.8,
@@ -176,7 +167,7 @@ const PropertyMap: React.FC<{
 
 // User interface
 interface User {
-  id: string;
+  id: number;
   email: string;
   phoneNumber?: string;
   token?: string;
@@ -219,21 +210,37 @@ interface PropertyType {
 // Location state interface
 interface LocationState {
   propertyId?: number;
-  studentId?: string;
+  studentId?: number;
   from?: string;
   message?: string;
 }
 
+interface Review {
+  id: number;
+  rating: number;
+  comment: string;
+  reviewer: {
+    id: number;
+    name: string;
+  };
+  createdAt?: string; // Optional if your API provides timestamp
+}
+
+interface ReviewsData {
+  reviews: Review[];
+  averageRating: number;
+  totalReviews: number;
+}
 const PropertyDetailsPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  
+
   // Extract state with proper typing
   const state = location.state as LocationState | null;
   const { propertyId } = state || {};
-  
+
   // State management
-  const [studentId, setStudentId] = useState<string | null>(state?.studentId || null);
+  const [studentId, setStudentId] = useState<number | null>(state?.studentId || null);
   const [property, setProperty] = useState<PropertyType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -251,21 +258,25 @@ const PropertyDetailsPage: React.FC = () => {
   const parseUserData = useCallback((userData: string): User | null => {
     try {
       const parsedUser = JSON.parse(userData);
-      
-      // Validate required fields
+
       if (!parsedUser?.id || !parsedUser?.email || !parsedUser?.userType) {
         console.warn('PropertyDetailsPage: Missing required user fields');
         return null;
       }
 
-      // Validate user type
       if (!['student', 'landlord', 'admin'].includes(parsedUser.userType)) {
         console.warn('PropertyDetailsPage: Invalid user type');
         return null;
       }
 
+      const id = typeof parsedUser.id === 'string' ? parseInt(parsedUser.id, 10) : parsedUser.id;
+      if (isNaN(id)) {
+        console.warn('PropertyDetailsPage: Invalid user ID');
+        return null;
+      }
+
       return {
-        id: String(parsedUser.id),
+        id,
         email: parsedUser.email,
         phoneNumber: parsedUser.phoneNumber,
         token: parsedUser.token,
@@ -280,22 +291,38 @@ const PropertyDetailsPage: React.FC = () => {
   // Clear user session
   const clearUserSession = useCallback(() => {
     localStorage.removeItem('user');
-    localStorage.removeItem('authToken');
+    localStorage.removeItem('admin_token');
     setIsUserLoggedIn(false);
     setCurrentUser(null);
+    setStudentId(null);
   }, []);
 
-  // Navigate to login with proper state
-  const navigateToLogin = useCallback((message: string) => {
-    navigate('/login', {
-      state: {
-        from: window.location.pathname,
-        propertyId,
-        studentId,
+  // Navigate to login with messaging data
+  const navigateToLogin = useCallback(
+    (message: string) => {
+      if (!property) return;
+      console.log('PropertyDetailsPage: navigateToLogin', {
         message,
-      },
-    });
-  }, [navigate, propertyId, studentId]);
+        propertyId: property.id,
+        studentId: currentUser?.id,
+        landlordId: property.landlord.id,
+      });
+      navigate('/login', {
+        state: {
+          from: '/inquiry',
+          propertyId: property.id,
+          studentId: currentUser?.id,
+          message,
+          receiverId: property.landlord.id,
+          receiverName: property.landlord.name,
+          receiverType: 'landlord',
+          propertyTitle: property.title,
+          propertyData: property,
+        },
+      });
+    },
+    [navigate, property, currentUser]
+  );
 
   // Initialize Bootstrap
   useEffect(() => {
@@ -315,12 +342,12 @@ const PropertyDetailsPage: React.FC = () => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
     };
-    
+
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Validate user and handle navigation
+  // Validate user
   useEffect(() => {
     const validateUser = async () => {
       console.log('PropertyDetailsPage: Validating user...', {
@@ -332,98 +359,43 @@ const PropertyDetailsPage: React.FC = () => {
 
       try {
         const userData = localStorage.getItem('user');
-        
+
         if (!userData) {
           console.log('PropertyDetailsPage: No user data found');
           setIsUserLoggedIn(false);
-          
-          // Only redirect if studentId is present and we're on details page
-          if (studentId && window.location.pathname.includes('/properties-details/details')) {
-            console.log('PropertyDetailsPage: Redirecting to login - no user data');
-            navigateToLogin('Please log in to send an inquiry');
-          }
           return;
         }
 
         const parsedUser = parseUserData(userData);
-        
+
         if (!parsedUser) {
           console.log('PropertyDetailsPage: Invalid user data, clearing session');
           clearUserSession();
-          
-          if (studentId && window.location.pathname.includes('/properties-details/details')) {
-            console.log('PropertyDetailsPage: Redirecting to login - invalid user data');
-            navigateToLogin('Invalid user data. Please log in again.');
-          }
           return;
         }
 
-        // Additional validation for student users
         if (parsedUser.userType !== 'student') {
           console.log('PropertyDetailsPage: User is not a student');
           clearUserSession();
-          
-          if (studentId && window.location.pathname.includes('/properties-details/details')) {
-            console.log('PropertyDetailsPage: Redirecting to login - not a student');
-            navigateToLogin('Student access required. Please log in with a student account.');
-          }
           return;
         }
 
-        console.log('PropertyDetailsPage: User validated successfully', { 
+        console.log('PropertyDetailsPage: User validated successfully', {
           userId: parsedUser.id,
-          userType: parsedUser.userType 
+          userType: parsedUser.userType,
         });
-        
+
         setIsUserLoggedIn(true);
         setCurrentUser(parsedUser);
         setStudentId(parsedUser.id);
-
-        // Navigate to inquiry only if conditions are met
-        if (
-          studentId &&
-          studentId === parsedUser.id &&
-          window.location.pathname.includes('/properties-details/details') &&
-          propertyId
-        ) {
-          console.log('PropertyDetailsPage: Navigating to inquiry', {
-            studentId: parsedUser.id,
-            propertyId,
-          });
-          
-          navigate('/inquiry', {
-            state: { 
-              studentId: parsedUser.id, 
-              propertyId,
-            },
-          });
-        } else if (studentId && studentId !== parsedUser.id) {
-          console.log('PropertyDetailsPage: StudentId mismatch, staying on page', {
-            stateStudentId: studentId,
-            userStudentId: parsedUser.id,
-          });
-        }
       } catch (error) {
         console.error('PropertyDetailsPage: Unexpected validation error:', error);
         clearUserSession();
-        
-        if (studentId && window.location.pathname.includes('/properties-details/details')) {
-          console.log('PropertyDetailsPage: Redirecting to login - validation error');
-          navigateToLogin('Error validating user. Please log in again.');
-        }
       }
     };
 
     validateUser();
-  }, [
-    studentId, 
-    propertyId, 
-    location.state, 
-    navigate, 
-    parseUserData, 
-    clearUserSession, 
-    navigateToLogin
-  ]);
+  }, [parseUserData, clearUserSession, location.state, propertyId, studentId]);
 
   // Fetch property details
   useEffect(() => {
@@ -496,7 +468,7 @@ const PropertyDetailsPage: React.FC = () => {
     try {
       const processedImages = (Array.isArray(property.images) ? property.images : [])
         .map((img) => (typeof img === 'string' ? img : img?.imageUrl))
-        .filter((img) => img) as string[];
+        .filter((img) => img);
 
       const mainImage = (() => {
         const primaryImage = Array.isArray(property.images)
@@ -569,32 +541,305 @@ const PropertyDetailsPage: React.FC = () => {
     }
   };
 
+
+// Reviews Component
+const PropertyReviews: React.FC<{ propertyId: number }> = ({ propertyId }) => {
+  const [reviewsData, setReviewsData] = useState<ReviewsData>({
+    reviews: [],
+    averageRating: 0,
+    totalReviews: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showAllReviews, setShowAllReviews] = useState(false);
+
+  // Fetch reviews from API
+  useEffect(() => {
+    const fetchReviews = async () => {
+      if (!propertyId) return;
+
+      setLoading(true);
+      try {
+        const response = await fetch(` 
+/api/reviews/properties/${propertyId}/reviews     `, {
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+
+        const reviews: Review[] = await response.json();
+        
+        // Calculate average rating
+        const averageRating = reviews.length > 0 
+          ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+          : 0;
+
+        setReviewsData({
+          reviews,
+          averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal
+          totalReviews: reviews.length
+        });
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching reviews:', err);
+        setError(err instanceof Error ? err.message : 'Failed to fetch reviews');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchReviews();
+  }, [propertyId]);
+
+  // Get initials for avatar
+  const getInitials = (name: string): string => {
+    return name
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase())
+      .join('')
+      .slice(0, 2);
+  };
+
+  // Format date (if available)
+  const formatDate = (dateString?: string): string => {
+    if (!dateString) return '';
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch {
+      return '';
+    }
+  };
+
+
+
+  // Render individual review
+  const ReviewCard: React.FC<{ review: Review }> = ({ review }) => (
+    <div className="review-card p-4 border rounded-3 mb-3 bg-white">
+      <div className="d-flex align-items-start">
+        {/* Reviewer Avatar */}
+        <div 
+          className="review-avatar rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0"
+          style={{
+            width: '48px',
+            height: '48px',
+            backgroundColor: COLORS.PRIMARY,
+            color: 'white',
+            fontSize: '14px',
+            fontWeight: '600'
+          }}
+        >
+          {getInitials(review.reviewer.name)}
+        </div>
+        
+        {/* Review Content */}
+        <div className="review-content flex-grow-1">
+          <div className="d-flex justify-content-between align-items-start mb-2">
+            <div>
+              <h6 className="mb-1 fw-semibold">{review.reviewer.name}</h6>
+              {review.createdAt && (
+                <small className="text-muted">{formatDate(review.createdAt)}</small>
+              )}
+            </div>
+            <StarRating rating={review.rating} small />
+          </div>
+          
+          {/* Review Comment */}
+          <p className="mb-0 text-muted" style={{ lineHeight: '1.6' }}>
+            {review.comment}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="property-section">
+        <h3 className="section-title">Reviews & Ratings</h3>
+        <div className="text-center py-4">
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Loading reviews...</span>
+          </div>
+          <p className="mt-2 text-muted">Loading reviews...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="property-section">
+        <h3 className="section-title">Reviews & Ratings</h3>
+        <div className="alert alert-warning" role="alert">
+          <i className="bi bi-exclamation-triangle me-2"></i>
+          Unable to load reviews at this time. Please try again later.
+        </div>
+      </div>
+    );
+  }
+
+  // No reviews state
+  if (reviewsData.totalReviews === 0) {
+    return (
+      <div className="property-section">
+        <h3 className="section-title">Reviews & Ratings</h3>
+        <div className="text-center py-5">
+          <i className="bi bi-chat-dots fs-1 text-muted mb-3"></i>
+          <h5 className="text-muted">No reviews yet</h5>
+          <p className="text-muted mb-0">Be the first to review this property!</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Display reviews
+  const displayedReviews = showAllReviews ? reviewsData.reviews : reviewsData.reviews.slice(0, 3);
+
+  return (
+    <div className="property-section">
+      <h3 className="section-title">Reviews & Ratings</h3>
+      
+      {/* Reviews Summary */}
+      <div className="reviews-summary p-4 bg-light rounded-3 mb-4">
+        <div className="row align-items-center">
+          <div className="col-md-6">
+            <div className="d-flex align-items-center">
+              <div className="me-4">
+                <div className="display-4 fw-bold text-primary">
+                  {reviewsData.averageRating.toFixed(1)}
+                </div>
+                <StarRating rating={reviewsData.averageRating} />
+              </div>
+              <div>
+                <h6 className="mb-1">Overall Rating</h6>
+                <p className="mb-0 text-muted">
+                  Based on {reviewsData.totalReviews} review{reviewsData.totalReviews !== 1 ? 's' : ''}
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Rating Distribution (Optional - if you want to add it later) */}
+          <div className="col-md-6">
+            <div className="rating-distribution">
+              {[5, 4, 3, 2, 1].map(star => {
+                const count = reviewsData.reviews.filter(r => r.rating === star).length;
+                const percentage = reviewsData.totalReviews > 0 ? (count / reviewsData.totalReviews) * 100 : 0;
+                
+                return (
+                  <div key={star} className="d-flex align-items-center mb-1">
+                    <span className="me-2 small" style={{ minWidth: '20px' }}>{star}</span>
+                    <i className="bi bi-star-fill me-2 small" style={{ color: '#ffc107' }}></i>
+                    <div className="progress flex-grow-1 me-2" style={{ height: '6px' }}>
+                      <div 
+                        className="progress-bar" 
+                        style={{ 
+                          width: `${percentage}%`,
+                          backgroundColor: COLORS.PRIMARY 
+                        }}
+                      ></div>
+                    </div>
+                    <span className="small text-muted" style={{ minWidth: '25px' }}>
+                      {count}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Individual Reviews */}
+      <div className="reviews-list">
+        {displayedReviews.map(review => (
+          <ReviewCard key={review.id} review={review} />
+        ))}
+      </div>
+
+      {/* Show More/Less Button */}
+      {reviewsData.reviews.length > 3 && (
+        <div className="text-center mt-3">
+          <button
+            className="btn btn-outline-primary"
+            onClick={() => setShowAllReviews(!showAllReviews)}
+          >
+            {showAllReviews ? (
+              <>
+                <i className="bi bi-chevron-up me-2"></i>
+                Show Less Reviews
+              </>
+            ) : (
+              <>
+                <i className="bi bi-chevron-down me-2"></i>
+                Show All {reviewsData.reviews.length} Reviews
+              </>
+            )}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+
+
   // Toggle debug mode
   const toggleDebugMode = () => {
     setDebugMode(!debugMode);
   };
 
- 
- // Handle inquiry button click
-const handleInquiryButtonClick = () => {
-  console.log('PropertyDetailsPage: Inquiry button clicked', { isUserLoggedIn, propertyId, studentId });
-  if (!isUserLoggedIn) {
-    console.log('PropertyDetailsPage: Not logged in, redirecting to login');
-    navigate('/login', {
-      state: {
-        from: window.location.pathname,
-        propertyId,
-        studentId: currentUser?.id,
-        message: 'Please login to send an inquiry about this property',
-      },
+  // Handle inquiry button click
+  const handleInquiryButtonClick = () => {
+    console.log('PropertyDetailsPage: Inquiry button clicked', {
+      isUserLoggedIn,
+      propertyId: property?.id,
+      studentId: currentUser?.id,
+      landlordId: property?.landlord.id,
     });
-  } else {
-    console.log('PropertyDetailsPage: Logged in, navigating to inquiry', { studentId: currentUser?.id, propertyId });
-    navigate('/inquiry', {
-      state: { studentId: currentUser?.id, propertyId },
-    });
-  }
-};
+
+    if (!property || !property.landlord.id) {
+      console.error('PropertyDetailsPage: Missing property or landlord data');
+      setError('Unable to send inquiry: Property or landlord information missing.');
+      return;
+    }
+
+    if (isUserLoggedIn && !currentUser?.id) {
+      console.error('PropertyDetailsPage: Missing studentId for logged-in user');
+      setError('User not properly authenticated.');
+      return;
+    }
+
+    const messagingData = {
+      receiverId: property.landlord.id,
+      propertyId: property.id,
+      receiverName: property.landlord.name,
+      receiverType: 'landlord',
+      propertyTitle: property.title,
+      propertyData: property,
+      from: '/inquiry',
+      studentId: currentUser?.id,
+    };
+
+    if (!isUserLoggedIn) {
+      console.log('PropertyDetailsPage: Not logged in, redirecting to login', messagingData);
+      navigateToLogin('Please log in to send an inquiry about this property');
+    } else {
+      console.log('PropertyDetailsPage: Logged in, navigating to inquiry', messagingData);
+      navigate('/inquiry', { state: messagingData });
+    }
+  };
 
   // Handle image navigation
   const nextImage = () => {
@@ -627,6 +872,7 @@ const handleInquiryButtonClick = () => {
       settings: '/settings',
       logout: '/logout',
       register: '/register',
+      login: '/login',
     };
     navigate(paths[path] || `/${path}`);
     setMenuOpen(false);
@@ -637,7 +883,11 @@ const handleInquiryButtonClick = () => {
     return (
       <div className="container py-5">
         <div className="text-center">
-          <div className="spinner-border mb-3" role="status" style={{ color: COLORS.PRIMARY, width: '3rem', height: '3rem' }}>
+          <div
+            className="spinner-border mb-3"
+            role="status"
+            style={{ color: COLORS.PRIMARY, width: '3rem', height: '3rem' }}
+          >
             <span className="visually-hidden">Loading...</span>
           </div>
           <p className="mb-4">Loading property details...</p>
@@ -690,7 +940,10 @@ const handleInquiryButtonClick = () => {
               <p>
                 <strong>API Response:</strong>
               </p>
-              <pre className="bg-dark text-light p-3 rounded" style={{ maxHeight: '200px', overflow: 'auto' }}>
+              <pre
+                className="bg-dark text-light p-3 rounded"
+                style={{ maxHeight: '200px', overflow: 'auto' }}
+              >
                 {rawApiResponse ? JSON.stringify(rawApiResponse, null, 2) : 'No API response data'}
               </pre>
             </div>
@@ -715,10 +968,13 @@ const handleInquiryButtonClick = () => {
           </button>
           <button className="btn btn-outline-secondary" onClick={toggleDebugMode}>
             {debugMode ? 'Hide Debug Info' : 'Show Debug Info'}
-          </button>
+            </button>
         </div>
         {debugMode && (
-          <div className="mt-4 text-start p-3 border rounded bg-light mx-auto" style={{ maxWidth: '800px' }}>
+          <div
+            className="mt-4 text-start p-3 border rounded bg-light mx-auto"
+            style={{ maxWidth: '800px' }}
+          >
             <h6 className="mb-3">Debug Information:</h6>
             <p>
               <strong>Property ID:</strong> {propertyId}
@@ -726,7 +982,10 @@ const handleInquiryButtonClick = () => {
             <p>
               <strong>Raw API Response:</strong>
             </p>
-            <pre className="bg-dark text-light p-3 rounded" style={{ maxHeight: '200px', overflow: 'auto' }}>
+            <pre
+              className="bg-dark text-light p-3 rounded"
+              style={{ maxHeight: '200px', overflow: 'auto' }}
+            >
               {rawApiResponse ? JSON.stringify(rawApiResponse, null, 2) : 'No API response data'}
             </pre>
           </div>
@@ -735,6 +994,9 @@ const handleInquiryButtonClick = () => {
     );
   }
 
+
+
+  
   return (
     <div className="app-container">
       {/* Navbar */}
@@ -858,7 +1120,6 @@ const handleInquiryButtonClick = () => {
               </div>
               <div className="col-md-4 text-md-end mt-2 mt-md-0">
                 <h2 className="fw-bold mb-1">{property.price}</h2>
-                
               </div>
             </div>
           </div>
@@ -868,7 +1129,10 @@ const handleInquiryButtonClick = () => {
             <div className="col-lg-8 mb-4">
               {/* Image Gallery */}
               <div className="position-relative mb-3">
-                <div className="property-main-image rounded-3 overflow-hidden shadow" style={{ height: '500px' }}>
+                <div
+                  className="property-main-image rounded-3 overflow-hidden shadow"
+                  style={{ height: '500px' }}
+                >
                   <img
                     src={property.images[activeIndex] || '/property-placeholder.jpg'}
                     className="w-100 h-100"
@@ -940,7 +1204,10 @@ const handleInquiryButtonClick = () => {
                   {property.bedrooms && (
                     <div className="col-sm-6 col-md-4">
                       <div className="detail-card text-center p-3 rounded bg-light">
-                        <i className="bi bi-door-closed fs-3 mb-2" style={{ color: COLORS.PRIMARY }}></i>
+                        <i
+                          className="bi bi-door-closed fs-3 mb-2"
+                          style={{ color: COLORS.PRIMARY }}
+                        ></i>
                         <h5 className="mb-1">{property.bedrooms}</h5>
                         <small className="text-muted">Bedrooms</small>
                       </div>
@@ -969,8 +1236,8 @@ const handleInquiryButtonClick = () => {
                       <i className="bi bi-house fs-3 mb-2" style={{ color: COLORS.PRIMARY }}></i>
                       <h5 className="mb-1 text-capitalize">{property.type}</h5>
                       <small className="text-muted">Property Type</small>
-                      </div>
                     </div>
+                  </div>
                   <div className="col-sm-6 col-md-4">
                     <div className="detail-card text-center p-3 rounded bg-light">
                       <i className="bi bi-calendar-check fs-3 mb-2"></i>
@@ -995,7 +1262,10 @@ const handleInquiryButtonClick = () => {
                     {property.amenities.map((amenity, index) => (
                       <div key={index} className="col-sm-6 col-md-4">
                         <div className="d-flex align-items-center p-2 rounded bg-light">
-                          <i className="bi bi-check-circle-fill me-2" style={{ color: COLORS.PRIMARY }}></i>
+                          <i
+                            className="bi bi-check-circle-fill me-2"
+                            style={{ color: COLORS.PRIMARY }}
+                          ></i>
                           <span className="text-capitalize">{amenity}</span>
                         </div>
                       </div>
@@ -1003,6 +1273,11 @@ const handleInquiryButtonClick = () => {
                   </div>
                 </div>
               )}
+
+
+
+
+
 
               {/* Location Map */}
               {property.coordinates && (
@@ -1096,17 +1371,12 @@ const handleInquiryButtonClick = () => {
 
                   {/* Contact Buttons */}
                   <div className="d-grid gap-2">
-                    <button
-                      className="btn btn-primary btn-lg"
-                      onClick={handleInquiryButtonClick}
-                      disabled={!property.available}
-                      style={{ backgroundColor: COLORS.PRIMARY, borderColor: COLORS.PRIMARY }}
-                    >
-                      <i className="bi bi-envelope me-2"></i>
-                      {isUserLoggedIn ? 'Send Inquiry' : 'Login to Inquire'}
-                    </button>
+                    
                     {property.landlord.phoneNumber && (
-                      <a href={`tel:${property.landlord.phoneNumber}`} className="btn btn-outline-primary">
+                      <a
+                        href={`tel:${property.landlord.phoneNumber}`}
+                        className="btn btn-outline-primary"
+                      >
                         <i className="bi bi-telephone me-2"></i>
                         Call Now
                       </a>
@@ -1122,12 +1392,7 @@ const handleInquiryButtonClick = () => {
                     )}
                   </div>
 
-                  {!property.available && (
-                    <div className="alert alert-warning mt-3 mb-0" role="alert">
-                      <i className="bi bi-exclamation-triangle me-2"></i>
-                      This property is currently unavailable.
-                    </div>
-                  )}
+                  
                 </div>
 
                 {/* Quick Info Card */}
@@ -1159,14 +1424,13 @@ const handleInquiryButtonClick = () => {
                       <span>{property.size} m²</span>
                     </div>
                   )}
-                  
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-
+<PropertyReviews propertyId={property.id} />
       {/* Image Zoom Modal */}
       {zoomedImage && (
         <div
@@ -1228,25 +1492,29 @@ const handleInquiryButtonClick = () => {
 
       {/* Modal Backdrop */}
       {zoomedImage && (
-        <div
-          className="modal-backdrop fade show"
-          onClick={() => {
-            setZoomedImage(null);
-          }}
-        ></div>
+        <div className="modal-backdrop fade show" onClick={() => setZoomedImage(null)}></div>
       )}
-       <footer className="footer">
-          <div className="container footer-content">
-            <div className="footer-logo">NexNest</div>
-            <div className="footer-links">
-              <a href="#" className="footer-link">About</a>
-              <a href="#" className="footer-link">Privacy Policy</a>
-              <a href="#" className="footer-link">Terms of Service</a>
-              <a href="#" className="footer-link">Contact</a>
-            </div>
-            <div className="footer-copyright">© 2025 NexNest. All rights reserved.</div>
+
+      <footer className="footer">
+        <div className="container footer-content">
+          <div className="footer-logo">NexNest</div>
+          <div className="footer-links">
+            <a href="#" className="footer-link">
+              About
+            </a>
+            <a href="#" className="footer-link">
+              Privacy Policy
+            </a>
+            <a href="#" className="footer-link">
+              Terms of Service
+            </a>
+            <a href="#" className="footer-link">
+              Contact
+            </a>
           </div>
-        </footer>
+          <div className="footer-copyright">© 2025 NexNest. All rights reserved.</div>
+        </div>
+      </footer>
     </div>
   );
 };
