@@ -2,13 +2,13 @@ import serveEmojiFavicon from '../middlewares/favicon';
 import { pinoLogger } from '../middlewares/logger'
 //import { notFound, onError } from "stoker/middlewares";
 import { OpenAPIHono } from '@hono/zod-openapi';
-import { defaultHook } from 'stoker/openapi';
+//import { defaultHook } from 'stoker/openapi';
 
 
 export function createRouter() {
     return new OpenAPIHono({
       strict: false,
-      defaultHook,
+      //defaultHook,
     });
   }
   
