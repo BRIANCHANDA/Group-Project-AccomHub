@@ -69,7 +69,7 @@ const styles = `
   .brand-section {
     text-align: center;
     margin-bottom: 32px;
-    background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+    background: linear-gradient(135deg, #04132bff 0%, #181a8dff 100%);
     color:rgb(4, 6, 8);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }

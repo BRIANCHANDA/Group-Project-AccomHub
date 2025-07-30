@@ -5,9 +5,9 @@ import RegisterPage from './pages/register'
 import StudentDashboard from './pages/StudentView'
 import LandlordDashboard from './pages/landlordsView'
 import AdminDashboard from './pages/Admin'
-import Inquiries from './pages/inquiries'
+
 import PropertyDetailsPage from './pages/Details'
-import InquiryPage from './pages/InquiryPage'
+
 import AdminLogin from './pages/adminLogin'
 
 
@@ -23,9 +23,9 @@ function App() {
         <Route path="/LandlordDashboard" element={<LandlordDashboard/>}/>
         <Route path='/Admindashboard' element={<AdminDashboard/>}/>
         
-        <Route path='/Inquiries' element={<Inquiries/>} />
+       
         <Route path='/PropertyDetailsPage' element={<PropertyDetailsPage/>}/>
-        <Route path="/inquiry" element={<InquiryPage />} />
+        
         <Route path='/adminLogin' element={<AdminLogin/>}/> 
         
         

@@ -418,7 +418,7 @@ const Dashboard = () => {
               <Home size={20} />
             </span>
             <div className="logo-text">
-              <h1 className="sidebar-title" style={{ color: 'black' }}>NexNest</h1>
+              <h1 className="sidebar-title" style={{ color: 'black' }}>🏠 CribConnect</h1>
               <p className="sidebar-subtitle">Admin Dashboard</p>
             </div>
           </div>

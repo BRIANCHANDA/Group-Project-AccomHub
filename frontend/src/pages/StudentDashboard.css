@@ -922,10 +922,7 @@ footer .hover-white:hover {
 
 
 
-
-
-
-/* Rating Button Styles */
+/* Enhanced Mobile Responsiveness for Rate Button */
 .rate-property-btn {
   background: linear-gradient(135deg, #ffc107, #ff8f00);
   border: none;
@@ -935,12 +932,16 @@ footer .hover-white:hover {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  display: inline-flex;
+  display: inline-flex !important; /* Force display */
   align-items: center;
   gap: 6px;
   transition: all 0.3s ease;
   text-decoration: none;
   box-shadow: 0 2px 4px rgba(255, 193, 7, 0.2);
+  position: relative;
+  z-index: 5; /* Ensure it's above other elements */
+  min-height: 36px; /* Ensure minimum touch target */
+  white-space: nowrap; /* Prevent text wrapping */
 }
 
 .rate-property-btn:hover {
@@ -962,90 +963,132 @@ footer .hover-white:hover {
 
 .rate-property-btn i {
   font-size: 16px;
+  flex-shrink: 0; /* Prevent icon from shrinking */
 }
 
-/* Small variant */
-.rate-property-btn.small {
-  padding: 6px 12px;
-  font-size: 13px;
+/* Mobile-specific improvements */
+@media (max-width: 768px) {
+  .rate-property-btn {
+    display: inline-flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: relative !important;
+    z-index: 10 !important;
+    margin: 8px 4px 8px 0 !important;
+    padding: 10px 16px !important; /* Larger touch target */
+    font-size: 14px !important;
+    min-width: 120px !important;
+    justify-content: center;
+  }
+  
+  /* Ensure property card body has enough space */
+  .property-card .card-body {
+    padding: 1rem !important;
+    min-height: auto !important;
+    overflow: visible !important;
+  }
+  
+  /* Ensure property card doesn't hide overflow */
+  .property-card {
+    overflow: visible !important;
+    position: relative;
+  }
+  
+  /* Fix any potential flexbox issues */
+  .property-card .d-flex {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+  
+  /* Ensure button container is visible */
+  .property-card .card-body > * {
+    position: relative;
+    z-index: 1;
+  }
 }
 
-.rate-property-btn.small i {
-  font-size: 14px;
+@media (max-width: 576px) {
+  .rate-property-btn {
+    display: inline-flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: relative !important;
+    z-index: 15 !important;
+    margin: 10px 0 !important;
+    padding: 12px 20px !important;
+    font-size: 15px !important;
+    min-width: 140px !important;
+    width: auto !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  
+  .rate-property-btn i {
+    font-size: 16px !important;
+  }
+  
+  /* Force visibility on very small screens */
+  .property-card {
+    overflow: visible !important;
+    position: relative !important;
+  }
+  
+  .property-card .card-body {
+    padding: 1.25rem !important;
+    overflow: visible !important;
+    position: relative !important;
+    z-index: 1 !important;
+  }
+  
+  /* Ensure no elements are hiding the button */
+  .property-card * {
+    position: relative;
+  }
+  
+  /* Fix potential Bootstrap conflicts */
+  .btn.rate-property-btn {
+    display: inline-flex !important;
+    visibility: visible !important;
+  }
 }
 
-/* Disabled state */
-.rate-property-btn:disabled {
-  background: #e0e0e0;
-  color: #9e9e9e;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
+/* Debug helper - remove after testing */
+@media (max-width: 576px) {
+  .rate-property-btn {
+    border: 2px solid red !important; /* Temporary debug border */
+    background: #ff0000 !important; /* Temporary debug background */
+  }
 }
 
-.rate-property-btn:disabled:hover {
-  background: #e0e0e0;
-  transform: none;
-  box-shadow: none;
+/* Additional fixes for common issues */
+.property-card .card-body .btn-group,
+.property-card .card-body .d-flex,
+.property-card .card-body .flex-wrap {
+  overflow: visible !important;
 }
 
-/* Additional styles for star rating modal */
-.star-rating-container {
-  margin: 20px 0;
+/* Ensure Bootstrap classes don't interfere */
+.d-none.d-sm-inline-flex .rate-property-btn,
+.d-sm-none .rate-property-btn {
+  display: inline-flex !important;
 }
 
-.star-button {
-  background: none;
-  border: none;
-  padding: 5px;
-  cursor: pointer;
-  transition: transform 0.2s ease;
-}
-
-.star-button:hover {
-  transform: scale(1.1);
-}
-
-.css-star {
-  width: 24px;
-  height: 24px;
-  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
-  transition: background-color 0.2s ease;
-}
-
-.star-empty .css-star {
-  background-color: #e0e0e0;
-}
-
-.star-filled .css-star {
-  background-color: #ffc107;
-}
-
-.rating-text {
-  margin-top: 8px;
-  font-size: 14px;
-  color: #666;
-  transition: color 0.2s ease;
-}
-
-.rating-text.has-rating {
-  color: #ffc107;
-  font-weight: 500;
-}
-
-.comment-section {
-  margin-top: 20px;
-}
-.modal-dialog-scrollable .modal-body {
-  max-height: calc(100vh - 200px); /* Adjust as needed */
-  overflow-y: auto;
-}
-.property-university {
-  font-size: 0.85rem;
-  display: flex;
-  align-items: center;
-}
-
-.property-university i {
-  margin-right: 0.25rem;
+/* Fix for potential container issues */
+@media (max-width: 576px) {
+  .container,
+  .container-fluid {
+    overflow-x: visible !important;
+  }
+  
+  .row {
+    overflow-x: visible !important;
+  }
+  
+  .col,
+  .col-12,
+  .col-sm-6,
+  .col-md-4,
+  .col-lg-3 {
+    overflow: visible !important;
+  }
 }

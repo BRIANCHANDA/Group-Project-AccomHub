@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -12,6 +11,7 @@ import {
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import './bootstrap-5.3.5-dist/css/bootstrap.min.css';
 import './details.css';
 
 // Fix Leaflet marker icon issue
@@ -79,11 +79,10 @@ const MapViewUpdater: React.FC<{ center: [number, number]; zoom: number }> = ({ 
   return null;
 };
 
-// Property Map Component (Leaflet)
+// Property Map Component
 const PropertyMap: React.FC<{ coordinates: { lat: number; lng: number }; radius: number }> = ({ coordinates, radius }) => {
   const [loading, setLoading] = useState(true);
 
-  // Validate coordinates
   const isValidCoordinates =
     coordinates &&
     typeof coordinates.lat === 'number' &&
@@ -114,58 +113,56 @@ const PropertyMap: React.FC<{ coordinates: { lat: number; lng: number }; radius:
   }
 
   return (
-    <div className="map-section">
-      <div className="map-container rounded-3 overflow-hidden shadow-sm">
-        {loading ? (
-          <div
-            className="d-flex justify-content-center align-items-center bg-light"
-            style={{ height: '300px' }}
-          >
-            <div className="spinner-border text-primary" role="status">
-              <span className="visually-hidden">Loading map...</span>
-            </div>
+    <div className="map-container rounded-3 overflow-hidden shadow-sm">
+      {loading ? (
+        <div
+          className="d-flex justify-content-center align-items-center bg-light"
+          style={{ height: '300px' }}
+        >
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Loading map...</span>
           </div>
-        ) : (
-          <MapContainer
-            style={{ height: '300px', width: '100%' }}
+        </div>
+      ) : (
+        <MapContainer
+          style={{ height: '300px', width: '100%' }}
+          center={mapCenter}
+          zoom={13}
+          scrollWheelZoom={false}
+        >
+          <MapViewUpdater center={mapCenter} zoom={13} />
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          />
+          <Marker position={mapCenter}>
+            <Popup>
+              <div style={{ padding: '5px', maxWidth: '200px' }}>
+                <h6 className="mb-1">Property Location</h6>
+                <p className="mb-0 small text-muted">
+                  Lat: {coordinates.lat.toFixed(6)}, Lng: {coordinates.lng.toFixed(6)}
+                </p>
+              </div>
+            </Popup>
+          </Marker>
+          <Circle
             center={mapCenter}
-            zoom={13}
-            scrollWheelZoom={false}
-          >
-            <MapViewUpdater center={mapCenter} zoom={13} />
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            />
-            <Marker position={mapCenter}>
-              <Popup>
-                <div style={{ padding: '5px', maxWidth: '200px' }}>
-                  <h6 className="mb-1">Property Location</h6>
-                  <p className="mb-0 small text-muted">
-                    Lat: {coordinates.lat.toFixed(6)}, Lng: {coordinates.lng.toFixed(6)}
-                  </p>
-                </div>
-              </Popup>
-            </Marker>
-            <Circle
-              center={mapCenter}
-              radius={Math.max(radius * 1000, 100)}
-              pathOptions={{
-                color: COLORS.PRIMARY,
-                opacity: 0.8,
-                weight: 2,
-                fillColor: COLORS.PRIMARY,
-                fillOpacity: 0.2,
-              }}
-            />
-          </MapContainer>
-        )}
-      </div>
+            radius={Math.max(radius * 1000, 100)}
+            pathOptions={{
+              color: COLORS.PRIMARY,
+              opacity: 0.8,
+              weight: 2,
+              fillColor: COLORS.PRIMARY,
+              fillOpacity: 0.2,
+            }}
+          />
+        </MapContainer>
+      )}
     </div>
   );
 };
 
-// User interface
+// Interfaces
 interface User {
   id: number;
   email: string;
@@ -174,7 +171,6 @@ interface User {
   userType: 'student' | 'landlord' | 'admin';
 }
 
-// Property interface
 interface PropertyType {
   id: number;
   title: string;
@@ -207,7 +203,6 @@ interface PropertyType {
   details: Record<string, any>;
 }
 
-// Location state interface
 interface LocationState {
   propertyId?: number;
   studentId?: number;
@@ -223,7 +218,7 @@ interface Review {
     id: number;
     name: string;
   };
-  createdAt?: string; // Optional if your API provides timestamp
+  createdAt?: string;
 }
 
 interface ReviewsData {
@@ -231,15 +226,237 @@ interface ReviewsData {
   averageRating: number;
   totalReviews: number;
 }
+
+// Reviews Component
+const PropertyReviews: React.FC<{ propertyId: number }> = ({ propertyId }) => {
+  const [reviewsData, setReviewsData] = useState<ReviewsData>({
+    reviews: [],
+    averageRating: 0,
+    totalReviews: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showAllReviews, setShowAllReviews] = useState(false);
+
+  useEffect(() => {
+    const fetchReviews = async () => {
+      if (!propertyId) return;
+
+      setLoading(true);
+      try {
+        const response = await fetch(`/api/reviews/properties/${propertyId}/reviews`, {
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+
+        const reviews: Review[] = await response.json();
+        const averageRating = reviews.length > 0
+          ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+          : 0;
+
+        setReviewsData({
+          reviews,
+          averageRating: Math.round(averageRating * 10) / 10,
+          totalReviews: reviews.length
+        });
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching reviews:', err);
+        setError(err instanceof Error ? err.message : 'Failed to fetch reviews');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchReviews();
+  }, [propertyId]);
+
+  const getInitials = (name: string): string => {
+    return name
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase())
+      .join('')
+      .slice(0, 2);
+  };
+
+  const formatDate = (dateString?: string): string => {
+    if (!dateString) return '';
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch {
+      return '';
+    }
+  };
+
+  const ReviewCard: React.FC<{ review: Review }> = ({ review }) => (
+    <div className="review-card p-4 border rounded-3 mb-3 bg-white">
+      <div className="d-flex align-items-start">
+        <div
+          className="review-avatar rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0"
+          style={{
+            width: '48px',
+            height: '48px',
+            backgroundColor: COLORS.PRIMARY,
+            color: 'white',
+            fontSize: '14px',
+            fontWeight: '600'
+          }}
+        >
+          {getInitials(review.reviewer.name)}
+        </div>
+        <div className="review-content flex-grow-1">
+          <div className="d-flex justify-content-between align-items-start mb-2">
+            <div>
+              <h6 className="mb-1 fw-semibold">{review.reviewer.name}</h6>
+              {review.createdAt && (
+                <small className="text-muted">{formatDate(review.createdAt)}</small>
+              )}
+            </div>
+            <StarRating rating={review.rating} small />
+          </div>
+          <p className="mb-0 text-muted" style={{ lineHeight: '1.6' }}>
+            {review.comment}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (loading) {
+    return (
+      <div className="property-section">
+        <h3 className="section-title">Reviews & Ratings</h3>
+        <div className="text-center py-4">
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Loading reviews...</span>
+          </div>
+          <p className="mt-2 text-muted">Loading reviews...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="property-section">
+        <h3 className="section-title">Reviews & Ratings</h3>
+        <div className="alert alert-warning" role="alert">
+          <i className="bi bi-exclamation-triangle me-2"></i>
+          Unable to load reviews at this time. Please try again later.
+        </div>
+      </div>
+    );
+  }
+
+  if (reviewsData.totalReviews === 0) {
+    return (
+      <div className="property-section">
+        <h3 className="section-title">Reviews & Ratings</h3>
+        <div className="text-center py-5">
+          <i className="bi bi-chat-dots fs-1 text-muted mb-3"></i>
+          <h5 className="text-muted">No reviews yet</h5>
+          <p className="text-muted mb-0">Be the first to review this property!</p>
+        </div>
+      </div>
+    );
+  }
+
+  const displayedReviews = showAllReviews ? reviewsData.reviews : reviewsData.reviews.slice(0, 3);
+
+  return (
+    <div className="property-section">
+      <h3 className="section-title">Reviews & Ratings</h3>
+      <div className="reviews-summary p-4 bg-light rounded-3 mb-4">
+        <div className="row align-items-center">
+          <div className="col-12">
+            <div className="d-flex align-items-center">
+              <div className="me-4">
+                <div className="display-4 fw-bold text-primary">
+                  {reviewsData.averageRating.toFixed(1)}
+                </div>
+                <StarRating rating={reviewsData.averageRating} />
+              </div>
+              <div>
+                <h6 className="mb-1">Overall Rating</h6>
+                <p className="mb-0 text-muted">
+                  Based on {reviewsData.totalReviews} review{reviewsData.totalReviews !== 1 ? 's' : ''}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="col-12 mt-3">
+            <div className="rating-distribution">
+              {[5, 4, 3, 2, 1].map(star => {
+                const count = reviewsData.reviews.filter(r => r.rating === star).length;
+                const percentage = reviewsData.totalReviews > 0 ? (count / reviewsData.totalReviews) * 100 : 0;
+                return (
+                  <div key={star} className="d-flex align-items-center mb-1">
+                    <span className="me-2 small" style={{ minWidth: '20px' }}>{star}</span>
+                    <i className="bi bi-star-fill me-2 small" style={{ color: '#ffc107' }}></i>
+                    <div className="progress flex-grow-1 me-2" style={{ height: '6px' }}>
+                      <div
+                        className="progress-bar"
+                        style={{
+                          width: `${percentage}%`,
+                          backgroundColor: COLORS.PRIMARY
+                        }}
+                      ></div>
+                    </div>
+                    <span className="small text-muted" style={{ minWidth: '25px' }}>
+                      {count}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="reviews-list">
+        {displayedReviews.map(review => (
+          <ReviewCard key={review.id} review={review} />
+        ))}
+      </div>
+      {reviewsData.reviews.length > 3 && (
+        <div className="text-center mt-3">
+          <button
+            className="btn btn-outline-primary"
+            onClick={() => setShowAllReviews(!showAllReviews)}
+          >
+            {showAllReviews ? (
+              <>
+                <i className="bi bi-chevron-up me-2"></i>
+                Show Less Reviews
+              </>
+            ) : (
+              <>
+                <i className="bi bi-chevron-down me-2"></i>
+                Show All {reviewsData.reviews.length} Reviews
+              </>
+            )}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const PropertyDetailsPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-
-  // Extract state with proper typing
   const state = location.state as LocationState | null;
   const { propertyId } = state || {};
 
-  // State management
   const [studentId, setStudentId] = useState<number | null>(state?.studentId || null);
   const [property, setProperty] = useState<PropertyType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -254,27 +471,22 @@ const PropertyDetailsPage: React.FC = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [mapRadius, setMapRadius] = useState(1);
 
-  // Utility function to parse and validate user data
   const parseUserData = useCallback((userData: string): User | null => {
     try {
       const parsedUser = JSON.parse(userData);
-
       if (!parsedUser?.id || !parsedUser?.email || !parsedUser?.userType) {
         console.warn('PropertyDetailsPage: Missing required user fields');
         return null;
       }
-
       if (!['student', 'landlord', 'admin'].includes(parsedUser.userType)) {
         console.warn('PropertyDetailsPage: Invalid user type');
         return null;
       }
-
       const id = typeof parsedUser.id === 'string' ? parseInt(parsedUser.id, 10) : parsedUser.id;
       if (isNaN(id)) {
         console.warn('PropertyDetailsPage: Invalid user ID');
         return null;
       }
-
       return {
         id,
         email: parsedUser.email,
@@ -288,7 +500,6 @@ const PropertyDetailsPage: React.FC = () => {
     }
   }, []);
 
-  // Clear user session
   const clearUserSession = useCallback(() => {
     localStorage.removeItem('user');
     localStorage.removeItem('admin_token');
@@ -297,7 +508,6 @@ const PropertyDetailsPage: React.FC = () => {
     setStudentId(null);
   }, []);
 
-  // Navigate to login with messaging data
   const navigateToLogin = useCallback(
     (message: string) => {
       if (!property) return;
@@ -324,7 +534,6 @@ const PropertyDetailsPage: React.FC = () => {
     [navigate, property, currentUser]
   );
 
-  // Initialize Bootstrap
   useEffect(() => {
     const loadBootstrap = async () => {
       try {
@@ -337,17 +546,14 @@ const PropertyDetailsPage: React.FC = () => {
     loadBootstrap();
   }, []);
 
-  // Handle scroll for navbar
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
     };
-
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Validate user
   useEffect(() => {
     const validateUser = async () => {
       console.log('PropertyDetailsPage: Validating user...', {
@@ -356,35 +562,28 @@ const PropertyDetailsPage: React.FC = () => {
         propertyId,
         studentId,
       });
-
       try {
         const userData = localStorage.getItem('user');
-
         if (!userData) {
           console.log('PropertyDetailsPage: No user data found');
           setIsUserLoggedIn(false);
           return;
         }
-
         const parsedUser = parseUserData(userData);
-
         if (!parsedUser) {
           console.log('PropertyDetailsPage: Invalid user data, clearing session');
           clearUserSession();
           return;
         }
-
         if (parsedUser.userType !== 'student') {
           console.log('PropertyDetailsPage: User is not a student');
           clearUserSession();
           return;
         }
-
         console.log('PropertyDetailsPage: User validated successfully', {
           userId: parsedUser.id,
           userType: parsedUser.userType,
         });
-
         setIsUserLoggedIn(true);
         setCurrentUser(parsedUser);
         setStudentId(parsedUser.id);
@@ -393,11 +592,9 @@ const PropertyDetailsPage: React.FC = () => {
         clearUserSession();
       }
     };
-
     validateUser();
   }, [parseUserData, clearUserSession, location.state, propertyId, studentId]);
 
-  // Fetch property details
   useEffect(() => {
     const fetchPropertyDetails = async () => {
       if (!propertyId) {
@@ -405,7 +602,6 @@ const PropertyDetailsPage: React.FC = () => {
         setLoading(false);
         return;
       }
-
       setLoading(true);
       try {
         const timestamp = new Date().getTime();
@@ -416,23 +612,18 @@ const PropertyDetailsPage: React.FC = () => {
             Accept: 'application/json',
           },
         });
-
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
-
         const responseData = await response.json();
         setRawApiResponse(responseData);
-
         if (!responseData.success || !responseData.data) {
           throw new Error('Invalid API response structure');
         }
-
         const formattedProperty = formatPropertyData(responseData.data);
         if (!formattedProperty) {
           throw new Error('Failed to format property data');
         }
-
         setProperty(formattedProperty);
         setError(null);
       } catch (err) {
@@ -442,11 +633,9 @@ const PropertyDetailsPage: React.FC = () => {
         setLoading(false);
       }
     };
-
     if (propertyId) {
       fetchPropertyDetails();
     }
-
     return () => {
       if (property?.images) {
         property.images.forEach((img) => {
@@ -458,18 +647,15 @@ const PropertyDetailsPage: React.FC = () => {
     };
   }, [propertyId]);
 
-  // Format property data
   const formatPropertyData = (property: any): PropertyType | null => {
     if (!property || typeof property !== 'object') {
       console.error('Invalid property data received:', property);
       return null;
     }
-
     try {
       const processedImages = (Array.isArray(property.images) ? property.images : [])
         .map((img) => (typeof img === 'string' ? img : img?.imageUrl))
         .filter((img) => img);
-
       const mainImage = (() => {
         const primaryImage = Array.isArray(property.images)
           ? property.images.find((img) => typeof img !== 'string' && img?.isPrimary)
@@ -480,7 +666,6 @@ const PropertyDetailsPage: React.FC = () => {
             : primaryImage?.imageUrl
           : processedImages[0] || '/property-placeholder.jpg';
       })();
-
       const propertyType = (property.propertyType || '').toLowerCase();
       const formattedType = propertyType.includes('apartment')
         ? 'apartment'
@@ -489,7 +674,6 @@ const PropertyDetailsPage: React.FC = () => {
         : propertyType.includes('single')
         ? 'single'
         : 'other';
-
       const landlord = typeof property.landlord === 'string'
         ? { name: property.landlord }
         : {
@@ -501,20 +685,17 @@ const PropertyDetailsPage: React.FC = () => {
             id: property.landlord?.landlordId,
             image: property.landlord?.imageUrl,
           };
-
       const coordinates = property.latitude && property.longitude
         ? {
             lat: typeof property.latitude === 'string' ? parseFloat(property.latitude) : property.latitude,
             lng: typeof property.longitude === 'string' ? parseFloat(property.longitude) : property.longitude,
           }
         : undefined;
-
       const monthlyRent = property.monthlyRent
         ? typeof property.monthlyRent === 'string'
           ? parseFloat(property.monthlyRent)
           : property.monthlyRent
         : 0;
-
       return {
         id: property.propertyId,
         title: property.title || 'Unnamed Property',
@@ -541,266 +722,10 @@ const PropertyDetailsPage: React.FC = () => {
     }
   };
 
-
-// Reviews Component
-const PropertyReviews: React.FC<{ propertyId: number }> = ({ propertyId }) => {
-  const [reviewsData, setReviewsData] = useState<ReviewsData>({
-    reviews: [],
-    averageRating: 0,
-    totalReviews: 0
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [showAllReviews, setShowAllReviews] = useState(false);
-
-  // Fetch reviews from API
-  useEffect(() => {
-    const fetchReviews = async () => {
-      if (!propertyId) return;
-
-      setLoading(true);
-      try {
-        const response = await fetch(` 
-/api/reviews/properties/${propertyId}/reviews     `, {
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-
-        const reviews: Review[] = await response.json();
-        
-        // Calculate average rating
-        const averageRating = reviews.length > 0 
-          ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
-          : 0;
-
-        setReviewsData({
-          reviews,
-          averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal
-          totalReviews: reviews.length
-        });
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching reviews:', err);
-        setError(err instanceof Error ? err.message : 'Failed to fetch reviews');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchReviews();
-  }, [propertyId]);
-
-  // Get initials for avatar
-  const getInitials = (name: string): string => {
-    return name
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase())
-      .join('')
-      .slice(0, 2);
-  };
-
-  // Format date (if available)
-  const formatDate = (dateString?: string): string => {
-    if (!dateString) return '';
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    } catch {
-      return '';
-    }
-  };
-
-
-
-  // Render individual review
-  const ReviewCard: React.FC<{ review: Review }> = ({ review }) => (
-    <div className="review-card p-4 border rounded-3 mb-3 bg-white">
-      <div className="d-flex align-items-start">
-        {/* Reviewer Avatar */}
-        <div 
-          className="review-avatar rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0"
-          style={{
-            width: '48px',
-            height: '48px',
-            backgroundColor: COLORS.PRIMARY,
-            color: 'white',
-            fontSize: '14px',
-            fontWeight: '600'
-          }}
-        >
-          {getInitials(review.reviewer.name)}
-        </div>
-        
-        {/* Review Content */}
-        <div className="review-content flex-grow-1">
-          <div className="d-flex justify-content-between align-items-start mb-2">
-            <div>
-              <h6 className="mb-1 fw-semibold">{review.reviewer.name}</h6>
-              {review.createdAt && (
-                <small className="text-muted">{formatDate(review.createdAt)}</small>
-              )}
-            </div>
-            <StarRating rating={review.rating} small />
-          </div>
-          
-          {/* Review Comment */}
-          <p className="mb-0 text-muted" style={{ lineHeight: '1.6' }}>
-            {review.comment}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-
-  // Loading state
-  if (loading) {
-    return (
-      <div className="property-section">
-        <h3 className="section-title">Reviews & Ratings</h3>
-        <div className="text-center py-4">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading reviews...</span>
-          </div>
-          <p className="mt-2 text-muted">Loading reviews...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <div className="property-section">
-        <h3 className="section-title">Reviews & Ratings</h3>
-        <div className="alert alert-warning" role="alert">
-          <i className="bi bi-exclamation-triangle me-2"></i>
-          Unable to load reviews at this time. Please try again later.
-        </div>
-      </div>
-    );
-  }
-
-  // No reviews state
-  if (reviewsData.totalReviews === 0) {
-    return (
-      <div className="property-section">
-        <h3 className="section-title">Reviews & Ratings</h3>
-        <div className="text-center py-5">
-          <i className="bi bi-chat-dots fs-1 text-muted mb-3"></i>
-          <h5 className="text-muted">No reviews yet</h5>
-          <p className="text-muted mb-0">Be the first to review this property!</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Display reviews
-  const displayedReviews = showAllReviews ? reviewsData.reviews : reviewsData.reviews.slice(0, 3);
-
-  return (
-    <div className="property-section">
-      <h3 className="section-title">Reviews & Ratings</h3>
-      
-      {/* Reviews Summary */}
-      <div className="reviews-summary p-4 bg-light rounded-3 mb-4">
-        <div className="row align-items-center">
-          <div className="col-md-6">
-            <div className="d-flex align-items-center">
-              <div className="me-4">
-                <div className="display-4 fw-bold text-primary">
-                  {reviewsData.averageRating.toFixed(1)}
-                </div>
-                <StarRating rating={reviewsData.averageRating} />
-              </div>
-              <div>
-                <h6 className="mb-1">Overall Rating</h6>
-                <p className="mb-0 text-muted">
-                  Based on {reviewsData.totalReviews} review{reviewsData.totalReviews !== 1 ? 's' : ''}
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          {/* Rating Distribution (Optional - if you want to add it later) */}
-          <div className="col-md-6">
-            <div className="rating-distribution">
-              {[5, 4, 3, 2, 1].map(star => {
-                const count = reviewsData.reviews.filter(r => r.rating === star).length;
-                const percentage = reviewsData.totalReviews > 0 ? (count / reviewsData.totalReviews) * 100 : 0;
-                
-                return (
-                  <div key={star} className="d-flex align-items-center mb-1">
-                    <span className="me-2 small" style={{ minWidth: '20px' }}>{star}</span>
-                    <i className="bi bi-star-fill me-2 small" style={{ color: '#ffc107' }}></i>
-                    <div className="progress flex-grow-1 me-2" style={{ height: '6px' }}>
-                      <div 
-                        className="progress-bar" 
-                        style={{ 
-                          width: `${percentage}%`,
-                          backgroundColor: COLORS.PRIMARY 
-                        }}
-                      ></div>
-                    </div>
-                    <span className="small text-muted" style={{ minWidth: '25px' }}>
-                      {count}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Individual Reviews */}
-      <div className="reviews-list">
-        {displayedReviews.map(review => (
-          <ReviewCard key={review.id} review={review} />
-        ))}
-      </div>
-
-      {/* Show More/Less Button */}
-      {reviewsData.reviews.length > 3 && (
-        <div className="text-center mt-3">
-          <button
-            className="btn btn-outline-primary"
-            onClick={() => setShowAllReviews(!showAllReviews)}
-          >
-            {showAllReviews ? (
-              <>
-                <i className="bi bi-chevron-up me-2"></i>
-                Show Less Reviews
-              </>
-            ) : (
-              <>
-                <i className="bi bi-chevron-down me-2"></i>
-                Show All {reviewsData.reviews.length} Reviews
-              </>
-            )}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-};
-
-
-
-  // Toggle debug mode
   const toggleDebugMode = () => {
     setDebugMode(!debugMode);
   };
 
-  // Handle inquiry button click
   const handleInquiryButtonClick = () => {
     console.log('PropertyDetailsPage: Inquiry button clicked', {
       isUserLoggedIn,
@@ -808,19 +733,16 @@ const PropertyReviews: React.FC<{ propertyId: number }> = ({ propertyId }) => {
       studentId: currentUser?.id,
       landlordId: property?.landlord.id,
     });
-
     if (!property || !property.landlord.id) {
       console.error('PropertyDetailsPage: Missing property or landlord data');
       setError('Unable to send inquiry: Property or landlord information missing.');
       return;
     }
-
     if (isUserLoggedIn && !currentUser?.id) {
       console.error('PropertyDetailsPage: Missing studentId for logged-in user');
       setError('User not properly authenticated.');
       return;
     }
-
     const messagingData = {
       receiverId: property.landlord.id,
       propertyId: property.id,
@@ -831,7 +753,6 @@ const PropertyReviews: React.FC<{ propertyId: number }> = ({ propertyId }) => {
       from: '/inquiry',
       studentId: currentUser?.id,
     };
-
     if (!isUserLoggedIn) {
       console.log('PropertyDetailsPage: Not logged in, redirecting to login', messagingData);
       navigateToLogin('Please log in to send an inquiry about this property');
@@ -841,7 +762,6 @@ const PropertyReviews: React.FC<{ propertyId: number }> = ({ propertyId }) => {
     }
   };
 
-  // Handle image navigation
   const nextImage = () => {
     if (property?.images?.length) {
       setActiveIndex((prev) => (prev + 1) % property.images.length);
@@ -854,13 +774,11 @@ const PropertyReviews: React.FC<{ propertyId: number }> = ({ propertyId }) => {
     }
   };
 
-  // Open zoomed image modal
   const openZoomedImage = (imageUrl: string, index: number) => {
     setZoomedImage(imageUrl);
     setActiveIndex(index);
   };
 
-  // Handle navigation
   const handleNavigation = (path: string) => {
     const paths: { [key: string]: string } = {
       home: '/studentdashboard',
@@ -878,7 +796,6 @@ const PropertyReviews: React.FC<{ propertyId: number }> = ({ propertyId }) => {
     setMenuOpen(false);
   };
 
-  // Loading view
   if (loading) {
     return (
       <div className="container py-5">
@@ -915,7 +832,6 @@ const PropertyReviews: React.FC<{ propertyId: number }> = ({ propertyId }) => {
     );
   }
 
-  // Error view
   if (error) {
     return (
       <div className="container py-5">
@@ -968,7 +884,7 @@ const PropertyReviews: React.FC<{ propertyId: number }> = ({ propertyId }) => {
           </button>
           <button className="btn btn-outline-secondary" onClick={toggleDebugMode}>
             {debugMode ? 'Hide Debug Info' : 'Show Debug Info'}
-            </button>
+          </button>
         </div>
         {debugMode && (
           <div
@@ -994,12 +910,8 @@ const PropertyReviews: React.FC<{ propertyId: number }> = ({ propertyId }) => {
     );
   }
 
-
-
-  
   return (
     <div className="app-container">
-      {/* Navbar */}
       <nav className={`navbar navbar-expand-lg navbar-light ${isScrolled ? 'scrolled' : ''}`}>
         <div className="container">
           <a
@@ -1011,7 +923,7 @@ const PropertyReviews: React.FC<{ propertyId: number }> = ({ propertyId }) => {
             }}
           >
             <span className="logo-icon me-2">🏠</span>
-            <span className="logo-text">NexNest</span>
+            <span className="logo-text"> CribConnect</span>
           </a>
           <button
             className="navbar-toggler"
@@ -1107,330 +1019,311 @@ const PropertyReviews: React.FC<{ propertyId: number }> = ({ propertyId }) => {
         </div>
       </nav>
 
-      <div className="main-content">
-        <div className="container">
-          <div className="property-header">
-            <div className="row align-items-center">
-              <div className="col-md-8">
-                <h1 className="fw-bold">{property.title}</h1>
-                <p className="mb-0 d-flex align-items-center text-muted">
-                  <i className="bi bi-geo-alt me-2"></i>
-                  {property.location}
-                </p>
-              </div>
-              <div className="col-md-4 text-md-end mt-2 mt-md-0">
-                <h2 className="fw-bold mb-1">{property.price}</h2>
-              </div>
-            </div>
+      <div className="container py-5">
+        {/* Property Header */}
+        <div className="property-section">
+          <h1 className="fw-bold mb-3">{property.title}</h1>
+          <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
+            <p className="mb-0 d-flex align-items-center text-muted">
+              <i className="bi bi-geo-alt me-2"></i>
+              {property.location}
+            </p>
+            <h2 className="fw-bold mb-0 mt-2 mt-md-0">{property.price}</h2>
           </div>
+        </div>
 
-          <div className="row">
-            {/* Main Content */}
-            <div className="col-lg-8 mb-4">
-              {/* Image Gallery */}
-              <div className="position-relative mb-3">
+        {/* Image Gallery */}
+        <div className="property-section">
+          <h3 className="section-title">Gallery</h3>
+          <div className="position-relative mb-3">
+            <div
+              className="property-main-image rounded-3 overflow-hidden shadow"
+              style={{ height: '500px' }}
+            >
+              <img
+                src={property.images[activeIndex] || '/property-placeholder.jpg'}
+                className="w-100 h-100"
+                style={{ objectFit: 'cover', cursor: 'zoom-in' }}
+                alt={`${property.title} - Featured Image`}
+                onClick={() => openZoomedImage(property.images[activeIndex], activeIndex)}
+                onError={(e) => {
+                  e.currentTarget.src = '/property-placeholder.jpg';
+                }}
+              />
+            </div>
+            {property.images.length > 1 && (
+              <>
+                <button
+                  className="position-absolute top-50 start-0 translate-middle-y bg-white rounded-circle border-0 shadow p-2 ms-2"
+                  onClick={prevImage}
+                >
+                  <i className="bi bi-chevron-left"></i>
+                </button>
+                <button
+                  className="position-absolute top-50 end-0 translate-middle-y bg-white rounded-circle border-0 shadow p-2 me-2"
+                  onClick={nextImage}
+                >
+                  <i className="bi bi-chevron-right"></i>
+                </button>
+              </>
+            )}
+          </div>
+          {property.images.length > 1 && (
+            <div className="d-flex overflow-auto pb-2 mb-4 thumbnail-container">
+              {property.images.map((image, index) => (
                 <div
-                  className="property-main-image rounded-3 overflow-hidden shadow"
-                  style={{ height: '500px' }}
+                  key={index}
+                  className={`thumbnail-wrapper me-2 ${activeIndex === index ? 'active-thumbnail' : ''}`}
+                  onClick={() => setActiveIndex(index)}
+                  style={{ cursor: 'pointer' }}
                 >
                   <img
-                    src={property.images[activeIndex] || '/property-placeholder.jpg'}
-                    className="w-100 h-100"
-                    style={{ objectFit: 'cover', cursor: 'zoom-in' }}
-                    alt={`${property.title} - Featured Image`}
-                    onClick={() => openZoomedImage(property.images[activeIndex], activeIndex)}
+                    src={image}
+                    className="thumbnail-image rounded-3"
+                    style={{
+                      width: '100px',
+                      height: '75px',
+                      objectFit: 'cover',
+                      border: activeIndex === index ? `3px solid ${COLORS.PRIMARY}` : '3px solid transparent',
+                    }}
+                    alt={`${property.title} - Image ${index + 1}`}
                     onError={(e) => {
                       e.currentTarget.src = '/property-placeholder.jpg';
                     }}
                   />
                 </div>
-                {property.images.length > 1 && (
-                  <>
-                    <button
-                      className="position-absolute top-50 start-0 translate-middle-y bg-white rounded-circle border-0 shadow p-2 ms-2"
-                      onClick={prevImage}
-                    >
-                      <i className="bi bi-chevron-left"></i>
-                    </button>
-                    <button
-                      className="position-absolute top-50 end-0 translate-middle-y bg-white rounded-circle border-0 shadow p-2 me-2"
-                      onClick={nextImage}
-                    >
-                      <i className="bi bi-chevron-right"></i>
-                    </button>
-                  </>
-                )}
-              </div>
-
-              {/* Thumbnails */}
-              {property.images.length > 1 && (
-                <div className="d-flex overflow-auto pb-2 mb-4 thumbnail-container">
-                  {property.images.map((image, index) => (
-                    <div
-                      key={index}
-                      className={`thumbnail-wrapper me-2 ${activeIndex === index ? 'active-thumbnail' : ''}`}
-                      onClick={() => setActiveIndex(index)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <img
-                        src={image}
-                        className="thumbnail-image rounded-3"
-                        style={{
-                          width: '100px',
-                          height: '75px',
-                          objectFit: 'cover',
-                          border: activeIndex === index ? `3px solid ${COLORS.PRIMARY}` : '3px solid transparent',
-                        }}
-                        alt={`${property.title} - Image ${index + 1}`}
-                        onError={(e) => {
-                          e.currentTarget.src = '/property-placeholder.jpg';
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Property Description */}
-              <div className="property-section">
-                <h3 className="section-title">Description</h3>
-                <p className="text-muted mb-4">{property.description}</p>
-              </div>
-
-              {/* Property Details */}
-              <div className="property-section">
-                <h3 className="section-title">Property Details</h3>
-                <div className="row g-3">
-                  {property.bedrooms && (
-                    <div className="col-sm-6 col-md-4">
-                      <div className="detail-card text-center p-3 rounded bg-light">
-                        <i
-                          className="bi bi-door-closed fs-3 mb-2"
-                          style={{ color: COLORS.PRIMARY }}
-                        ></i>
-                        <h5 className="mb-1">{property.bedrooms}</h5>
-                        <small className="text-muted">Bedrooms</small>
-                      </div>
-                    </div>
-                  )}
-                  {property.bathrooms && (
-                    <div className="col-sm-6 col-md-4">
-                      <div className="detail-card text-center p-3 rounded bg-light">
-                        <i className="bi bi-droplet fs-3 mb-2" style={{ color: COLORS.PRIMARY }}></i>
-                        <h5 className="mb-1">{property.bathrooms}</h5>
-                        <small className="text-muted">Bathrooms</small>
-                      </div>
-                    </div>
-                  )}
-                  {property.size && (
-                    <div className="col-sm-6 col-md-4">
-                      <div className="detail-card text-center p-3 rounded bg-light">
-                        <i className="bi bi-rulers fs-3 mb-2" style={{ color: COLORS.PRIMARY }}></i>
-                        <h5 className="mb-1">{property.size} m²</h5>
-                        <small className="text-muted">Size</small>
-                      </div>
-                    </div>
-                  )}
-                  <div className="col-sm-6 col-md-4">
-                    <div className="detail-card text-center p-3 rounded bg-light">
-                      <i className="bi bi-house fs-3 mb-2" style={{ color: COLORS.PRIMARY }}></i>
-                      <h5 className="mb-1 text-capitalize">{property.type}</h5>
-                      <small className="text-muted">Property Type</small>
-                    </div>
-                  </div>
-                  <div className="col-sm-6 col-md-4">
-                    <div className="detail-card text-center p-3 rounded bg-light">
-                      <i className="bi bi-calendar-check fs-3 mb-2"></i>
-                      <h5 className="mb-1">{property.available ? 'Yes' : 'No'}</h5>
-                      <small className="text-muted">Available</small>
-                    </div>
-                  </div>
-                  <div className="col-sm-6 col-md-4">
-                    <div className="detail-card text-center p-3 rounded bg-light">
-                      <StarRating rating={property.rating} small />
-                      <small className="text-muted d-block mt-1">Rating</small>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Amenities */}
-              {property.amenities && property.amenities.length > 0 && (
-                <div className="property-section">
-                  <h3 className="section-title">Amenities</h3>
-                  <div className="row g-2">
-                    {property.amenities.map((amenity, index) => (
-                      <div key={index} className="col-sm-6 col-md-4">
-                        <div className="d-flex align-items-center p-2 rounded bg-light">
-                          <i
-                            className="bi bi-check-circle-fill me-2"
-                            style={{ color: COLORS.PRIMARY }}
-                          ></i>
-                          <span className="text-capitalize">{amenity}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-
-
-
-
-
-              {/* Location Map */}
-              {property.coordinates && (
-                <div className="property-section">
-                  <div className="d-flex justify-content-between align-items-center mb-3">
-                    <h3 className="section-title mb-0">Location</h3>
-                    <div className="d-flex align-items-center">
-                      <label htmlFor="radius-slider" className="form-label me-2 mb-0 small">
-                        Radius: {mapRadius}km
-                      </label>
-                      <input
-                        type="range"
-                        className="form-range"
-                        id="radius-slider"
-                        min="0.5"
-                        max="5"
-                        step="0.5"
-                        value={mapRadius}
-                        onChange={(e) => setMapRadius(parseFloat(e.target.value))}
-                        style={{ width: '100px' }}
-                      />
-                    </div>
-                  </div>
-                  <div className="map-container rounded-3 overflow-hidden shadow-sm">
-                    <PropertyMap coordinates={property.coordinates} radius={mapRadius} />
-                  </div>
-                  <div className="mt-2">
-                    <small className="text-muted">
-                      <i className="bi bi-geo-alt me-1"></i>
-                      {property.location}
-                    </small>
-                  </div>
-                </div>
-              )}
+              ))}
             </div>
+          )}
+        </div>
 
-            {/* Sidebar */}
-            <div className="col-lg-4">
-              <div className="sticky-top" style={{ top: '100px' }}>
-                {/* Contact Card */}
-                <div className="contact-card p-4 rounded-3 shadow-sm mb-4">
-                  <div className="text-center mb-3">
-                    <div className="landlord-avatar mx-auto mb-3">
-                      {property.landlord.image ? (
-                        <img
-                          src={property.landlord.image}
-                          className="rounded-circle"
-                          style={{ width: '80px', height: '80px', objectFit: 'cover' }}
-                          alt={property.landlord.name}
-                          onError={(e) => {
-                            e.currentTarget.src = '/avatar-placeholder.png';
-                          }}
-                        />
-                      ) : (
-                        <div
-                          className="rounded-circle d-flex align-items-center justify-content-center"
-                          style={{
-                            width: '80px',
-                            height: '80px',
-                            backgroundColor: COLORS.SECONDARY,
-                            color: COLORS.PRIMARY,
-                          }}
-                        >
-                          <i className="bi bi-person fs-2"></i>
-                        </div>
-                      )}
-                    </div>
-                    <h5 className="mb-1">{property.landlord.name}</h5>
-                    <small className="text-muted">Property Owner</small>
-                  </div>
+        {/* Property Description */}
+        <div className="property-section">
+          <h3 className="section-title">Description</h3>
+          <p className="text-muted mb-0">{property.description}</p>
+        </div>
 
-                  {/* Landlord Stats */}
-                  <div className="row text-center mb-3">
-                    {property.landlord.phoneNumber && (
-                      <div className="col-6">
-                        <div className="border-end pe-2">
-                          <div className="fw-bold">{property.landlord.email}</div>
-                          <small className="text-muted">Email</small>
-                        </div>
-                      </div>
-                    )}
-                    {property.landlord.email && (
-                      <div className="col-6">
-                        <div className="ps-2">
-                          <div className="fw-bold">{property.landlord.phoneNumber}</div>
-                          <small className="text-muted">Phone Number</small>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Contact Buttons */}
-                  <div className="d-grid gap-2">
-                    
-                    {property.landlord.phoneNumber && (
-                      <a
-                        href={`tel:${property.landlord.phoneNumber}`}
-                        className="btn btn-outline-primary"
-                      >
-                        <i className="bi bi-telephone me-2"></i>
-                        Call Now
-                      </a>
-                    )}
-                    {property.landlord.email && (
-                      <a
-                        href={`mailto:${property.landlord.email}?subject=Inquiry about ${property.title}`}
-                        className="btn btn-outline-secondary"
-                      >
-                        <i className="bi bi-envelope me-2"></i>
-                        Email Direct
-                      </a>
-                    )}
-                  </div>
-
-                  
+        {/* Property Details */}
+        <div className="property-section">
+          <h3 className="section-title">Property Details</h3>
+          <div className="row g-3">
+            {property.bedrooms && (
+              <div className="col-12 col-sm-6 col-md-4">
+                <div className="detail-card text-center p-3 rounded bg-light">
+                  <i
+                    className="bi bi-door-closed fs-3 mb-2"
+                    style={{ color: COLORS.PRIMARY }}
+                  ></i>
+                  <h5 className="mb-1">{property.bedrooms}</h5>
+                  <small className="text-muted">Bedrooms</small>
                 </div>
-
-                {/* Quick Info Card */}
-                <div className="quick-info-card p-4 rounded-3 shadow-sm">
-                  <h5 className="mb-3">Quick Information</h5>
-                  <div className="info-item d-flex justify-content-between py-2 border-bottom">
-                    <span>Monthly Rent</span>
-                    <strong>{property.price}</strong>
-                  </div>
-                  <div className="info-item d-flex justify-content-between py-2 border-bottom">
-                    <span>Property Type</span>
-                    <span className="text-capitalize">{property.type}</span>
-                  </div>
-                  {property.bedrooms && (
-                    <div className="info-item d-flex justify-content-between py-2 border-bottom">
-                      <span>Bedrooms</span>
-                      <span>{property.bedrooms}</span>
-                    </div>
-                  )}
-                  {property.bathrooms && (
-                    <div className="info-item d-flex justify-content-between py-2 border-bottom">
-                      <span>Bathrooms</span>
-                      <span>{property.bathrooms}</span>
-                    </div>
-                  )}
-                  {property.size && (
-                    <div className="info-item d-flex justify-content-between py-2 border-bottom">
-                      <span>Size</span>
-                      <span>{property.size} m²</span>
-                    </div>
-                  )}
+              </div>
+            )}
+            {property.bathrooms && (
+              <div className="col-12 col-sm-6 col-md-4">
+                <div className="detail-card text-center p-3 rounded bg-light">
+                  <i className="bi bi-droplet fs-3 mb-2" style={{ color: COLORS.PRIMARY }}></i>
+                  <h5 className="mb-1">{property.bathrooms}</h5>
+                  <small className="text-muted">Bathrooms</small>
                 </div>
+              </div>
+            )}
+            {property.size && (
+              <div className="col-12 col-sm-6 col-md-4">
+                <div className="detail-card text-center p-3 rounded bg-light">
+                  <i className="bi bi-rulers fs-3 mb-2" style={{ color: COLORS.PRIMARY }}></i>
+                  <h5 className="mb-1">{property.size} m²</h5>
+                  <small className="text-muted">Size</small>
+                </div>
+              </div>
+            )}
+            <div className="col-12 col-sm-6 col-md-4">
+              <div className="detail-card text-center p-3 rounded bg-light">
+                <i className="bi bi-house fs-3 mb-2" style={{ color: COLORS.PRIMARY }}></i>
+                <h5 className="mb-1 text-capitalize">{property.type}</h5>
+                <small className="text-muted">Property Type</small>
+              </div>
+            </div>
+            <div className="col-12 col-sm-6 col-md-4">
+              <div className="detail-card text-center p-3 rounded bg-light">
+                <i className="bi bi-calendar-check fs-3 mb-2"></i>
+                <h5 className="mb-1">{property.available ? 'Yes' : 'No'}</h5>
+                <small className="text-muted">Available</small>
+              </div>
+            </div>
+            <div className="col-12 col-sm-6 col-md-4">
+              <div className="detail-card text-center p-3 rounded bg-light">
+                <StarRating rating={property.rating} small />
+                <small className="text-muted d-block mt-1">Rating</small>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Amenities */}
+        {property.amenities && property.amenities.length > 0 && (
+          <div className="property-section">
+            <h3 className="section-title">Amenities</h3>
+            <div className="row g-2">
+              {property.amenities.map((amenity, index) => (
+                <div key={index} className="col-12 col-sm-6 col-md-4">
+                  <div className="d-flex align-items-center p-2 rounded bg-light">
+                    <i
+                      className="bi bi-check-circle-fill me-2"
+                      style={{ color: COLORS.PRIMARY }}
+                    ></i>
+                    <span className="text-capitalize">{amenity}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Location Map */}
+        {property.coordinates && (
+          <div className="property-section">
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h3 className="section-title mb-0">Location</h3>
+              <div className="d-flex align-items-center">
+                <label htmlFor="radius-slider" className="form-label me-2 mb-0 small">
+                  Radius: {mapRadius}km
+                </label>
+                <input
+                  type="range"
+                  className="form-range"
+                  id="radius-slider"
+                  min="0.5"
+                  max="5"
+                  step="0.5"
+                  value={mapRadius}
+                  onChange={(e) => setMapRadius(parseFloat(e.target.value))}
+                  style={{ width: '100px' }}
+                />
+              </div>
+            </div>
+            <PropertyMap coordinates={property.coordinates} radius={mapRadius} />
+            <div className="mt-2">
+              <small className="text-muted">
+                <i className="bi bi-geo-alt me-1"></i>
+                {property.location}
+              </small>
+            </div>
+          </div>
+        )}
+
+        {/* Contact Card */}
+        <div className="property-section">
+          <h3 className="section-title">Contact Landlord</h3>
+          <div className="contact-card p-4 rounded-3 shadow-sm">
+            <div className="text-center mb-3">
+              <div className="landlord-avatar mx-auto mb-3">
+                {property.landlord.image ? (
+                  <img
+                    src={property.landlord.image}
+                    className="rounded-circle"
+                    style={{ width: '80px', height: '80px', objectFit: 'cover' }}
+                    alt={property.landlord.name}
+                    onError={(e) => {
+                      e.currentTarget.src = '/avatar-placeholder.png';
+                    }}
+                  />
+                ) : (
+                  <div
+                    className="rounded-circle d-flex align-items-center justify-content-center"
+                    style={{
+                      width: '80px',
+                      height: '80px',
+                      backgroundColor: COLORS.SECONDARY,
+                      color: COLORS.PRIMARY,
+                    }}
+                  >
+                    <i className="bi bi-person fs-2"></i>
+                  </div>
+                )}
+              </div>
+              <h5 className="mb-1">{property.landlord.name}</h5>
+              <small className="text-muted">Property Owner</small>
+            </div>
+            <div className="row text-center mb-3">
+              {property.landlord.email && (
+                <div className="col-12 col-sm-6">
+                  <div className="border-end pe-2">
+                    <div className="fw-bold">{property.landlord.email}</div>
+                    <small className="text-muted">Email</small>
+                  </div>
+                </div>
+              )}
+              {property.landlord.phoneNumber && (
+                <div className="col-12 col-sm-6">
+                  <div className="ps-2">
+                    <div className="fw-bold">{property.landlord.phoneNumber}</div>
+                    <small className="text-muted">Phone Number</small>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="d-grid gap-2">
+              
+              {property.landlord.phoneNumber && (
+                <a
+                  href={`tel:${property.landlord.phoneNumber}`}
+                  className="btn btn-outline-primary"
+                >
+                  <i className="bi bi-telephone me-2"></i>
+                  Call Now
+                </a>
+              )}
+              {property.landlord.email && (
+                <a
+                  href={`mailto:${property.landlord.email}?subject=Inquiry about ${property.title}`}
+                  className="btn btn-outline-secondary"
+                >
+                  <i className="bi bi-envelope me-2"></i>
+                  Email Direct
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Info Card */}
+        <div className="property-section">
+          <h3 className="section-title">Quick Information</h3>
+          <div className="quick-info-card p-4 rounded-3 shadow-sm">
+            <div className="info-item d-flex justify-content-between py-2 border-bottom">
+              <span>Monthly Rent</span>
+              <strong>{property.price}</strong>
+            </div>
+            <div className="info-item d-flex justify-content-between py-2 border-bottom">
+              <span>Property Type</span>
+              <span className="text-capitalize">{property.type}</span>
+            </div>
+            {property.bedrooms && (
+              <div className="info-item d-flex justify-content-between py-2 border-bottom">
+                <span>Bedrooms</span>
+                <span>{property.bedrooms}</span>
+              </div>
+            )}
+            {property.bathrooms && (
+              <div className="info-item d-flex justify-content-between py-2 border-bottom">
+                <span>Bathrooms</span>
+                <span>{property.bathrooms}</span>
+              </div>
+            )}
+            {property.size && (
+              <div className="info-item d-flex justify-content-between py-2 border-bottom">
+                <span>Size</span>
+                <span>{property.size} m²</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Reviews */}
+        <PropertyReviews propertyId={property.id} />
       </div>
-<PropertyReviews propertyId={property.id} />
+
       {/* Image Zoom Modal */}
       {zoomedImage && (
         <div
@@ -1490,29 +1383,20 @@ const PropertyReviews: React.FC<{ propertyId: number }> = ({ propertyId }) => {
         </div>
       )}
 
-      {/* Modal Backdrop */}
       {zoomedImage && (
         <div className="modal-backdrop fade show" onClick={() => setZoomedImage(null)}></div>
       )}
 
       <footer className="footer">
         <div className="container footer-content">
-          <div className="footer-logo">NexNest</div>
+          <div className="footer-logo">🏠 CribConnect</div>
           <div className="footer-links">
-            <a href="#" className="footer-link">
-              About
-            </a>
-            <a href="#" className="footer-link">
-              Privacy Policy
-            </a>
-            <a href="#" className="footer-link">
-              Terms of Service
-            </a>
-            <a href="#" className="footer-link">
-              Contact
-            </a>
+            <a href="#" className="footer-link">About</a>
+            <a href="#" className="footer-link">Privacy Policy</a>
+            <a href="#" className="footer-link">Terms of Service</a>
+            <a href="#" className="footer-link">Contact</a>
           </div>
-          <div className="footer-copyright">© 2025 NexNest. All rights reserved.</div>
+          <div className="footer-copyright">© 2025 🏠 CribConnect. All rights reserved.</div>
         </div>
       </footer>
     </div>

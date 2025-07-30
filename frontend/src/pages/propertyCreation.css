@@ -946,3 +946,385 @@
   border-top: 1px solid #e5e7eb;
   background: #f9fafb;
 }
+/* Additional mobile fixes for image upload and button visibility */
+
+/* Ensure image upload section is properly sized on mobile */
+@media (max-width: 768px) {
+  .property-form-modal .image-upload {
+    padding: 16px !important;
+    margin-bottom: 16px !important;
+  }
+  
+  .property-form-modal .upload-label {
+    padding: 8px !important;
+  }
+  
+  .property-form-modal .upload-label p {
+    font-size: 0.9rem !important;
+    margin: 6px 0 3px !important;
+  }
+  
+  .property-form-modal .upload-label small {
+    font-size: 0.75rem !important;
+  }
+  
+  /* Fix image preview grid for mobile */
+  .property-form-modal .preview-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)) !important;
+    gap: 8px !important;
+  }
+  
+  .property-form-modal .preview-item {
+    min-height: 100px !important;
+  }
+  
+  /* Ensure progress bars are visible */
+  .property-form-modal .upload-progress {
+    margin-top: 12px !important;
+    margin-bottom: 12px !important;
+  }
+  
+  .property-form-modal .progress-text {
+    font-size: 0.8rem !important;
+    margin-top: 4px !important;
+  }
+  
+  /* Fix footer button layout for mobile */
+  .property-form-modal .form-footer {
+    padding: 12px 16px !important;
+    position: sticky !important;
+    bottom: 0 !important;
+    background: #f8fafc !important;
+    border-top: 1px solid #e2e8f0 !important;
+    z-index: 10 !important;
+  }
+  
+  .property-form-modal .footer-buttons {
+    flex-direction: column !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+  
+  .property-form-modal .action-buttons {
+    width: 100% !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  
+  .property-form-modal .action-buttons button,
+  .property-form-modal .cancel-btn,
+  .property-form-modal .submit-btn,
+  .property-form-modal .reset-btn,
+  .property-form-modal .back-btn {
+    width: 100% !important;
+    padding: 12px 16px !important;
+    font-size: 16px !important; /* Prevent zoom on iOS */
+    min-height: 44px !important; /* Ensure touch-friendly size */
+  }
+  
+  /* Ensure modal content doesn't get cut off */
+  .property-form-modal .modal-content {
+    margin: 5px auto !important;
+    max-height: calc(100vh - 10px) !important;
+    min-height: auto !important;
+  }
+  
+  /* Fix modal body to account for sticky footer */
+  .property-form-modal .modal-body {
+    padding-bottom: 20px !important;
+    max-height: calc(100vh - 140px) !important; /* Account for header and footer */
+  }
+  
+  /* Address input fixes for mobile */
+  .property-form-modal input[name="address"] {
+    padding-right: 60px !important; /* Reduce padding to fit verify button */
+  }
+  
+  .property-form-modal .verify-address-btn {
+    right: 8px !important;
+    padding: 4px 8px !important;
+    font-size: 0.75rem !important;
+    min-height: 28px !important;
+  }
+  
+  /* Location window mobile fixes */
+  .property-form-modal .location-window {
+    max-width: calc(100vw - 32px) !important;
+    left: 0 !important;
+    right: 0 !important;
+    margin: 0 16px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Extra small screens */
+  .property-form-modal {
+    padding: 0 !important;
+  }
+  
+  .property-form-modal .modal-content {
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+  
+  .property-form-modal .modal-header {
+    padding: 12px 16px !important;
+  }
+  
+  .property-form-modal .modal-header h2 {
+    font-size: 1.25rem !important;
+  }
+  
+  .property-form-modal .modal-body {
+    padding: 16px !important;
+    max-height: calc(100vh - 120px) !important;
+  }
+  
+  .property-form-modal .form-section {
+    padding: 16px !important;
+  }
+  
+  .property-form-modal .form-footer {
+    padding: 12px 16px !important;
+  }
+  
+  /* Image upload adjustments for very small screens */
+  .property-form-modal .image-upload {
+    padding: 12px !important;
+  }
+  
+  .property-form-modal .preview-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 6px !important;
+  }
+  
+  .property-form-modal .preview-item {
+    min-height: 80px !important;
+  }
+  
+  /* Ensure buttons are always visible and accessible */
+  .property-form-modal .submit-btn,
+  .property-form-modal .cancel-btn,
+  .property-form-modal .reset-btn,
+  .property-form-modal .back-btn {
+    min-height: 48px !important;
+    font-weight: 600 !important;
+    border-radius: 6px !important;
+  }
+  
+  /* Address input for very small screens */
+  .property-form-modal input[name="address"] {
+    padding-right: 50px !important;
+    background-size: 16px !important;
+    background-position: calc(100% - 35px) center !important;
+  }
+  
+  .property-form-modal .verify-address-btn {
+    right: 6px !important;
+    padding: 3px 6px !important;
+    font-size: 0.7rem !important;
+    min-height: 24px !important;
+  }
+  
+  /* Location window for very small screens */
+  .property-form-modal .location-window {
+    margin: 0 8px !important;
+    max-width: calc(100vw - 16px) !important;
+  }
+  
+  .property-form-modal .manual-coordinates {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+}
+
+/* Landscape orientation fixes for mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+  .property-form-modal .modal-content {
+    max-height: calc(100vh - 20px) !important;
+  }
+  
+  .property-form-modal .modal-body {
+    max-height: calc(100vh - 160px) !important;
+  }
+  
+  .property-form-modal .form-footer {
+    position: relative !important; /* Remove sticky on landscape */
+  }
+}
+
+/* Ensure all interactive elements are touch-friendly */
+@media (max-width: 768px) {
+  .property-form-modal button,
+  .property-form-modal input,
+  .property-form-modal select,
+  .property-form-modal textarea {
+    min-height: 44px !important;
+    font-size: 16px !important; /* Prevent iOS zoom */
+  }
+  
+  .property-form-modal .close-btn {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+  
+  .property-form-modal .add-btn,
+  .property-form-modal .remove-btn {
+    min-height: 40px !important;
+    min-width: 40px !important;
+  }
+  
+  .property-form-modal .delete-btn {
+    min-width: 32px !important;
+    min-height: 32px !important;
+  }
+}
+
+/* Fix for image upload button visibility */
+.property-form-modal .image-upload input[type="file"] {
+  position: absolute !important;
+  left: -9999px !important;
+  opacity: 0 !important;
+}
+
+.property-form-modal .upload-label {
+  cursor: pointer !important;
+  display: block !important;
+  width: 100% !important;
+}
+
+/* Ensure form doesn't get cut off at bottom on mobile */
+.property-form-modal .modal-body {
+  padding-bottom: 80px !important; /* Extra space for mobile keyboards and content visibility */
+}
+
+@media (max-width: 768px) {
+  .property-form-modal .modal-body {
+    padding-bottom: 160px !important; /* Much more space for fixed footer on mobile */
+  }
+  
+  /* Ensure all form sections are properly spaced */
+  .property-form-modal .form-section {
+    margin-bottom: 20px !important;
+  }
+  
+  /* Special attention to amenities section */
+  .property-form-modal .amenities-section,
+  .property-form-modal .selected-amenities {
+    margin-bottom: 30px !important;
+    padding-bottom: 20px !important;
+  }
+  
+  /* Ensure amenity buttons are visible and accessible */
+  .property-form-modal .amenity-grid {
+    margin-bottom: 20px !important;
+  }
+  
+  .property-form-modal .amenity-button {
+    min-height: 44px !important; /* Touch-friendly size */
+    padding: 12px 8px !important;
+    font-size: 0.85rem !important;
+  }
+  
+  .property-form-modal .selected-tags {
+    margin-bottom: 20px !important;
+    padding-bottom: 10px !important;
+  }
+}
+
+/* Alternative approach: Make footer non-fixed on very small screens if needed */
+@media (max-width: 480px) and (max-height: 600px) {
+  .property-form-modal .form-footer {
+    position: relative !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: auto !important;
+    width: auto !important;
+    box-shadow: none !important;
+  }
+  
+  .property-form-modal .modal-body {
+    padding-bottom: 20px !important;
+  }
+}
+
+/* Ensure smooth scrolling to bottom of form */
+.property-form-modal .modal-body {
+  scroll-behavior: smooth !important;
+}
+
+@media (max-width: 768px) {
+  .property-form-modal .form-footer {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    z-index: 1000 !important;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1) !important;
+  }
+  
+  /* Adjust modal body to account for fixed footer */
+  .property-form-modal .modal-body {
+    padding-bottom: 140px !important; /* Increased padding for fixed footer height */
+    margin-bottom: 0 !important;
+  }
+  
+  /* Ensure amenities section is fully visible */
+  .property-form-modal .amenities-section,
+  .property-form-modal .form-section:last-of-type {
+    padding-bottom: 40px !important;
+    margin-bottom: 20px !important;
+  }
+  
+  /* Add extra space after the last form element */
+  .property-form-modal .form-section:last-child {
+    margin-bottom: 60px !important;
+  }
+}
+.available-amenities {
+  margin-bottom: 10px;
+}
+
+.amenities-help {
+  font-size: 0.875rem;
+  color: #666;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.amenities-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.amenity-chip {
+  background: #f3f4f6;
+  color: #374151;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 0.75rem;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.amenity-chip:hover {
+  background: #e5e7eb;
+  border-color: #d1d5db;
+}
+
+.amenity-chip.selected {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.amenity-chip.selected:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+}

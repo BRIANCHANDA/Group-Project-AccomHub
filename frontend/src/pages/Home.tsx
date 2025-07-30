@@ -145,10 +145,10 @@ const HomePage = () => {
   };
 
   return (
-    <div className="app-container">
+    <div className="app-container  w-100 min-vh-100">
       {/* Mobile-First Navigation */}
-      <nav className={`navbar navbar-expand-lg sticky-top navbar-light bg-white shadow-sm ${isScrolled ? 'scrolled' : ''}`}>
-        <div className="container-fluid px-3">
+      <nav className={`navbar navbar-expand-lg fixed-top navbar-light bg-white shadow-sm ${isScrolled ? 'scrolled' : ''}`}>
+        <div className="container-fluid">
           <a
             className="navbar-brand fw-bold text-primary d-flex align-items-center"
             href="#home"
@@ -158,7 +158,7 @@ const HomePage = () => {
             }}
           >
             <span className="me-1">🏠</span>
-            <span>NexNest</span>
+            <span>CribConnect</span>
           </a>
           
           <button
@@ -222,7 +222,7 @@ const HomePage = () => {
 
       {/* Compact Mobile-First Hero Section */}
       <section id="home" ref={homeRef} className="hero bg-gradient-to-br from-blue-50 to-white py-4 py-md-5">
-        <div className="container-fluid px-3">
+        <div className="container-fluid">
           {/* Main Content */}
           <div className="text-center mb-4">
             <h1 className="h2 fw-bold mb-3 text-dark">
@@ -373,7 +373,7 @@ const HomePage = () => {
 
       {/* Compact Services Section */}
       <section id="services" ref={servicesRef} className="features py-4 py-md-5 bg-light">
-        <div className="container-fluid px-3">
+        <div className="container-fluid">
           <h2 className="h4 text-center mb-4">Why Choose NexNest</h2>
           <div className="row g-3">
             {[
@@ -412,7 +412,7 @@ const HomePage = () => {
 
       {/* Mobile-Optimized Community Section */}
       <section id="community" ref={communityRef} className="community py-4 py-md-5">
-        <div className="container-fluid px-3">
+        <div className="container-fluid">
           <div className="text-center mb-4">
             <h2 className="h4 mb-3">Join Our Community</h2>
             <p className="text-muted mb-4">
@@ -441,7 +441,7 @@ const HomePage = () => {
 
       {/* Compact Contact Section */}
       <section id="contact" ref={contactRef} className="contact py-4 py-md-5 bg-primary text-white">
-        <div className="container-fluid px-3">
+        <div className="container-fluid">
           <div className="text-center">
             <h2 className="h4 mb-3">Need Help?</h2>
             <p className="mb-4">Get assistance finding your perfect student accommodation</p>
@@ -475,10 +475,10 @@ const HomePage = () => {
 
       {/* Minimal Footer */}
       <footer className="py-4 bg-dark text-white">
-        <div className="container-fluid px-3">
+        <div className="container-fluid">
           <div className="row g-4">
             <div className="col-12 col-md-6 text-center text-md-start">
-              <h5 className="fw-bold mb-2">🏠 NexNest</h5>
+              <h5 className="fw-bold mb-2">🏠 CribConnect</h5>
               <p className="small mb-0">
                 Trusted student housing platform for CBU students in Kitwe
               </p>

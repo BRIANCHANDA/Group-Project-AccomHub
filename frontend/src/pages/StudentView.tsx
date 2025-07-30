@@ -822,7 +822,7 @@ const filteredListings = useMemo(() => {
             }}
           >
             <span className="logo-icon me-2">🏠</span>
-            <span className="logo-text">NexNest</span>
+            <span className="logo-text">CribConnect</span>
           </a>
           <button
             className="navbar-toggler"
@@ -899,10 +899,7 @@ const filteredListings = useMemo(() => {
       </nav>
 
       <div className="container py-5" style={{ paddingTop: 'calc(var(--navbar-height) + 2rem)' }}>
-        <div className="text-center mb-4">
-          <h2 className="section-title">Student Accommodations</h2>
-          <p className="text-muted">Find your perfect student housing near your Univeristy</p>
-        </div>
+       
 
 
         <div className="filter-card mb-4">
@@ -1190,7 +1187,7 @@ const filteredListings = useMemo(() => {
             <div className="col-md-4">
               <h5 className="fw-bold mb-3 d-flex align-items-center">
                 <i className="bi bi-building-fill me-2"></i>
-                NexNest
+                🏠 CribConnect
               </h5>
               <p className="mb-3">Your trusted partner for finding safe and affordable student housing at Copperbelt University.</p>
               <div className="d-flex gap-3">
@@ -1232,7 +1229,7 @@ const filteredListings = useMemo(() => {
                     </li>
                     <li className="mb-2 d-flex align-items-center">
                       <i className="bi bi-envelope me-2"></i>
-                      <span className="text-white-50">support@nexnest.ac.zm</span>
+                      <span className="text-white-50">supportCribConnect.ac.zm</span>
                     </li>
                     <li className="mb-2 d-flex align-items-center">
                       <i className="bi bi-telephone me-2"></i>
@@ -1245,7 +1242,7 @@ const filteredListings = useMemo(() => {
             <div className="col-12 mt-4">
               <hr className="border-secondary" />
               <div className="d-flex flex-column flex-sm-row justify-content-between align-items-center mt-3">
-                <p className="mb-0 text-white-50">© {new Date().getFullYear()} NexNest. All rights reserved.</p>
+                <p className="mb-0 text-white-50">© {new Date().getFullYear()} CribConnect. All rights reserved.</p>
                 <div className="mt-3 mt-sm-0">
                   {['Privacy Policy', 'Terms of Service', 'Sitemap'].map((link) => (
                     <a href="#" className="text-decoration-none me-3 text-white-50 hover-white" key={link}>{link}</a>

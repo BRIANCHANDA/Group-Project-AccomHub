@@ -922,7 +922,7 @@ const AVAILABLE_UNIVERSITIES = [
                     name="monthlyRent"
                     value={propertyData.monthlyRent}
                     onChange={handleChange}
-                    step="0.01"
+                    step="1"
                     min="0"
                     required
                     className={errors.monthlyRent ? 'input-error' : ''}
@@ -974,11 +974,40 @@ const AVAILABLE_UNIVERSITIES = [
                   <small>Use 0.5 for half bathrooms</small>
                 </div>
               </div>
-
-              <div className="amenities-section">
-                <div className="form-group">
-                  <label htmlFor="amenities">Amenities</label>
-                  <div className="amenity-input-wrapper">
+<div className="amenities-section">
+  <div className="form-group">
+    <label htmlFor="amenities">Amenities</label>
+    <div className="available-amenities">
+      <p className="amenities-help">Click to add amenities:</p>
+      <div className="amenities-chips">
+        {AVAILABLE_AMENITIES.map((amenity) => (
+          <button
+            key={amenity}
+            type="button"
+            className={`amenity-chip ${propertyData.details.amenities.includes(amenity) ? 'selected' : ''}`}
+            onClick={() => {
+              const currentAmenities = propertyData.details.amenities;
+              const newAmenities = currentAmenities.includes(amenity)
+                ? currentAmenities.filter(a => a !== amenity)
+                : [...currentAmenities, amenity];
+              
+              setPropertyData(prev => ({
+                ...prev,
+                details: {
+                  ...prev.details,
+                  amenities: newAmenities,
+                },
+              }));
+              
+              setAmenityInput(newAmenities.join(', '));
+            }}
+          >
+            {amenity}
+          </button>
+        ))}
+      </div>
+    </div>
+    <div className="amenity-input-wrapper">
                     <input
                       id="amenities"
                       type="text"
@@ -1032,6 +1061,8 @@ const AVAILABLE_UNIVERSITIES = [
                   >
                     {isSubmitting ? 'Creating Property...' : 'Next: Add Images'}
                   </button>
+
+                 
                 </div>
               </div>
             </div>
