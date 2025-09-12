@@ -647,42 +647,42 @@ const Dashboard = () => {
                       </td>
                       <td className="font-medium">
                         {property.price}
-                     </td>
-                    <td>
-                      <div className="actions-cell">
-                        <div className="action-row">
-                          <button
-                            className="action-btn view"
-                            onClick={() => openModal('viewProperty', property)}
-                            title="View Details"
-                          >
-                            <Eye size={14} />
-                            <span>View</span>
-                          </button>
-                        </div>
-                        <div className="action-row">
-                          {property.status === 'Available' ? (
+                      </td>
+                      <td>
+                        <div className="actions-cell">
+                          <div className="action-row">
                             <button
-                              className="action-btn unpublish"
-                              onClick={() => openModal('unpublishProperty', property)}
-                              title="Unpublish Property"
-                            >
-                              <EyeOff size={14} />
-                              <span>Unpublish</span>
-                            </button>
-                          ) : (
-                            <button
-                              className="action-btn republish"
-                              onClick={() => openModal('republishProperty', property)}
-                              title="Republish Property"
+                              className="action-btn view"
+                              onClick={() => openModal('viewProperty', property)}
+                              title="View Details"
                             >
                               <Eye size={14} />
-                              <span>Republish</span>
+                              <span>View</span>
                             </button>
-                          )}
+                          </div>
+                          <div className="action-row">
+                            {property.status === 'Available' ? (
+                              <button
+                                className="action-btn unpublish"
+                                onClick={() => openModal('unpublishProperty', property)}
+                                title="Unpublish Property"
+                              >
+                                <EyeOff size={14} />
+                                <span>Unpublish</span>
+                              </button>
+                            ) : (
+                              <button
+                                className="action-btn republish"
+                                onClick={() => openModal('republishProperty', property)}
+                                title="Republish Property"
+                              >
+                                <Eye size={14} />
+                                <span>Publish</span>
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </td>
+                      </td>
                     </tr>
                   ))}
               </tbody>
@@ -735,7 +735,7 @@ const Dashboard = () => {
                   <th>Email</th>
                   <th>Phone</th>
                   <th>User Type</th>
-                  <th>Join Date</th>
+                
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -784,13 +784,7 @@ const Dashboard = () => {
                           <span>{user.userType}</span>
                         </span>
                       </td>
-                      <td className="join-date">
-                        <Calendar className="h-4 w-4 inline-icon" />
-                        {user.createdAt && user.createdAt !== "string"
-                          ? new Date(user.createdAt).toLocaleDateString()
-                          : "N/A"
-                        }
-                      </td>
+                      
                       <td>
                         <div className="action-buttons">
                           <button
@@ -1413,7 +1407,7 @@ const Dashboard = () => {
 
       <Modal />
 
-     
+
     </div>
   );
 };

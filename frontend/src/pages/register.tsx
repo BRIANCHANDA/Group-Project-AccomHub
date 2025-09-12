@@ -685,7 +685,7 @@ const RegistrationForm = () => {
           .logo {
             font-size: 1.5rem;
             font-weight: 700;
-            color: var(--primary-color);
+            color: important! var(--primary-color);
             margin: 0;
             background: var(--gradient);
             -webkit-background-clip: text;

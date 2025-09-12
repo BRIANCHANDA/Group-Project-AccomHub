@@ -1,3 +1,6 @@
+
+
+
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './bootstrap-5.3.5-dist/css/bootstrap.min.css';
@@ -21,7 +24,7 @@ const LoginPage = () => {
   const [recaptchaToken, setRecaptchaToken] = useState('');
   const [recaptchaLoaded, setRecaptchaLoaded] = useState(false);
 
-  // Your reCAPTCHA site key
+  // Your reCAPTCHA site key - replace with your actual site key
   const RECAPTCHA_SITE_KEY = '6LflBJ8rAAAAAG2CLZQWKMGY4LWVHCvLmnh9ivb6';
 
   const {
@@ -51,53 +54,60 @@ const LoginPage = () => {
       }
 
       const script = document.createElement('script');
-      script.src = 'https://www.google.com/recaptcha/api.js?render=explicit';
+      script.src = 'https://www.google.com/recaptcha/api.js';
       script.async = true;
       script.defer = true;
-      script.onload = () => setRecaptchaLoaded(true);
-      script.onerror = () => {
-        console.error('Failed to load reCAPTCHA script');
-        setError('Failed to load verification. Please try again.');
+      script.onload = () => {
+        setRecaptchaLoaded(true);
       };
       document.head.appendChild(script);
-
-      return () => {
-        document.head.removeChild(script);
-      };
     };
 
     loadRecaptcha();
   }, []);
 
-  // Render reCAPTCHA
-  useEffect(() => {
-    if (recaptchaLoaded && window.grecaptcha && recaptchaRef.current) {
-      try {
-        window.grecaptcha.render(recaptchaRef.current, {
-          sitekey: RECAPTCHA_SITE_KEY,
-          size: 'normal',
-          callback: (token) => {
-            console.log('reCAPTCHA verified:', token);
-            setRecaptchaToken(token);
-            setError('');
-          },
-          'expired-callback': () => {
-            console.log('reCAPTCHA expired');
-            setRecaptchaToken('');
-            setError('Verification expired. Please verify again.');
-          },
-          'error-callback': () => {
-            console.log('reCAPTCHA error');
-            setRecaptchaToken('');
-            setError('Verification error. Please try again.');
-          },
-        });
-      } catch (error) {
-        console.error('reCAPTCHA render error:', error);
-        setError('Failed to render verification. Please refresh the page.');
+ useEffect(() => {
+  if (recaptchaLoaded && window.grecaptcha && recaptchaRef.current) {
+    try {
+      // Clear any existing reCAPTCHA
+      if (recaptchaRef.current.childNodes.length > 0) {
+        recaptchaRef.current.innerHTML = '';
       }
+      
+      window.grecaptcha.render(recaptchaRef.current, {
+        sitekey: RECAPTCHA_SITE_KEY,
+        size: 'normal', // Ensure this is set (default is 'normal')
+        callback: (token) => {
+          console.log('reCAPTCHA verified:', token);
+          setRecaptchaToken(token);
+          setError('');
+        },
+        'expired-callback': () => {
+          console.log('reCAPTCHA expired');
+          setRecaptchaToken('');
+          setError('reCAPTCHA expired. Please verify again.');
+        },
+        'error-callback': () => {
+          console.log('reCAPTCHA error');
+          setRecaptchaToken('');
+          setError('reCAPTCHA error. Please try again.');
+        }
+      });
+    } catch (error) {
+      console.error('reCAPTCHA render error:', error);
+      // Attempt to reload reCAPTCHA if render fails
+      setRecaptchaLoaded(false);
+      const script = document.createElement('script');
+      script.src = 'https://www.google.com/recaptcha/api.js?render=explicit';
+      script.async = true;
+      script.defer = true;
+      script.onload = () => {
+        setRecaptchaLoaded(true);
+      };
+      document.head.appendChild(script);
     }
-  }, [recaptchaLoaded]);
+  }
+}, [recaptchaLoaded]);
 
   const resetRecaptcha = () => {
     if (window.grecaptcha && recaptchaRef.current) {
@@ -144,107 +154,63 @@ const LoginPage = () => {
     navigate('/register');
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  setError('');
 
-    if (!email || !password) {
-      setError('Please enter both email and password');
-      console.log('Validation failed: missing email or password');
-      return;
-    }
+  if (!email || !password) {
+    setError('Please enter both email and password');
+    return;
+  }
 
-    if (!recaptchaToken) {
-      setError('Please complete the reCAPTCHA verification');
-      return;
-    }
+  if (!recaptchaToken) {
+    setError('Please complete the reCAPTCHA verification');
+    return;
+  }
 
-    setIsLoading(true);
+  setIsLoading(true);
 
-    try {
-      console.log('Attempting login with:', { email });
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+  try {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, recaptchaToken }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) throw new Error(data.message || 'Login failed');
+
+    // Store user data
+    localStorage.setItem('authToken', data.token);
+    localStorage.setItem('user', JSON.stringify(data.user));
+
+    // Handle redirect after login
+    if (location.state?.redirectTo === 'rate') {
+      // Redirect back to the property page with rate modal state
+      navigate('/Studentdashboard', {
+        state: {
+          showRateModal: true,
+          propertyId: location.state.propertyId,
+          // Include any other rating-related state
         },
-        body: JSON.stringify({ email, password, recaptchaToken }),
+        replace: true
       });
-
-      const data = await response.json();
-      console.log('Login response:', data);
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
-
-      const user = data.user;
-      if (!user || !user.id || !user.email || !user.userType) {
-        throw new Error('Invalid user data received');
-      }
-
-      localStorage.setItem('authToken', data.token);
-      localStorage.setItem('user', JSON.stringify({
-        ...user,
-        token: data.token,
-      }));
-      console.log('Stored in localStorage:', { user, authToken: data.token });
-
-      console.log('Preparing redirect:', {
-        propertyId,
-        receiverId,
-        studentId: user.id,
-        userType: user.userType,
-        from,
-      });
-
-      if (user.userType === 'student') {
-        if (from === '/inquiry' && propertyId && receiverId) {
-          console.log('Redirecting to messages:', {
-            studentId: user.id,
-            propertyId,
-            receiverId,
-          });
-          navigate('/inquiry', {
-            state: {
-              studentId: user.id,
-              propertyId,
-              receiverId,
-              receiverName,
-              receiverType,
-              propertyTitle,
-              propertyData,
-              fromLogin: true,
-            },
-          });
-        } else {
-          console.log('Redirecting to studentdashboard');
-          navigate('/studentdashboard', {
-            state: { studentId: user.id },
-          });
-        }
-      } else if (user.userType === 'landlord') {
-        console.log('Redirecting to LandlordDashboard');
-        navigate('/LandlordDashboard', {
-          state: { landlordId: user.id },
-        });
-      } else if (user.userType === 'admin') {
-        console.log('Redirecting to admin-view');
-        navigate('/admin-view', {
-          state: { adminId: user.id },
-        });
-      } else {
-        throw new Error('Unknown user type');
-      }
-    } catch (err) {
-      console.error('Login error:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred during sign in');
-      resetRecaptcha();
-    } finally {
-      setIsLoading(false);
+    } else if (data.user.userType === 'student') {
+      navigate('/studentdashboard');
+    } else if (data.user.userType === 'landlord') {
+      navigate('/LandlordDashboard');
+    } else {
+      navigate('/');
     }
-  };
 
+  } catch (err) {
+    setError(err.message || 'Login failed');
+    resetRecaptcha();
+  } finally {
+    setIsLoading(false);
+  }
+};
   const changeColorScheme = (scheme) => {
     console.log('Changing color scheme to:', scheme);
     setColorScheme(scheme);
@@ -254,7 +220,9 @@ const LoginPage = () => {
     <>
       <style>
         {`
-          @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+          /* CSS styles will go here - keeping original styles */
+          /* [Your existing CSS styles remain the same] */
+           @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
           
           :root {
             --primary-color: ${currentScheme.primary};
@@ -533,7 +501,7 @@ const LoginPage = () => {
             align-items: center;
             text-align: center;
             margin: var(--spacing-md) 0;
-            edits-color: #9ca3af;
+            color: #9ca3af;
             font-size: 0.85rem;
           }
 
@@ -582,71 +550,7 @@ const LoginPage = () => {
             color: #9ca3af;
           }
 
-          /* reCAPTCHA Container */
-          .recaptcha-container {
-            background-color: #f8f9fa;
-            border: 2px solid #e9ecef;
-            border-radius: var(--radius-md);
-            padding: var(--spacing-md);
-            margin-bottom: var(--spacing-md);
-            text-align: center;
-            min-height: 80px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-          }
-
-          .recaptcha-container > div {
-            margin: 0 auto;
-          }
-
-          .recaptcha-verified {
-            border-color: #22c55e;
-            background-color: #f0fdf4;
-          }
-
-          .recaptcha-header {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: var(--spacing-sm);
-            gap: var(--spacing-xs);
-          }
-
-          .recaptcha-label {
-            color: #6b7280;
-            font-size: 0. eterna;
-            font-weight: 500;
-          }
-
-          .recaptcha-loading {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: var(--spacing-xs);
-            color: #6b7280;
-            font-size: 0.9rem;
-          }
-
-          .recaptcha-spinner {
-            width: 16px;
-            height: 16px;
-            border: 2px solid #e5e7eb;
-            border-top: 2px solid #6b71;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-          }
-
-          .recaptcha-verified-message {
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-xs);
-            color: #22c55e;
-            font-size: 0.9rem;
-            font-weight: 500;
-          }
+          
 
           /* Form Controls */
           .form-controls {
@@ -676,7 +580,7 @@ const LoginPage = () => {
           .forgot-link {
             color: var(--primary-color);
             text-decoration: none;
-           S font: 0.85rem;
+            font-size: 0.85rem;
             font-weight: 500;
             transition: all var(--transition-normal);
           }
@@ -893,7 +797,90 @@ const LoginPage = () => {
             .footer-link {
               font-size: 0.85rem;
             }
+          }
+          
+          /* Additional reCAPTCHA specific styles */
+          .recaptcha-container {
+  background-color: #ffffff;
+  border: 2px solid #e9ecef;
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  text-align: center;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: visible;
+  width: 100%; /* Add this */
+}
+          /* Ensure reCAPTCHA widget is visible */
+          .recaptcha-container > div {
+            margin: 0 auto;
+          }
+            .grecaptcha-badge {
+  visibility: visible !important;
+}
 
+          .recaptcha-container iframe {
+            margin: 0 auto !important;
+          }
+
+          /* Override any potential conflicting styles */
+          .recaptcha-container * {
+            box-sizing: border-box !important;
+          }
+
+          .recaptcha-verified {
+            border-color: #22c55e;
+            background-color: #f0fdf4;
+          }
+
+          .recaptcha-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: var(--spacing-sm);
+            gap: var(--spacing-xs);
+          }
+
+          .recaptcha-label {
+            color: #6b7280;
+            font-size: 0.85rem;
+            font-weight: 500;
+          }
+
+          .recaptcha-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-xs);
+            color: #6b7280;
+            font-size: 0.9rem;
+          }
+
+          .recaptcha-spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #e5e7eb;
+            border-top: 2px solid #6b7280;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+          }
+
+          .recaptcha-verified-message {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            color: #22c55e;
+            font-size: 0.9rem;
+            font-weight: 500;
+          }
+
+          /* Responsive reCAPTCHA */
+          @media (max-width: 640px) {
             .recaptcha-container {
               padding: var(--spacing-sm);
             }
@@ -1036,31 +1023,34 @@ const LoginPage = () => {
                 </div>
 
                 <div className={`recaptcha-container ${recaptchaToken ? 'recaptcha-verified' : ''}`}>
-                  <div className="recaptcha-header">
-                    <span className="recaptcha-label">Please verify you're human:</span>
-                  </div>
-                  {!recaptchaLoaded ? (
-                    <div className="recaptcha-loading">
-                      <div className="recaptcha-spinner"></div>
-                      <span>Loading verification...</span>
-                    </div>
-                  ) : recaptchaToken ? (
-                    <div className="recaptcha-verified-message">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="20"
-                        height="20"
-                        fill="currentColor"
-                        viewBox="0 0 16 16"
-                      >
-                        <path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z" />
-                      </svg>
-                      
-                    </div>
-                  ) : (
-                    <div ref={recaptchaRef}></div>
-                  )}
-                </div>
+  <div className="recaptcha-header">
+    <span className="recaptcha-label">Please verify you're human:</span>
+  </div>
+  
+  {!recaptchaLoaded ? (
+    <div className="recaptcha-loading">
+      <div className="recaptcha-spinner"></div>
+      <span>Loading verification...</span>
+    </div>
+  ) : recaptchaToken ? (
+    <div className="recaptcha-verified-message">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="20"
+        height="20"
+        fill="currentColor"
+        viewBox="0 0 16 16"
+      >
+        <path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/>
+      </svg>
+      <span>Verification completed successfully!</span>
+    </div>
+  ) : (
+    <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+      <div ref={recaptchaRef} id="recaptcha-element"></div>
+    </div>
+  )}
+</div>
 
                 <div className="d-flex justify-content-between align-items-center mb-4">
                   <div className="form-check">

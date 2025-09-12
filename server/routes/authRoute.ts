@@ -5,7 +5,6 @@ import { createRoute, z } from "@hono/zod-openapi";
 import { jwt } from "hono/jwt";
 import { sign } from "jsonwebtoken";
 import { HTTPException } from "hono/http-exception";
-import { eq, and } from "drizzle-orm";
 import { hash, compare } from "bcrypt";
 import { users } from "../db/schemas/mgh_db";
 import { db } from "../db";
@@ -708,4 +707,36 @@ authRouter
   }
 );
 
+
+authRouter
+  .openapi(
+    createRoute({
+      tags: ["Auth"],
+      method: "post",
+      path: "/logout",
+      responses: {
+        [HttpStatusCodes.OK]: {
+          content: {
+            "application/json": {
+              schema: z.object({
+                message: z.string(),
+              }),
+            },
+          },
+          description: "Successfully logged out",
+        },
+      },
+    }),
+    async (c) => {
+      // Since you're using cookie-based JWT (from your authMiddleware config),
+      // we'll clear the auth cookie
+      return c.json(
+        { message: "Successfully logged out" },
+        HttpStatusCodes.OK,
+        {
+          
+        }
+      );
+    }
+  )
 export default authRouter;

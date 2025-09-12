@@ -40,7 +40,7 @@ interface PropertyDataType {
   address: string;
   monthlyRent: string;
   isAvailable: boolean;
-    targetUniversity: string;
+  targetUniversity: string;
   details: PropertyDetails;
   location?: {
     latitude: number | null;
@@ -86,7 +86,7 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
     address: '',
     monthlyRent: '',
     isAvailable: true,
-     targetUniversity: '',
+    targetUniversity: '',
     details: {
       bedrooms: 1,
       bathrooms: 1,
@@ -97,21 +97,21 @@ const PropertyCreationForm = ({ isOpen, onClose, onSubmit, landlordId }: Propert
   };
 
 
-const AVAILABLE_UNIVERSITIES = [
-  'University of Zambia (UNZA)',
-  'Copperbelt University (CBU)',
-  'Mulungushi University (MU)',
-  'Zambia Open University',
-  'Cavendish University',
-  'Texila American University',
-  'Information and Communications University',
-  'Levy Mwanawasa Medical University',
-  'Rockview University',
-  'Kwame Nkrumah University',
-  'University of Lusaka',
-  'Chalimbana University',
-  'Other'
-];
+  const AVAILABLE_UNIVERSITIES = [
+    'University of Zambia (UNZA)',
+    'Copperbelt University (CBU)',
+    'Mulungushi University (MU)',
+    'Zambia Open University',
+    'Cavendish University',
+    'Texila American University',
+    'Information and Communications University',
+    'Levy Mwanawasa Medical University',
+    'Rockview University',
+    'Kwame Nkrumah University',
+    'University of Lusaka',
+    'Chalimbana University',
+    'Other'
+  ];
 
 
 
@@ -340,29 +340,15 @@ const AVAILABLE_UNIVERSITIES = [
       });
     }
   };
-
   const handleAmenityInput = (value: string) => {
     setAmenityInput(value);
-
-    const amenities = value
-      .split(/[, ]+/)
-      .map(item => item.trim())
-      .filter(item => item);
-
-    setPropertyData(prev => ({
-      ...prev,
-      details: {
-        ...prev.details,
-        amenities,
-      },
-    }));
 
     const lastWord = value.split(/[, ]+/).pop()?.trim() || '';
     if (lastWord) {
       const filteredSuggestions = AVAILABLE_AMENITIES.filter(
         amenity =>
           amenity.toLowerCase().includes(lastWord.toLowerCase()) &&
-          !amenities.includes(amenity)
+          !propertyData.details.amenities.includes(amenity)
       );
       setAmenitySuggestions(filteredSuggestions);
       setShowSuggestions(true);
@@ -370,6 +356,46 @@ const AVAILABLE_UNIVERSITIES = [
     } else {
       setAmenitySuggestions([]);
       setShowSuggestions(false);
+    }
+  };
+
+  const handleDeleteAmenity = (amenityToDelete: string) => {
+    const newAmenities = propertyData.details.amenities.filter(
+      amenity => amenity !== amenityToDelete
+    );
+
+    setPropertyData(prev => ({
+      ...prev,
+      details: {
+        ...prev.details,
+        amenities: newAmenities,
+      },
+    }));
+
+    setAmenityInput(newAmenities.join(', '));
+  };
+
+
+
+  const toggleAmenity = (amenity: string) => {
+    const currentAmenities = propertyData.details.amenities;
+    const newAmenities = currentAmenities.includes(amenity)
+      ? currentAmenities.filter(a => a !== amenity)
+      : [...currentAmenities, amenity];
+
+    setPropertyData(prev => ({
+      ...prev,
+      details: {
+        ...prev.details,
+        amenities: newAmenities,
+      },
+    }));
+
+    // Clear the input when adding from the available list
+    if (!currentAmenities.includes(amenity)) {
+      setAmenityInput('');
+    } else {
+      setAmenityInput(newAmenities.join(', '));
     }
   };
 
@@ -519,7 +545,7 @@ const AVAILABLE_UNIVERSITIES = [
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           landlordId: parseInt(landlordId),
-           targetUniversity: propertyData.targetUniversity,
+          targetUniversity: propertyData.targetUniversity,
         }),
       });
 
@@ -548,9 +574,9 @@ const AVAILABLE_UNIVERSITIES = [
           ...(propertyData.location &&
             propertyData.location.latitude !== null &&
             propertyData.location.longitude !== null && {
-              latitude: propertyData.location.latitude,
-              longitude: propertyData.location.longitude,
-            }),
+            latitude: propertyData.location.latitude,
+            longitude: propertyData.location.longitude,
+          }),
         }),
       });
 
@@ -699,10 +725,10 @@ const AVAILABLE_UNIVERSITIES = [
         propertyType: propertyData.propertyType,
         coordinates: propertyData.location
           ? {
-              latitude: propertyData.location.latitude,
-              longitude: propertyData.location.longitude,
-              formattedAddress: propertyData.location.formattedAddress,
-            }
+            latitude: propertyData.location.latitude,
+            longitude: propertyData.location.longitude,
+            formattedAddress: propertyData.location.formattedAddress,
+          }
           : undefined,
       };
 
@@ -772,406 +798,420 @@ const AVAILABLE_UNIVERSITIES = [
             <X size={24} />
           </button>
         </div>
- <div className="modal-body">
-        {landlordIdError && (
-          <div className="error-banner">
-            {landlordIdError}
-          </div>
-        )}
+        <div className="modal-body">
+          {landlordIdError && (
+            <div className="error-banner">
+              {landlordIdError}
+            </div>
+          )}
 
-        {formStage === FormStage.PROPERTY_DETAILS ? (
-          <form onSubmit={handleCreateProperty} noValidate>
-            <fieldset className="form-section">
-              <legend>Basic Information</legend>
+          {formStage === FormStage.PROPERTY_DETAILS ? (
+            <form onSubmit={handleCreateProperty} noValidate>
+              <fieldset className="form-section">
+                <legend>Basic Information</legend>
 
-              <div className="form-grid">
-                <div className="form-group">
-                  <label htmlFor="property-title">Property Title*</label>
-                  <input
-                    id="property-title"
-                    type="text"
-                    name="title"
-                    value={propertyData.title}
-                    onChange={handleChange}
-                    required
-                    className={errors.title ? 'input-error' : ''}
-                  />
-                  {errors.title && <span className="error-message">{errors.title}</span>}
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="property-type">Property Type*</label>
-                  {isLoadingPropertyTypes ? (
-                    <div className="loading-spinner">Loading property types...</div>
-                  ) : (
-                    <>
-                      <select
-                        id="property-type"
-                        name="propertyType"
-                        value={propertyData.propertyType}
-                        onChange={handleChange}
-                        required
-                        className={errors.propertyType ? 'input-error' : ''}
-                        disabled={propertyTypes.length === 0}
-                      >
-                        <option value="">Select a property type</option>
-                        {propertyTypes.map((type) => (
-                          <option key={type.id} value={type.value}>
-                            {type.name}
-                          </option>
-                        ))}
-                      </select>
-                      {errors.propertyType && (
-                        <span className="error-message">{errors.propertyType}</span>
-                      )}
-                      {loadError && (
-                        <span className="error-message">{loadError}</span>
-                      )}
-                    </>
-                  )}
-                </div>
-
-
-<div className="form-group">
-  <label htmlFor="target-university">Target University*</label>
-  <select
-    id="target-university"
-    name="targetUniversity"
-    value={propertyData.targetUniversity}
-    onChange={handleChange}
-    required
-    className={errors.targetUniversity ? 'input-error' : ''}
-  >
-    <option value="">Select target university</option>
-    {AVAILABLE_UNIVERSITIES.map((university) => (
-      <option key={university} value={university}>
-        {university}
-      </option>
-    ))}
-  </select>
-  {errors.targetUniversity && (
-    <span className="error-message">{errors.targetUniversity}</span>
-  )}
-</div>
-
-
-
-                <div className="form-group full-width address-input-container">
-                  <label htmlFor="property-address">Address*</label>
-                  <input
-                    id="property-address"
-                    type="text"
-                    name="address"
-                    value={propertyData.address}
-                    onChange={handleChange}
-                    required
-                    className={errors.address ? 'input-error' : ''}
-                    placeholder="Enter complete address"
-                  />
-                  {errors.address && <span className="error-message">{errors.address}</span>}
-
-                  {showLocationWindow && (
-                    <div className="location-window">
-                      <div className="location-header">
-                        <MapPin size={16} />
-                        <span>Location Coordinates</span>
-                        <button
-                          type="button"
-                          onClick={closeLocationWindow}
-                          className="close-location-btn"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                      <div className="location-content">
-                        {geocodedLocation.status === 'loading' && (
-                          <div className="location-loading">Detecting location...</div>
-                        )}
-
-                        {geocodedLocation.status === 'error' && (
-                          <div className="location-error">
-                            {geocodedLocation.error || 'Failed to detect location'}
-                          </div>
-                        )}
-
-                        {geocodedLocation.status === 'success' && geocodedLocation.latitude !== null && geocodedLocation.longitude !== null && (
-                          <>
-                            <div className="location-item">
-                              <span className="location-label">Latitude:</span>
-                              <span className="location-value">{geocodedLocation.latitude.toFixed(6)}</span>
-                            </div>
-                            <div className="location-item">
-                              <span className="location-label">Longitude:</span>
-                              <span className="location-value">{geocodedLocation.longitude.toFixed(6)}</span>
-                            </div>
-                            <div className="location-address">
-                              {geocodedLocation.formattedAddress}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="monthly-rent">Monthly Rent (K)*</label>
-                  <input
-                    id="monthly-rent"
-                    type="number"
-                    name="monthlyRent"
-                    value={propertyData.monthlyRent}
-                    onChange={handleChange}
-                    step="1"
-                    min="0"
-                    required
-                    className={errors.monthlyRent ? 'input-error' : ''}
-                  />
-                  {errors.monthlyRent && <span className="error-message">{errors.monthlyRent}</span>}
-                </div>
-
-                <div className="form-group full-width">
-                  <label htmlFor="property-description">Description</label>
-                  <textarea
-                    id="property-description"
-                    name="description"
-                    value={propertyData.description}
-                    onChange={handleChange}
-                    rows={4}
-                    placeholder="Describe the property, including key features, neighborhood, etc."
-                  />
-                </div>
-              </div>
-            </fieldset>
-
-            <fieldset className="form-section">
-              <legend>Property Details</legend>
-
-              <div className="details-grid">
-                <div className="form-group">
-                  <label htmlFor="property-bedrooms">Bedrooms</label>
-                  <input
-                    id="property-bedrooms"
-                    type="number"
-                    name="details.bedrooms"
-                    value={propertyData.details.bedrooms}
-                    onChange={handleChange}
-                    min="0"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="property-bathrooms">Bathrooms</label>
-                  <input
-                    id="property-bathrooms"
-                    type="number"
-                    name="details.bathrooms"
-                    value={propertyData.details.bathrooms}
-                    onChange={handleChange}
-                    min="0"
-                    step="0.5"
-                  />
-                  <small>Use 0.5 for half bathrooms</small>
-                </div>
-              </div>
-<div className="amenities-section">
-  <div className="form-group">
-    <label htmlFor="amenities">Amenities</label>
-    <div className="available-amenities">
-      <p className="amenities-help">Click to add amenities:</p>
-      <div className="amenities-chips">
-        {AVAILABLE_AMENITIES.map((amenity) => (
-          <button
-            key={amenity}
-            type="button"
-            className={`amenity-chip ${propertyData.details.amenities.includes(amenity) ? 'selected' : ''}`}
-            onClick={() => {
-              const currentAmenities = propertyData.details.amenities;
-              const newAmenities = currentAmenities.includes(amenity)
-                ? currentAmenities.filter(a => a !== amenity)
-                : [...currentAmenities, amenity];
-              
-              setPropertyData(prev => ({
-                ...prev,
-                details: {
-                  ...prev.details,
-                  amenities: newAmenities,
-                },
-              }));
-              
-              setAmenityInput(newAmenities.join(', '));
-            }}
-          >
-            {amenity}
-          </button>
-        ))}
-      </div>
-    </div>
-    <div className="amenity-input-wrapper">
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label htmlFor="property-title">Property Title*</label>
                     <input
-                      id="amenities"
+                      id="property-title"
                       type="text"
-                      value={amenityInput}
-                      onChange={(e) => handleAmenityInput(e.target.value)}
-                      onKeyDown={handleAmenityKeyDown}
-                      placeholder="Enter amenities (e.g., Parking, Gym, Pool)"
-                      className="amenity-input"
+                      name="title"
+                      value={propertyData.title}
+                      onChange={handleChange}
+                      required
+                      className={errors.title ? 'input-error' : ''}
                     />
-                    {showSuggestions && amenitySuggestions.length > 0 && (
-                      <ul className="amenity-suggestions">
-                        {amenitySuggestions.map((suggestion, index) => (
-                          <li
-                            key={suggestion}
-                            className={`suggestion-item ${index === activeAmenityIndex ? 'active' : ''}`}
-                            onClick={() => handleAmenitySelect(suggestion)}
-                          >
-                            {suggestion}
-                          </li>
-                        ))}
-                      </ul>
+                    {errors.title && <span className="error-message">{errors.title}</span>}
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="property-type">Property Type*</label>
+                    {isLoadingPropertyTypes ? (
+                      <div className="loading-spinner">Loading property types...</div>
+                    ) : (
+                      <>
+                        <select
+                          id="property-type"
+                          name="propertyType"
+                          value={propertyData.propertyType}
+                          onChange={handleChange}
+                          required
+                          className={errors.propertyType ? 'input-error' : ''}
+                          disabled={propertyTypes.length === 0}
+                        >
+                          <option value="">Select a property type</option>
+                          {propertyTypes.map((type) => (
+                            <option key={type.id} value={type.value}>
+                              {type.name}
+                            </option>
+                          ))}
+                        </select>
+                        {errors.propertyType && (
+                          <span className="error-message">{errors.propertyType}</span>
+                        )}
+                        {loadError && (
+                          <span className="error-message">{loadError}</span>
+                        )}
+                      </>
                     )}
                   </div>
-                </div>
-              </div>
-            </fieldset>
 
-            <div className="form-footer">
-              <div className="footer-buttons">
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  disabled={isSubmitting}
-                  className="reset-btn"
-                >
-                  Reset Form
-                </button>
-                <div className="action-buttons">
-                  <button
-                    type="button"
-                    onClick={handleCancel}
-                    disabled={isSubmitting}
-                    className="cancel-btn"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="submit-btn"
-                  >
-                    {isSubmitting ? 'Creating Property...' : 'Next: Add Images'}
-                  </button>
 
-                 
-                </div>
-              </div>
-            </div>
-          </form>
-        ) : (
-          <form onSubmit={handleSubmitImages} noValidate>
-            <fieldset className="form-section">
-              <legend>Property Images*</legend>
+                  <div className="form-group">
+                    <label htmlFor="target-university">Target University*</label>
+                    <select
+                      id="target-university"
+                      name="targetUniversity"
+                      value={propertyData.targetUniversity}
+                      onChange={handleChange}
+                      required
+                      className={errors.targetUniversity ? 'input-error' : ''}
+                    >
+                      <option value="">Select target university</option>
+                      {AVAILABLE_UNIVERSITIES.map((university) => (
+                        <option key={university} value={university}>
+                          {university}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.targetUniversity && (
+                      <span className="error-message">{errors.targetUniversity}</span>
+                    )}
+                  </div>
 
-              {propertyId && (
-                <div className="property-id-info">
-                  <p><strong>Property ID:</strong> {propertyId}</p>
-                  <p>Images will be associated with this property.</p>
-                </div>
-              )}
 
-              <div className="image-upload">
-                <input
-                  type="file"
-                  id="image-upload"
-                  multiple
-                  accept="image/jpeg,image/png,image/gif"
-                  onChange={handleImageChange}
-                  disabled={isSubmitting}
-                />
-                <label htmlFor="image-upload" className="upload-label">
-                  <Upload size={24} />
-                  <p>Click to upload images</p>
-                  <small>PNG, JPG, GIF up to {MAX_FILE_SIZE_MB}MB</small>
-                </label>
-              </div>
 
-              {errors.images && <span className="error-message block-error">{errors.images}</span>}
+                  <div className="form-group full-width address-input-container">
+                    <label htmlFor="property-address">Address*</label>
+                    <input
+                      id="property-address"
+                      type="text"
+                      name="address"
+                      value={propertyData.address}
+                      onChange={handleChange}
+                      required
+                      className={errors.address ? 'input-error' : ''}
+                      placeholder="Enter complete address"
+                    />
+                    {errors.address && <span className="error-message">{errors.address}</span>}
 
-              {previewImages.length > 0 && (
-                <div className="image-previews">
-                  <p>Uploaded Images ({previewImages.length})</p>
-                  <p className="help-text">Click an image to set as primary listing photo</p>
-                  <div className="preview-grid">
-                    {previewImages.map((src, index) => (
-                      <div key={index} className={`preview-item ${images[index]?.isPrimary ? 'is-primary' : ''}`}>
-                        <img
-                          src={src}
-                          alt={`Property preview ${index + 1}`}
-                          onClick={() => setImageAsPrimary(index)}
-                        />
-                        {images[index]?.isPrimary && (
-                          <span className="primary-badge">Primary</span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => removeImage({ index })}
-                          className="delete-btn"
-                          aria-label="Remove image"
-                        >
-                          <X size={14} />
-                        </button>
+                    {showLocationWindow && (
+                      <div className="location-window">
+                        <div className="location-header">
+                          <MapPin size={16} />
+                          <span>Location Coordinates</span>
+                          <button
+                            type="button"
+                            onClick={closeLocationWindow}
+                            className="close-location-btn"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                        <div className="location-content">
+                          {geocodedLocation.status === 'loading' && (
+                            <div className="location-loading">Detecting location...</div>
+                          )}
+
+                          {geocodedLocation.status === 'error' && (
+                            <div className="location-error">
+                              {geocodedLocation.error || 'Failed to detect location'}
+                            </div>
+                          )}
+
+                          {geocodedLocation.status === 'success' && geocodedLocation.latitude !== null && geocodedLocation.longitude !== null && (
+                            <>
+                              <div className="location-item">
+                                <span className="location-label">Latitude:</span>
+                                <span className="location-value">{geocodedLocation.latitude.toFixed(6)}</span>
+                              </div>
+                              <div className="location-item">
+                                <span className="location-label">Longitude:</span>
+                                <span className="location-value">{geocodedLocation.longitude.toFixed(6)}</span>
+                              </div>
+                              <div className="location-address">
+                                {geocodedLocation.formattedAddress}
+                              </div>
+                            </>
+                          )}
+                        </div>
                       </div>
-                    ))}
+                    )}
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="monthly-rent">Monthly Rent (K)*</label>
+                    <input
+                      id="monthly-rent"
+                      type="number"
+                      name="monthlyRent"
+                      value={propertyData.monthlyRent}
+                      onChange={handleChange}
+                      step="1"
+                      min="0"
+                      required
+                      className={errors.monthlyRent ? 'input-error' : ''}
+                    />
+                    {errors.monthlyRent && <span className="error-message">{errors.monthlyRent}</span>}
+                  </div>
+
+                  <div className="form-group full-width">
+                    <label htmlFor="property-description">Description</label>
+                    <textarea
+                      id="property-description"
+                      name="description"
+                      value={propertyData.description}
+                      onChange={handleChange}
+                      rows={4}
+                      placeholder="Describe the property, including key features, neighborhood, etc."
+                    />
                   </div>
                 </div>
-              )}
+              </fieldset>
 
-              {isSubmitting && uploadProgress > 0 && (
-                <div className="upload-progress">
-                  <div className="progress-bar">
-                    <div
-                      className="progress-fill"
-                      style={{ width: `${uploadProgress}%` }}
-                    ></div>
+              <fieldset className="form-section">
+                <legend>Property Details</legend>
+
+                <div className="details-grid">
+                  <div className="form-group">
+                    <label htmlFor="property-bedrooms">Bedrooms</label>
+                    <input
+                      id="property-bedrooms"
+                      type="number"
+                      name="details.bedrooms"
+                      value={propertyData.details.bedrooms}
+                      onChange={handleChange}
+                      min="0"
+                    />
                   </div>
-                  <p className="progress-text">Uploading images: {uploadProgress}%</p>
-                </div>
-              )}
-            </fieldset>
 
-            <div className="form-footer">
-              <div className="footer-buttons">
-                <button
-                  type="button"
-                  onClick={() => setFormStage(FormStage.PROPERTY_DETAILS)}
-                  disabled={isSubmitting}
-                  className="back-btn"
-                >
-                  Back to Details
-                </button>
-                <div className="action-buttons">
+                  <div className="form-group">
+                    <label htmlFor="property-bathrooms">Bathrooms</label>
+                    <input
+                      id="property-bathrooms"
+                      type="number"
+                      name="details.bathrooms"
+                      value={propertyData.details.bathrooms}
+                      onChange={handleChange}
+                      min="0"
+                      step="0.5"
+                    />
+                    <small>Use 0.5 for half bathrooms</small>
+                  </div>
+                </div>
+                <div className="amenities-section">
+                  <div className="form-group">
+                    <label htmlFor="amenities">Amenities</label>
+
+                    {/* Available amenities for clicking */}
+                    <div className="available-amenities">
+                      <p className="amenities-help">Available amenities:</p>
+                      <div className="amenities-chips">
+                        {AVAILABLE_AMENITIES.map((amenity) => (
+                          <button
+                            key={amenity}
+                            type="button"
+                            className={`amenity-chip ${propertyData.details.amenities.includes(amenity) ? 'selected' : ''
+                              }`}
+                            onClick={() => toggleAmenity(amenity)}
+                          >
+                            {amenity}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Single input box containing all chips */}
+                    <div className="amenity-input-container" onClick={() => document.getElementById('amenities-input')?.focus()}>
+                      <div className="chips-container">
+                        {propertyData.details.amenities.map((amenity) => (
+                          <div key={amenity} className="amenity-chip">
+                            {amenity}
+                            <button
+                              type="button"
+                              className="delete-chip-btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteAmenity(amenity);
+                              }}
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        ))}
+                        <input
+                          id="amenities-input"
+                          type="text"
+                          value={amenityInput}
+                          onChange={(e) => handleAmenityInput(e.target.value)}
+                          onKeyDown={handleAmenityKeyDown}
+                          placeholder={propertyData.details.amenities.length === 0 ? "Type to search amenities..." : ""}
+                          className="amenity-input"
+                        />
+                      </div>
+
+                      {/* Suggestions dropdown */}
+                      {showSuggestions && amenitySuggestions.length > 0 && (
+                        <div className="suggestions-dropdown">
+                          {amenitySuggestions.map((suggestion, index) => (
+                            <div
+                              key={suggestion}
+                              className={`suggestion-item ${index === activeAmenityIndex ? 'active' : ''
+                                }`}
+                              onClick={() => {
+                                toggleAmenity(suggestion);
+                                setAmenityInput('');
+                                setShowSuggestions(false);
+                              }}
+                            >
+                              {suggestion}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </fieldset>
+
+              <div className="form-footer">
+                <div className="footer-buttons">
                   <button
                     type="button"
-                    onClick={handleCancel}
+                    onClick={handleReset}
                     disabled={isSubmitting}
-                    className="cancel-btn"
+                    className="reset-btn"
                   >
-                    Cancel
+                    Reset Form
                   </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || images.length === 0}
-                    className="submit-btn"
-                  >
-                    {isSubmitting ? 'Uploading Images...' : 'Upload Images & Complete'}
-                  </button>
+                  <div className="action-buttons">
+                    <button
+                      type="button"
+                      onClick={handleCancel}
+                      disabled={isSubmitting}
+                      className="cancel-btn"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="submit-btn"
+                    >
+                      {isSubmitting ? 'Creating Property...' : 'Next: Add Images'}
+                    </button>
+
+
+                  </div>
                 </div>
               </div>
-            </div>
-          </form>
-        )}
+            </form>
+          ) : (
+            <form onSubmit={handleSubmitImages} noValidate>
+              <fieldset className="form-section">
+                <legend>Property Images*</legend>
+
+                {propertyId && (
+                  <div className="property-id-info">
+                    <p><strong>Property ID:</strong> {propertyId}</p>
+                    <p>Images will be associated with this property.</p>
+                  </div>
+                )}
+
+                <div className="image-upload">
+                  <input
+                    type="file"
+                    id="image-upload"
+                    multiple
+                    accept="image/jpeg,image/png,image/gif"
+                    onChange={handleImageChange}
+                    disabled={isSubmitting}
+                  />
+                  <label htmlFor="image-upload" className="upload-label">
+                    <Upload size={24} />
+                    <p>Click to upload images</p>
+                    <small>PNG, JPG, GIF up to {MAX_FILE_SIZE_MB}MB</small>
+                  </label>
+                </div>
+
+                {errors.images && <span className="error-message block-error">{errors.images}</span>}
+
+                {previewImages.length > 0 && (
+                  <div className="image-previews">
+                    <p>Uploaded Images ({previewImages.length})</p>
+                    <p className="help-text">Click an image to set as primary listing photo</p>
+                    <div className="preview-grid">
+                      {previewImages.map((src, index) => (
+                        <div key={index} className={`preview-item ${images[index]?.isPrimary ? 'is-primary' : ''}`}>
+                          <img
+                            src={src}
+                            alt={`Property preview ${index + 1}`}
+                            onClick={() => setImageAsPrimary(index)}
+                          />
+                          {images[index]?.isPrimary && (
+                            <span className="primary-badge">Primary</span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => removeImage({ index })}
+                            className="delete-btn"
+                            aria-label="Remove image"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {isSubmitting && uploadProgress > 0 && (
+                  <div className="upload-progress">
+                    <div className="progress-bar">
+                      <div
+                        className="progress-fill"
+                        style={{ width: `${uploadProgress}%` }}
+                      ></div>
+                    </div>
+                    <p className="progress-text">Uploading images: {uploadProgress}%</p>
+                  </div>
+                )}
+              </fieldset>
+
+              <div className="form-footer">
+                <div className="footer-buttons">
+                  <button
+                    type="button"
+                    onClick={() => setFormStage(FormStage.PROPERTY_DETAILS)}
+                    disabled={isSubmitting}
+                    className="back-btn"
+                  >
+                    Back to Details
+                  </button>
+                  <div className="action-buttons">
+                    <button
+                      type="button"
+                      onClick={handleCancel}
+                      disabled={isSubmitting}
+                      className="cancel-btn"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting || images.length === 0}
+                      className="submit-btn"
+                    >
+                      {isSubmitting ? 'Uploading Images...' : 'Upload Images & Complete'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </form>
+          )}
+        </div>
       </div>
-    </div>
     </div>
   );
 };

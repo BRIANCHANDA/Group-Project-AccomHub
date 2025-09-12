@@ -1327,4 +1327,131 @@
 .amenity-chip.selected:hover {
   background: #2563eb;
   border-color: #2563eb;
+}/* Main Container */
+.amenity-input-container {
+  position: relative;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 8px;
+  min-height: 44px;
+  background: white;
+  cursor: text;
+  transition: all 0.2s;
+}
+
+.amenity-input-container:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+/* Chips Container */
+.chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+/* Chip Styling */
+.amenity-chip {
+  display: inline-flex;
+  align-items: center;
+  background-color: #e0e7ff;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  color: #1e40af;
+}
+
+.delete-chip-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  background: none;
+  border: none;
+  color: #6366f1;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 50%;
+}
+
+.delete-chip-btn:hover {
+  background-color: rgba(99, 102, 241, 0.1);
+}
+
+/* Input Field */
+.amenity-input {
+  flex: 1;
+  min-width: 120px;
+  border: none;
+  outline: none;
+  padding: 6px;
+  font-size: 14px;
+  background: transparent;
+}
+
+.amenity-input::placeholder {
+  color: #9ca3af;
+}
+
+/* Suggestions Dropdown */
+.suggestions-dropdown {
+  position: absolute;
+  width: 100%;
+  max-height: 200px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  margin-top: 4px;
+}
+
+.suggestion-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.suggestion-item:hover, .suggestion-item.active {
+  background-color: #f3f4f6;
+}
+
+/* Available Amenities */
+.available-amenities {
+  margin-bottom: 12px;
+}
+
+.amenities-help {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.amenities-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.amenity-chip {
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.amenity-chip:hover {
+  background-color: #f3f4f6;
+}
+
+.amenity-chip.selected {
+  background-color: #1e40af;
+  color: white;
+  border-color: #1e40af;
 }

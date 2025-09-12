@@ -1,3 +1,4 @@
+// Home.tsx
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './bootstrap-5.3.5-dist/css/bootstrap.min.css';
@@ -59,14 +60,14 @@ const HomePage = () => {
 
   const [featuredProperties, setFeaturedProperties] = useState<Property[]>(mockProperties);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<any>(null);
   const [hasLoadedAPI, setHasLoadedAPI] = useState(false);
 
   // References for navigation
-  const homeRef = useRef(null);
-  const servicesRef = useRef(null);
-  const communityRef = useRef(null);
-  const contactRef = useRef(null);
+  const homeRef = useRef<HTMLElement | null>(null);
+  const servicesRef = useRef<HTMLElement | null>(null);
+  const communityRef = useRef<HTMLElement | null>(null);
+  const contactRef = useRef<HTMLElement | null>(null);
 
   // Fetch real properties in background after component mounts
   useEffect(() => {
@@ -82,7 +83,7 @@ const HomePage = () => {
         }
       } catch (err) {
         console.error('Failed to fetch properties:', err);
-        // Keep mock data on error, don't show error to user
+        // Keep mock data on error
       }
     };
 
@@ -90,7 +91,7 @@ const HomePage = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  // Optimized scroll handler with throttling
+  // Scroll handler
   useEffect(() => {
     let ticking = false;
     const handleScroll = () => {
@@ -108,7 +109,7 @@ const HomePage = () => {
 
   // Close mobile menu when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event) => {
+    const handleClickOutside = (event: any) => {
       if (menuOpen && !event.target.closest('.navbar')) {
         setMenuOpen(false);
       }
@@ -117,9 +118,8 @@ const HomePage = () => {
     return () => document.removeEventListener('click', handleClickOutside);
   }, [menuOpen]);
 
-  // Simplified navigation handler
-  const handleNavigation = (path) => {
-    const paths = {
+  const handleNavigation = (path: string) => {
+    const paths: Record<string, string> = {
       signin: '/login',
       register: '/register',
       about: '/about',
@@ -144,97 +144,94 @@ const HomePage = () => {
     setMenuOpen(false);
   };
 
-  return (
-    <div className="app-container  w-100 min-vh-100">
-      {/* Mobile-First Navigation */}
-      <nav className={`navbar navbar-expand-lg fixed-top navbar-light bg-white shadow-sm ${isScrolled ? 'scrolled' : ''}`}>
-        <div className="container-fluid">
-          <a
-            className="navbar-brand fw-bold text-primary d-flex align-items-center"
-            href="#home"
-            onClick={(e) => {
-              e.preventDefault();
-              handleNavigation('home');
-            }}
-          >
-            <span className="me-1">🏠</span>
-            <span>CribConnect</span>
-          </a>
-          
-          <button
-            className="navbar-toggler border-0 p-1"
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setMenuOpen(!menuOpen);
-            }}
-            aria-controls="navbarNav"
-            aria-expanded={menuOpen}
-            aria-label="Toggle navigation"
-          >
-            <span className="navbar-toggler-icon"></span>
-          </button>
-          
-          <div className={`collapse navbar-collapse ${menuOpen ? 'show' : ''}`} id="navbarNav">
-            <ul className="navbar-nav ms-auto">
-              {[
-                { key: 'home', label: 'Home' },
-                { key: 'services', label: 'Services' },
-                { key: 'community', label: 'Community' },
-                { key: 'contact', label: 'Contact' }
-              ].map((item) => (
-                <li className="nav-item" key={item.key}>
-                  <a
-                    className="nav-link px-3 py-2"
-                    href={`#${item.key}`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleNavigation(item.key);
-                    }}
-                  >
-                    {item.label}
-                  </a>
-                </li>
-              ))}
-              <li className="nav-item d-lg-none">
-                <hr className="my-2" />
-              </li>
-              <li className="nav-item">
-                <button 
-                  className="btn btn-outline-primary btn-sm w-100 w-lg-auto mb-2 mb-lg-0 me-lg-2" 
-                  onClick={() => handleNavigation('signin')}
-                >
-                  Sign In
-                </button>
-              </li>
-              <li className="nav-item">
-                <button 
-                  className="btn btn-primary btn-sm w-100 w-lg-auto" 
-                  onClick={() => handleNavigation('register')}
-                >
-                  Register
-                </button>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </nav>
+  // Common nav items so we don't duplicate text
+  const navItems = [
+    { key: 'home', label: 'Home' },
+    { key: 'services', label: 'Services' },
+    { key: 'community', label: 'Community' },
+    { key: 'contact', label: 'Contact' }
+  ];
 
-      {/* Compact Mobile-First Hero Section */}
+  return (
+    <div className="app-container w-100 min-vh-100">
+      {/* NAVBAR */}
+      <nav className={`navbar navbar-expand-lg fixed-top navbar-light bg-white shadow-sm ${isScrolled ? 'scrolled' : ''}`}>
+  <div className="container-lg">
+    {/* Left: Brand */}
+    <a
+      className="navbar-brand fw-bold text-primary d-flex align-items-center"
+      href="#home"
+      onClick={(e) => {
+        e.preventDefault();
+        handleNavigation('home');
+      }}
+    >
+      <span className="me-1">🏠</span>
+      <span>CribConnect</span>
+    </a>
+
+    {/* Toggler for mobile */}
+    <button
+      className="navbar-toggler"
+      type="button"
+      onClick={() => setMenuOpen(!menuOpen)}
+      aria-controls="navbarNav"
+      aria-expanded={menuOpen}
+      aria-label="Toggle navigation"
+    >
+      <span className="navbar-toggler-icon"></span>
+    </button>
+
+    {/* Nav Content */}
+    <div className={`collapse navbar-collapse ${menuOpen ? 'show' : ''}`} id="navbarNav">
+      {/* Centered nav links */}
+      <ul className="navbar-nav mx-auto mb-2 mb-lg-0">
+        {[
+          { key: 'home', label: 'Home' },
+          { key: 'services', label: 'Services' },
+          { key: 'community', label: 'Community' },
+          { key: 'contact', label: 'Contact' }
+        ].map((item) => (
+          <li className="nav-item" key={item.key}>
+            <a
+              className="nav-link"
+              href={`#${item.key}`}
+              onClick={(e) => {
+                e.preventDefault();
+                handleNavigation(item.key);
+              }}
+            >
+              {item.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+
+      {/* Right-side buttons */}
+      <div className="d-flex align-items-center gap-2">
+        <button className="btn btn-outline-primary btn-sm" onClick={() => handleNavigation('signin')}>
+          Sign In
+        </button>
+        <button className="btn btn-primary btn-sm" onClick={() => handleNavigation('register')}>
+          Register
+        </button>
+        
+      </div>
+    </div>
+  </div>
+</nav>
+
+      {/* HERO */}
       <section id="home" ref={homeRef} className="hero bg-gradient-to-br from-blue-50 to-white py-4 py-md-5">
-        <div className="container-fluid">
-          {/* Main Content */}
-          <div className="text-center mb-4">
-            <h1 className="h2 fw-bold mb-3 text-dark">
-              Find Your Perfect Student Home
-            </h1>
-            <p className="text-muted mb-4 mx-auto" style={{maxWidth: '400px'}}>
+        <div className="container-lg">
+          <div className="text-center mb-4" style={{ paddingTop: 80 }}>
+            <h1 className="h2 fw-bold mb-3 text-dark">Find Your Perfect Student Home</h1>
+            <p className="text-muted mb-4 mx-auto" style={{ maxWidth: '600px' }}>
               Quality, affordable accommodation near CBU with verified landlords
             </p>
-            
-            {/* Mobile-Optimized Search */}
+
             <div className="search-container mb-4">
-              <div className="input-group shadow-sm" style={{maxWidth: '400px', margin: '0 auto'}}>
+              <div className="input-group shadow-sm" style={{ maxWidth: '600px', margin: '0 auto' }}>
                 <input
                   type="text"
                   className="form-control"
@@ -247,25 +244,26 @@ const HomePage = () => {
                 </button>
               </div>
             </div>
-            
-            {/* Quick Action Buttons */}
+
             <div className="d-flex gap-2 justify-content-center flex-wrap">
-              <button 
-                className="btn btn-primary" 
-                onClick={() => handleNavigation('viewall')}
-              >
-                Browse Properties
+              <button className="btn btn-primary btn-lg px-4" onClick={() => handleNavigation('viewall')}>
+                <span className="me-1">🏠</span> Browse All Properties
               </button>
-              <button 
-                className="btn btn-outline-primary" 
-                onClick={() => handleNavigation('register')}
-              >
+              <button className="btn btn-outline-primary" onClick={() => handleNavigation('register')}>
                 Get Started
               </button>
             </div>
+
+            <div className="mt-3">
+              <small className="text-muted">
+                Over 300+ verified listings •
+                <button className="btn btn-link btn-sm p-0 text-decoration-underline" onClick={() => handleNavigation('viewall')}>
+                  See them all
+                </button>
+              </small>
+            </div>
           </div>
-          
-          {/* Compact Stats */}
+
           <div className="row g-2 justify-content-center">
             <div className="col-6 col-sm-3">
               <div className="card text-center border-0 bg-white shadow-sm h-100">
@@ -303,64 +301,43 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* Mobile-First Properties Section */}
+      {/* PROPERTIES */}
       <section className="properties py-4 py-md-5">
-        <div className="container-fluid px-3">
+        <div className="container-lg px-3">
           <div className="d-flex justify-content-between align-items-center mb-4">
             <div>
-              <h2 className="h4 mb-1">Available Properties</h2>
-              <p className="text-muted small mb-0">
-                {hasLoadedAPI ? 'Live listings' : 'Featured near CBU'}
-              </p>
+              <h2 className="h4 mb-1">Featured Properties</h2>
+              <p className="text-muted small mb-0">{hasLoadedAPI ? 'Live listings' : 'Popular near CBU'}</p>
             </div>
-            <button 
-              className="btn btn-outline-primary btn-sm" 
-              onClick={() => handleNavigation('viewall')}
-            >
-              View All
+            <button className="btn btn-outline-primary btn-sm d-flex align-items-center" onClick={() => handleNavigation('viewall')}>
+              <span className="d-none d-sm-inline me-1">View All</span>
+              <span className="d-sm-none">All</span>
+              <span className="ms-1">→</span>
             </button>
           </div>
-          
-          {/* Mobile-First Grid */}
+
           <div className="row g-3">
             {featuredProperties.slice(0, 6).map((property) => (
               <div className="col-12 col-sm-6 col-lg-4" key={property.id}>
                 <div className="card h-100 border-0 shadow-sm">
                   <div className="position-relative">
-                    <img 
-                      src={property.image} 
-                      className="card-img-top" 
-                      alt={property.title}
-                      style={{height: '200px', objectFit: 'cover'}}
-                      loading="lazy"
-                    />
+                    <img src={property.image} className="card-img-top" alt={property.title} style={{ height: '200px', objectFit: 'cover' }} loading="lazy" />
                     {property.tag && (
-                      <span className={`badge position-absolute top-0 end-0 m-2 ${
-                        property.tag === 'Popular' ? 'bg-success' :
-                        property.tag === 'Budget' ? 'bg-info' :
-                        property.tag === 'Premium' ? 'bg-warning text-dark' : 'bg-primary'
-                      }`}>
+                      <span className={`badge position-absolute top-0 end-0 m-2 ${property.tag === 'Popular' ? 'bg-success' : property.tag === 'Budget' ? 'bg-info' : property.tag === 'Premium' ? 'bg-warning text-dark' : 'bg-primary'}`}>
                         {property.tag}
                       </span>
                     )}
                   </div>
                   <div className="card-body d-flex flex-column">
                     <h5 className="card-title h6 mb-2">{property.title}</h5>
-                    <p className="text-muted small mb-2">
-                      📍 {property.location}
-                    </p>
+                    <p className="text-muted small mb-2">📍 {property.location}</p>
                     <p className="fw-bold text-primary mb-3">{property.price}</p>
                     <div className="mb-3">
                       {property.features.slice(0, 3).map((feature, index) => (
-                        <span key={index} className="badge bg-light text-dark me-1 mb-1 small">
-                          {feature}
-                        </span>
+                        <span key={index} className="badge bg-light text-dark me-1 mb-1 small">{feature}</span>
                       ))}
                     </div>
-                    <button
-                      className="btn btn-primary btn-sm mt-auto"
-                      onClick={() => navigate('/PropertyDetailsPage', { state: { propertyId: property.id } })}
-                    >
+                    <button className="btn btn-primary btn-sm mt-auto" onClick={() => navigate('/PropertyDetailsPage', { state: { propertyId: property.id } })}>
                       View Details
                     </button>
                   </div>
@@ -368,35 +345,28 @@ const HomePage = () => {
               </div>
             ))}
           </div>
+
+          <div className="text-center mt-4 py-4 bg-light rounded">
+            <h5 className="mb-2">Want to see more options?</h5>
+            <p className="text-muted mb-3 small">Discover {hasLoadedAPI ? 'hundreds' : '300+'} more verified student accommodations</p>
+            <div className="d-flex gap-2 justify-content-center flex-wrap">
+              <button className="btn btn-primary" onClick={() => handleNavigation('viewall')}><span className="me-1">🏠</span> Browse All Properties</button>
+              <button className="btn btn-outline-primary" onClick={() => handleNavigation('register')}>Create Account</button>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Compact Services Section */}
+      {/* SERVICES */}
       <section id="services" ref={servicesRef} className="features py-4 py-md-5 bg-light">
-        <div className="container-fluid">
-          <h2 className="h4 text-center mb-4">Why Choose NexNest</h2>
+        <div className="container-lg">
+          <h2 className="h4 text-center mb-4">Why Choose CribConnect</h2>
           <div className="row g-3">
             {[
-              {
-                icon: '🏆',
-                title: 'Trusted',
-                description: '2,000+ CBU students served',
-              },
-              {
-                icon: '💰',
-                title: 'Best Value',
-                description: 'No hidden fees, transparent pricing',
-              },
-              {
-                icon: '🚶‍♂️',
-                title: 'Near Campus',
-                description: 'Walking distance to CBU',
-              },
-              {
-                icon: '🤝',
-                title: 'Direct Contact',
-                description: 'Chat with verified owners',
-              },
+              { icon: '🏆', title: 'Trusted', description: '2,000+ CBU students served' },
+              { icon: '💰', title: 'Best Value', description: 'No hidden fees, transparent pricing' },
+              { icon: '🚶‍♂️', title: 'Near Campus', description: 'Walking distance to CBU' },
+              { icon: '🤝', title: 'Direct Contact', description: 'Chat with verified owners' }
             ].map((feature, index) => (
               <div className="col-6 col-lg-3" key={index}>
                 <div className="text-center p-3">
@@ -407,101 +377,74 @@ const HomePage = () => {
               </div>
             ))}
           </div>
+          <div className="text-center mt-4">
+            <p className="text-muted mb-3">Ready to find your perfect student home?</p>
+            <button className="btn btn-primary me-2" onClick={() => handleNavigation('viewall')}>Start Browsing</button>
+            <button className="btn btn-outline-primary" onClick={() => handleNavigation('register')}>Join Now</button>
+          </div>
         </div>
       </section>
 
-      {/* Mobile-Optimized Community Section */}
+      {/* COMMUNITY */}
       <section id="community" ref={communityRef} className="community py-4 py-md-5">
-        <div className="container-fluid">
+        <div className="container-lg">
           <div className="text-center mb-4">
             <h2 className="h4 mb-3">Join Our Community</h2>
-            <p className="text-muted mb-4">
-              Connect with CBU students, find roommates, get housing tips
-            </p>
+            <p className="text-muted mb-4">Connect with CBU students, find roommates, get housing tips</p>
             <div className="d-flex justify-content-center gap-4 mb-4">
-              <div className="text-center">
-                <div className="text-primary fw-bold">100+</div>
-                <small className="text-muted">Members</small>
-              </div>
-              <div className="text-center">
-                <div className="text-success fw-bold">24/7</div>
-                <small className="text-muted">Support</small>
-              </div>
-              <div className="text-center">
-                <div className="text-info fw-bold">Free</div>
-                <small className="text-muted">To Join</small>
-              </div>
+              <div className="text-center"><div className="text-primary fw-bold">100+</div><small className="text-muted">Members</small></div>
+              <div className="text-center"><div className="text-success fw-bold">24/7</div><small className="text-muted">Support</small></div>
+              <div className="text-center"><div className="text-info fw-bold">Free</div><small className="text-muted">To Join</small></div>
             </div>
-            <button className="btn btn-outline-primary">
-              Join Community
-            </button>
+            <div className="d-flex gap-2 justify-content-center flex-wrap">
+              <button className="btn btn-outline-primary">Join Community</button>
+              <button className="btn btn-primary" onClick={() => handleNavigation('viewall')}>Find Housing</button>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Compact Contact Section */}
+      {/* CONTACT */}
       <section id="contact" ref={contactRef} className="contact py-4 py-md-5 bg-primary text-white">
-        <div className="container-fluid">
+        <div className="container-lg">
           <div className="text-center">
-            <h2 className="h4 mb-3">Need Help?</h2>
+            <h2 className="h4 mb-3">Need Help Finding Housing?</h2>
             <p className="mb-4">Get assistance finding your perfect student accommodation</p>
             <div className="row g-3 mb-4">
-              <div className="col-12 col-sm-6">
-                <div className="d-flex align-items-center justify-content-center">
-                  <span className="me-2">📧</span>
-                  <a href="mailto:brianchanda02@gmail.com" className="text-white text-decoration-none">
-                    brianchanda02@gmail.com
-                  </a>
-                </div>
-              </div>
-              <div className="col-12 col-sm-6">
-                <div className="d-flex align-items-center justify-content-center">
-                  <span className="me-2">📱</span>
-                  <a href="tel:+260972526777" className="text-white text-decoration-none">
-                    +260 972 526 777
-                  </a>
-                </div>
-              </div>
+              <div className="col-12 col-sm-6"><div className="d-flex align-items-center justify-content-center"><span className="me-2">📧</span><a href="mailto:brianchanda02@gmail.com" className="text-white text-decoration-none">brianchanda02@gmail.com</a></div></div>
+              <div className="col-12 col-sm-6"><div className="d-flex align-items-center justify-content-center"><span className="me-2">📱</span><a href="tel:+260972526777" className="text-white text-decoration-none">+260 972 526 777</a></div></div>
             </div>
-            <button 
-              className="btn btn-light"
-              onClick={() => handleNavigation('register')}
-            >
-              Get Started Today
-            </button>
+            <div className="d-flex gap-2 justify-content-center flex-wrap">
+              <button className="btn btn-light" onClick={() => handleNavigation('register')}>Get Started Today</button>
+              <button className="btn btn-outline-light" onClick={() => handleNavigation('viewall')}>Browse Properties</button>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Minimal Footer */}
+      {/* FOOTER */}
       <footer className="py-4 bg-dark text-white">
-        <div className="container-fluid">
+        <div className="container-lg">
           <div className="row g-4">
             <div className="col-12 col-md-6 text-center text-md-start">
               <h5 className="fw-bold mb-2">🏠 CribConnect</h5>
-              <p className="small mb-0">
-                Trusted student housing platform for CBU students in Kitwe
-              </p>
+              <p className="small mb-0">Trusted student housing platform for CBU students in Kitwe</p>
             </div>
             <div className="col-12 col-md-6">
               <div className="row g-3">
                 <div className="col-6 text-center">
                   <h6 className="small fw-bold mb-2">Quick Links</h6>
                   <div className="d-flex flex-column">
-                    {['Home', 'Browse', 'Account'].map((link) => (
-                      <a href="#" className="text-decoration-none text-white-50 small mb-1" key={link}>
-                        {link}
-                      </a>
-                    ))}
+                    <a href="#" className="text-decoration-none text-white-50 small mb-1" onClick={() => handleNavigation('home')}>Home</a>
+                    <button className="btn btn-link p-0 text-start text-white-50 small mb-1 text-decoration-none" onClick={() => handleNavigation('viewall')}>Browse Properties</button>
+                    <a href="#" className="text-decoration-none text-white-50 small mb-1" onClick={() => handleNavigation('register')}>Account</a>
                   </div>
                 </div>
                 <div className="col-6 text-center">
                   <h6 className="small fw-bold mb-2">Support</h6>
                   <div className="d-flex flex-column">
                     {['Help', 'FAQs', 'Contact'].map((link) => (
-                      <a href="#" className="text-decoration-none text-white-50 small mb-1" key={link}>
-                        {link}
-                      </a>
+                      <a href="#" className="text-decoration-none text-white-50 small mb-1" key={link}>{link}</a>
                     ))}
                   </div>
                 </div>
@@ -510,12 +453,12 @@ const HomePage = () => {
             <div className="col-12">
               <hr className="border-secondary my-3" />
               <div className="d-flex flex-column flex-sm-row justify-content-between align-items-center">
-                <p className="small text-white-50 mb-2 mb-sm-0">
-                  © {new Date().getFullYear()} NexNest. All rights reserved.
-                </p>
-                <div className="d-flex gap-3">
+                <p className="small text-white-50 mb-2 mb-sm-0">© {new Date().getFullYear()} CribConnect. All rights reserved.</p>
+                <div className="d-flex gap-3 align-items-center">
                   <a href="#" className="text-white-50 text-decoration-none small">Privacy</a>
                   <a href="#" className="text-white-50 text-decoration-none small">Terms</a>
+                  <span className="text-white-50">•</span>
+                  <button className="btn btn-link p-0 text-white-50 small text-decoration-underline" onClick={() => handleNavigation('viewall')}>Browse All</button>
                 </div>
               </div>
             </div>

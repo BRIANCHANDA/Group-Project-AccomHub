@@ -74,6 +74,7 @@ const universityOptions = [
 ];
 
 const StudentDashboard: React.FC = () => {
+  const [ratingSuccess, setRatingSuccess] = useState<{show: boolean, message: string}>({show: false, message: ''});
   const [typeFilter, setTypeFilter] = useState('all');
   const [priceFilter, setPriceFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -90,7 +91,43 @@ const StudentDashboard: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [userName, setUserName] = useState('Student'); // State for user's name
-  const [universityFilter, setUniversityFilter] = useState('all');
+  //const [universityFilter, setUniversityFilter] = useState('all');
+
+  const [universityFilter, setUniversityFilter] = useState(() => {
+    // Get from session storage if available, otherwise default to 'all'
+    return sessionStorage.getItem('selectedUniversity') || 'all';
+  });
+  const [showRateModal, setShowRateModal] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [studentId, setStudentId] = useState<number | null>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // Add this useEffect to check login status
+  useEffect(() => {
+    const user = localStorage.getItem('user');
+    if (user) {
+      const parsedUser = JSON.parse(user);
+      setIsLoggedIn(true);
+      setStudentId(parsedUser.id || null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (location.state?.showRateModal && location.state?.propertyId) {
+      const propertyToRate = propertiesData.find(p => p.id === location.state.propertyId);
+      if (propertyToRate) {
+        setRatingModal({ isOpen: true, property: propertyToRate });
+        // Clear the state to prevent reopening on refresh
+        navigate(location.pathname, { replace: true, state: {} });
+      }
+    }
+  }, [location.state, propertiesData, navigate]);
+
+  const handleUniversityChange = (university: string) => {
+    setUniversityFilter(university);
+    sessionStorage.setItem('selectedUniversity', university);
+    setCurrentPage(1); // Reset to first page when filter changes
+  };
 
   // Detect if the device is mobile
   const isMobile = window.innerWidth <= 768;
@@ -104,37 +141,49 @@ const StudentDashboard: React.FC = () => {
 
 
 
+  useEffect(() => {
+    if (location.state?.showRateModal) {
+      setShowRateModal(true);
+      // Clear the state to prevent reopening on refresh
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state]);
+
+
+
+
 
   // Replace the existing Bootstrap initialization code in the useEffect with this improved version
   useEffect(() => {
+    // Load Bootstrap if not already loaded
     const initBootstrap = async () => {
-      try {
-        // Import Bootstrap JS
-        const bootstrap = await import('bootstrap/dist/js/bootstrap.bundle.min.js');
-        console.log('Bootstrap JS loaded successfully');
-
-        // Initialize all dropdowns on the page
-        document.querySelectorAll('[data-bs-toggle="dropdown"]').forEach(dropdownElement => {
-          const dropdown = new bootstrap.Dropdown(dropdownElement);
-          console.log('Dropdown initialized');
-
-          // Store the dropdown instance on the element for future reference
-          (dropdownElement as any)._dropdown = dropdown;
-        });
-      } catch (err) {
-        console.error('Failed to load Bootstrap JS:', err);
+      if (!window.bootstrap) {
+        await import('bootstrap/dist/js/bootstrap.bundle.min.js');
       }
     };
 
-    // Wait for DOM to be fully loaded
-    if (document.readyState === 'complete') {
-      initBootstrap();
-    } else {
-      window.addEventListener('DOMContentLoaded', initBootstrap);
-      return () => window.removeEventListener('DOMContentLoaded', initBootstrap);
-    }
-  }, []);
+    const initDropdowns = () => {
+      document.querySelectorAll('[data-bs-toggle="dropdown"]').forEach(dropdownElement => {
+        // Only initialize if not already initialized
+        if (!(dropdownElement as any)._dropdown) {
+          const dropdown = new window.bootstrap.Dropdown(dropdownElement);
+          (dropdownElement as any)._dropdown = dropdown;
+        }
+      });
+    };
 
+    initBootstrap().then(initDropdowns);
+
+    // Cleanup function
+    return () => {
+      document.querySelectorAll('[data-bs-toggle="dropdown"]').forEach(dropdownElement => {
+        if ((dropdownElement as any)._dropdown) {
+          (dropdownElement as any)._dropdown.dispose();
+          delete (dropdownElement as any)._dropdown;
+        }
+      });
+    };
+  }, []); // Empty dependency array to run only once on mount
   // Add this helper function to handle dropdown menu item clicks properly
   const handleDropdownItemClick = (
     e: React.MouseEvent<HTMLAnchorElement>,
@@ -285,6 +334,47 @@ const StudentDashboard: React.FC = () => {
     };
   }, []);
 
+
+
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      // Clear local storage
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+
+      // Make API call to logout endpoint
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include', 
+      });
+
+      if (!response.ok) {
+        throw new Error('Logout failed');
+      }
+
+      // Clear any remaining state
+      setIsLoggedIn(false);
+      setStudentId(null);
+
+      // Redirect to login page
+      navigate('/studentdashboard', { replace: true });
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Still clear local storage and redirect even if API call fails
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      setIsLoggedIn(false);
+      setStudentId(null);
+      navigate('/login', { replace: true });
+    }
+     finally {
+    setIsLoggingOut(false);
+  }
+  };
+
+
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
@@ -293,73 +383,73 @@ const StudentDashboard: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
- // Replace this section in your filteredListings useMemo:
+  // Replace this section in your filteredListings useMemo:
 
-const filteredListings = useMemo(() => {
-  let filtered = propertiesData.filter(listing => {
-    if (!listing) return false;
+  const filteredListings = useMemo(() => {
+    let filtered = propertiesData.filter(listing => {
+      if (!listing) return false;
 
-    if (typeFilter !== 'all' && listing.type !== typeFilter) return false;
+      if (typeFilter !== 'all' && listing.type !== typeFilter) return false;
 
-    // FIXED: University filter with better string matching
-    if (universityFilter !== 'all') {
-      const propertyUniversity = (listing.targetUniversity || '').trim().toLowerCase();
-      const selectedUniversity = universityFilter.trim().toLowerCase();
-      
-      // Debug logging to see what we're comparing
-      console.log('Comparing:', {
-        propertyUniversity,
-        selectedUniversity,
-        match: propertyUniversity === selectedUniversity
-      });
-      
-      if (propertyUniversity !== selectedUniversity) {
-        return false;
+      // FIXED: University filter with better string matching
+      if (universityFilter !== 'all') {
+        const propertyUniversity = (listing.targetUniversity || '').trim().toLowerCase();
+        const selectedUniversity = universityFilter.trim().toLowerCase();
+
+        // Debug logging to see what we're comparing
+        console.log('Comparing:', {
+          propertyUniversity,
+          selectedUniversity,
+          match: propertyUniversity === selectedUniversity
+        });
+
+        if (propertyUniversity !== selectedUniversity) {
+          return false;
+        }
       }
-    }
 
-    const numericPrice = parseInt(listing.price.replace(/[^\d]/g, ''), 10) || 0;
-    if (priceFilter === 'under1500' && numericPrice >= 1500) return false;
-    if (priceFilter === '1500to2000' && (numericPrice < 1500 || numericPrice > 2000)) return false;
-    if (priceFilter === 'above2000' && numericPrice <= 2000) return false;
-    
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      const inTitle = listing.title?.toLowerCase().includes(searchLower);
-      const inLocation = listing.location?.toLowerCase().includes(searchLower);
-      // ADDED: Also search in university field
-      const inUniversity = listing.targetUniversity?.toLowerCase().includes(searchLower);
-      if (!inTitle && !inLocation && !inUniversity) return false;
-    }
-    return true;
-  });
+      const numericPrice = parseInt(listing.price.replace(/[^\d]/g, ''), 10) || 0;
+      if (priceFilter === 'under1500' && numericPrice >= 1500) return false;
+      if (priceFilter === '1500to2000' && (numericPrice < 1500 || numericPrice > 2000)) return false;
+      if (priceFilter === 'above2000' && numericPrice <= 2000) return false;
 
-  // Rest of your sorting logic remains the same...
-  if (sortOption === 'default') return filtered;
-
-  return [...filtered].sort((a, b) => {
-    if (sortOption === 'priceLowToHigh') {
-      const priceA = parseInt(a.price.replace(/[^\d]/g, ''), 10) || 0;
-      const priceB = parseInt(b.price.replace(/[^\d]/g, ''), 10) || 0;
-      return priceA - priceB;
-    }
-    if (sortOption === 'priceHighToLow') {
-      const priceA = parseInt(a.price.replace(/[^\d]/g, ''), 10) || 0;
-      const priceB = parseInt(b.price.replace(/[^\d]/g, ''), 10) || 0;
-      return priceB - priceA;
-    }
-    if (sortOption === 'ratingHighToLow') {
-      return b.rating - a.rating;
-    }
-    if (sortOption === 'newestFirst') {
-      if (a.createdAt && b.createdAt) {
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        const inTitle = listing.title?.toLowerCase().includes(searchLower);
+        const inLocation = listing.location?.toLowerCase().includes(searchLower);
+        // ADDED: Also search in university field
+        const inUniversity = listing.targetUniversity?.toLowerCase().includes(searchLower);
+        if (!inTitle && !inLocation && !inUniversity) return false;
       }
-      return b.id - a.id;
-    }
-    return 0;
-  });
-}, [propertiesData, typeFilter, priceFilter, searchTerm, sortOption, universityFilter]); // Make sure universityFilter is in dependencies
+      return true;
+    });
+
+    // Rest of your sorting logic remains the same...
+    if (sortOption === 'default') return filtered;
+
+    return [...filtered].sort((a, b) => {
+      if (sortOption === 'priceLowToHigh') {
+        const priceA = parseInt(a.price.replace(/[^\d]/g, ''), 10) || 0;
+        const priceB = parseInt(b.price.replace(/[^\d]/g, ''), 10) || 0;
+        return priceA - priceB;
+      }
+      if (sortOption === 'priceHighToLow') {
+        const priceA = parseInt(a.price.replace(/[^\d]/g, ''), 10) || 0;
+        const priceB = parseInt(b.price.replace(/[^\d]/g, ''), 10) || 0;
+        return priceB - priceA;
+      }
+      if (sortOption === 'ratingHighToLow') {
+        return b.rating - a.rating;
+      }
+      if (sortOption === 'newestFirst') {
+        if (a.createdAt && b.createdAt) {
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        }
+        return b.id - a.id;
+      }
+      return 0;
+    });
+  }, [propertiesData, typeFilter, priceFilter, searchTerm, sortOption, universityFilter]); // Make sure universityFilter is in dependencies
 
   useEffect(() => {
     const calculatedTotalPages = Math.ceil(filteredListings.length / itemsPerPage) || 1;
@@ -393,68 +483,93 @@ const filteredListings = useMemo(() => {
       settings: '/settings',
       logout: '/logout',
     };
-    if (paths[path]) {
+    if (path === 'logout') {
+      handleLogout();
+    } else if (paths[path]) {
       navigate(paths[path]);
     } else {
       navigate(`/${path}`);
     }
     setMenuOpen(false);
   };
-  const handleRateProperty = (property: FormattedProperty) => {
-    setRatingModal({ isOpen: true, property });
+
+  const handleRateProperty = (listing: FormattedProperty) => {
+    if (!isLoggedIn) {
+      navigate('/login', {
+        state: {
+          redirectTo: 'rate',
+          propertyId: listing.id,
+          from: location.pathname
+        }
+      });
+    } else {
+      setRatingModal({ isOpen: true, property: listing });
+    }
   };
 
   const submitRating = async (rating: number, comment: string) => {
-    if (!ratingModal.property) {
-      console.error('Missing property information');
-      return;
-    }
+  if (!ratingModal.property) {
+    console.error('Missing property information');
+    return;
+  }
 
-    if (!studentId) {
-      console.error('Student ID is required to submit rating');
-      alert('Unable to submit rating. Please log in again.');
-      return;
-    }
-    console.log('Submitting rating with:', {
-      propertyId: ratingModal.property.id,
-      reviewerId: studentId,
-      rating: rating,
-      comment: comment,
+  if (!studentId) {
+    console.error('Student ID is required to submit rating');
+    navigate('/login', {
+      state: {
+        redirectTo: 'rate',
+        propertyId: ratingModal.property.id,
+        from: location.pathname
+      }
+    });
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/reviews/reviews', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        propertyId: ratingModal.property.id,
+        reviewerId: studentId,
+        rating: rating,
+        comment: comment,
+      }),
     });
 
-
-    try {
-      const response = await fetch('/api/reviews/reviews', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          propertyId: ratingModal.property.id,
-          reviewerId: studentId,
-          rating: rating,
-          comment: comment,
-        }),
+    if (response.ok) {
+      console.log('Rating submitted successfully');
+      setRatingSuccess({
+        show: true, 
+        message: `Thank you! Your ${rating}-star rating for "${ratingModal.property.title}" has been submitted successfully.`
       });
-
-      if (response.ok) {
-        // Show success message
-        console.log('Rating submitted successfully');
-        // You could add a toast notification here
-      } else {
-        console.error('Failed to submit rating');
-      }
-    } catch (error) {
-      console.error('Error submitting rating:', error);
+      // Auto-hide success message after 5 seconds
+      setTimeout(() => {
+        setRatingSuccess({show: false, message: ''});
+      }, 5000);
+    } else {
+      console.error('Failed to submit rating');
+      setRatingSuccess({
+        show: true, 
+        message: 'Failed to submit your rating. Please try again.'
+      });
     }
-  };
+  } catch (error) {
+    console.error('Error submitting rating:', error);
+    setRatingSuccess({
+      show: true, 
+      message: 'An error occurred while submitting your rating. Please try again.'
+    });
+  }
+};
 
   //for rating
   const [ratingModal, setRatingModal] = useState<{
     isOpen: boolean;
     property: FormattedProperty | null;
   }>({ isOpen: false, property: null });
-  const [studentId, setStudentId] = useState<number | null>(null);
 
   const RatingModal = ({
     property,
@@ -467,23 +582,25 @@ const filteredListings = useMemo(() => {
     onClose: () => void;
     onSubmit: (rating: number, comment: string) => void;
   }) => {
+    const location = useLocation();
     const [rating, setRating] = useState(0);
     const [comment, setComment] = useState('');
     const [hoveredRating, setHoveredRating] = useState(0);
 
+    // Focus on rating when modal opens (especially after redirect)
+    useEffect(() => {
+      if (isOpen && location.state?.showRateModal) {
+        document.getElementById('rating-input')?.focus();
+      }
+    }, [isOpen, location.state]);
 
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
       if (rating > 0) {
-        if (!studentId) {
-          alert('Please log in to submit a rating');
-          navigate('/login')
-        }
         onSubmit(rating, comment);
         setRating(0);
         setComment('');
         onClose();
-
       }
     };
 
@@ -512,8 +629,8 @@ const filteredListings = useMemo(() => {
                         <button
                           key={star}
                           type="button"
-                          className={`star-button ${star <= (hoveredRating || rating) ? 'star-filled' : 'star-empty'
-                            }`}
+                          id={star === 1 ? 'rating-input' : undefined}
+                          className={`star-button ${star <= (hoveredRating || rating) ? 'star-filled' : 'star-empty'}`}
                           onClick={() => setRating(star)}
                           onMouseEnter={() => setHoveredRating(star)}
                           onMouseLeave={() => setHoveredRating(0)}
@@ -529,7 +646,6 @@ const filteredListings = useMemo(() => {
                     </div>
                   </div>
                 </div>
-
                 <div className="comment-section">
                   <label className="form-label">Comment (Optional)</label>
                   <textarea
@@ -548,8 +664,11 @@ const filteredListings = useMemo(() => {
                     Submit Rating
                   </button>
                 </div>
-              </div>
 
+
+
+
+              </div>
             </form>
           </div>
         </div>
@@ -558,34 +677,6 @@ const filteredListings = useMemo(() => {
   };
 
 
-
-  <div className={isMobile ? "col-6" : "col-12 col-md-6 col-lg-3"}>
-    <div className="dropdown">
-      <button
-        className="btn filter-btn dropdown-toggle w-100"
-        type="button"
-        data-bs-toggle="dropdown"
-        aria-expanded="false"
-        id="universityFilterDropdown"
-      >
-        <i className="bi bi-building me-1"></i>
-        {universityOptions.find(u => u.value === universityFilter)?.label || 'University'}
-      </button>
-      <ul className="dropdown-menu" aria-labelledby="universityFilterDropdown">
-        {universityOptions.map(option => (
-          <li key={option.value}>
-            <a
-              className="dropdown-item"
-              href="#"
-              onClick={(e) => handleDropdownItemClick(e, () => setUniversityFilter(option.value))}
-            >
-              {option.label}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </div>
-  </div>
 
   const StarRating = ({ rating }: { rating: number }) => {
     const fullStars = Math.floor(rating);
@@ -648,152 +739,144 @@ const filteredListings = useMemo(() => {
       </nav>
     );
   };
-
-  const renderGridCard = (listing: FormattedProperty) => (
-    <div className="property-card h-100">
-      <div className="property-image-container">
-        <img
-          src={listing.image}
-          className="card-img-top"
-          alt={listing.title}
-          style={isMobile ? { height: '150px', objectFit: 'cover' } : {}}
-        />
-        {listing.featured && !isMobile && <span className="property-tag">Featured</span>}
-      </div>
-      <div className="card-body d-flex flex-column p-3">
-        <div className="d-flex justify-content-between mb-2">
-          <h5 className="property-title mb-0" style={isMobile ? { fontSize: '1rem', lineHeight: '1.2' } : {}}>
-            {isMobile ? listing.title.substring(0, 30) + '...' : listing.title}
-          </h5>
-          {!isMobile && (
-            <button className="btn btn-sm btn-link p-0 border-0">
-              <i className="bi bi-bookmark"></i>
-            </button>
-          )}
-        </div>
-        <p className="property-location mb-2">
-          <i className="bi bi-geo-alt-fill me-1"></i>
-          {isMobile ? listing.location.substring(0, 25) + '...' : listing.location}
-        </p>
-        <p className="property-university mb-2 small text-muted">
-          <i className="bi bi-building me-1"></i>
-          {listing.targetUniversity}
-        </p>
-
-
+const renderGridCard = (listing: FormattedProperty) => (
+  <div className="property-card h-100">
+    <div className="property-image-container">
+      <img
+        src={listing.image}
+        className="card-img-top"
+        alt={listing.title}
+        style={isMobile ? { height: '140px', objectFit: 'cover' } : { height: '160px', objectFit: 'cover' }}
+      />
+      {listing.featured && <span className="property-tag">Featured</span>}
+    </div>
+    <div className="card-body d-flex flex-column p-3">
+      <div className="d-flex justify-content-between mb-2">
+        <h5 className="property-title mb-0" style={isMobile ? { fontSize: '1rem', lineHeight: '1.2' } : {}}>
+          {isMobile ? listing.title.substring(0, 30) + '...' : listing.title}
+        </h5>
         {!isMobile && (
-          <div className="mb-2"><StarRating rating={listing.rating} /></div>
-        )}
-        <p className="property-price mb-3">{listing.price}</p>
-        {!isMobile && (
-          <div className="d-flex flex-wrap gap-1 mb-3">
-            {listing.amenities.slice(0, 3).map((amenity, index) => (
-              <span key={index} className="feature-badge">{amenity}</span>
-            ))}
-            {listing.amenities.length > 3 && <span className="feature-badge">+{listing.amenities.length - 3}</span>}
-          </div>
-        )}
-        <div className={`d-flex gap-2 mt-auto ${isMobile ? 'justify-content-center' : ''}`}>
-          <button
-            className={`btn btn-outline-primary ${isMobile ? 'btn-sm w-100' : 'btn-sm flex-grow-1'}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleViewDetails(listing);
-            }}
-          >
-            {isMobile ? 'Details' : 'View Details'}
+          <button className="btn btn-sm btn-link p-0 border-0">
+            <i className="bi bi-bookmark"></i>
           </button>
+        )}
+      </div>
+      <p className="property-location mb-2">
+        <i className="bi bi-geo-alt-fill me-1"></i>
+        {isMobile ? listing.location.substring(0, 25) + '...' : listing.location}
+      </p>
+      <p className="property-university mb-2 small text-muted">
+        <i className="bi bi-building me-1"></i>
+        {listing.targetUniversity}
+      </p>
+      {!isMobile && (
+        <div className="mb-2"><StarRating rating={listing.rating} /></div>
+      )}
+      <p className="property-price mb-3">{listing.price}</p>
+      {!isMobile && (
+        <div className="d-flex flex-wrap gap-1 mb-3">
+          {listing.amenities.slice(0, 3).map((amenity, index) => (
+            <span key={index} className="feature-badge">{amenity}</span>
+          ))}
+          {listing.amenities.length > 3 && <span className="feature-badge">+{listing.amenities.length - 3}</span>}
+        </div>
+      )}
+      <div className={`d-flex ${isMobile ? 'flex-column align-items-center gap-2' : 'flex-row gap-2'} mt-auto`}>
+        <button
+          className={`btn btn-outline-primary ${isMobile ? 'btn-sm w-100' : 'btn-sm flex-grow-1'}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleViewDetails(listing);
+          }}
+        >
+          {isMobile ? 'Details' : 'View Details'}
+        </button>
+        <button
+          className={`rate-property-btn ${isMobile ? 'btn-sm w-100' : 'small'}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleRateProperty(listing);
+          }}
+          title="Rate Property"
+        >
+          <i className="bi bi-star"></i>
+          Rate
+        </button>
+      </div>
+    </div>
+  </div>
+);
+  const renderListCard = (listing: FormattedProperty) => (
+  <div className="property-card mb-3">
+    
+    <div className="row g-0">
+      {!isMobile && (
+        <div className="col-md-4 col-lg-3">
+          <div className="property-image-container">
+            <img src={listing.image} className="card-img-top" alt={listing.title} />
+            {listing.featured && <span className="property-tag">Featured</span>}
+             style={isMobile ? { height: '140px', objectFit: 'cover' } : { height: '160px', objectFit: 'cover' }}
+          </div>
+        </div>
+      )}
+      <div className={isMobile ? "col-12" : "col-md-8 col-lg-9"}>
+        <div className="card-body d-flex flex-column p-3">
+          <div className="d-flex justify-content-between mb-2">
+            <div>
+              <h5 className="property-title mb-1" style={isMobile ? { fontSize: '1rem' } : {}}>
+                {isMobile ? listing.title.substring(0, 40) + '...' : listing.title}
+              </h5>
+              <p className="property-location mb-1">
+                <i className="bi bi-geo-alt-fill me-1"></i>
+                {isMobile ? listing.location.substring(0, 30) + '...' : listing.location}
+              </p>
+              <p className="property-university mb-1 small text-muted">
+                <i className="bi bi-building me-1"></i>
+                {listing.targetUniversity}
+              </p>
+              {!isMobile && (
+                <div className="mb-2"><StarRating rating={listing.rating} /></div>
+              )}
+            </div>
+            <p className={`property-price ${isMobile ? 'fs-6' : 'fs-5'}`}>{listing.price}</p>
+          </div>
           {!isMobile && (
+            <>
+              <p className="card-text small mb-2 d-none d-lg-block">{listing.description.substring(0, 100)}...</p>
+              <div className="d-flex flex-wrap gap-1 mb-3">
+                {listing.amenities.map((amenity, index) => (
+                  <span key={index} className="feature-badge">{amenity}</span>
+                ))}
+              </div>
+            </>
+          )}
+          <div className={`d-flex ${isMobile ? 'flex-column align-items-center gap-2' : 'flex-row gap-2'} mt-auto`}>
             <button
-              className="rate-property-btn small"
+              className={`btn btn-outline-primary ${isMobile ? 'btn-sm w-100' : 'btn-sm'}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleViewDetails(listing);
+              }}
+            >
+              {isMobile ? 'Details' : 'View Details'}
+            </button>
+            <button
+              className={`rate-property-btn ${isMobile ? 'btn-sm w-100' : 'small'}`}
               onClick={(e) => {
                 e.stopPropagation();
                 handleRateProperty(listing);
               }}
-              title="Rate Property"
+              title="Rate this Property"
             >
               <i className="bi bi-star"></i>
               Rate
             </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderListCard = (listing: FormattedProperty) => (
-    <div className="property-card mb-3">
-      <div className="row g-0">
-        {!isMobile && (
-          <div className="col-md-4 col-lg-3">
-            <div className="property-image-container">
-              <img src={listing.image} className="card-img-top" alt={listing.title} />
-              {listing.featured && <span className="property-tag">Featured</span>}
-            </div>
-          </div>
-        )}
-        <div className={isMobile ? "col-12" : "col-md-8 col-lg-9"}>
-          <div className="card-body d-flex flex-column p-3">
-            <div className="d-flex justify-content-between mb-2">
-              <div>
-                <h5 className="property-title mb-1" style={isMobile ? { fontSize: '1rem' } : {}}>
-                  {isMobile ? listing.title.substring(0, 40) + '...' : listing.title}
-                </h5>
-                <p className="property-location mb-1">
-                  <i className="bi bi-geo-alt-fill me-1"></i>
-                  {isMobile ? listing.location.substring(0, 30) + '...' : listing.location}
-                </p>
-                <p className="property-university mb-1 small text-muted">
-                  <i className="bi bi-building me-1"></i>
-                  {listing.targetUniversity}
-                </p>
-                {!isMobile && (
-                  <div className="mb-2"><StarRating rating={listing.rating} /></div>
-                )}
-              </div>
-              <p className={`property-price ${isMobile ? 'fs-6' : 'fs-5'}`}>{listing.price}</p>
-            </div>
-            {!isMobile && (
-              <>
-                <p className="card-text small mb-2 d-none d-lg-block">{listing.description.substring(0, 100)}...</p>
-                <div className="d-flex flex-wrap gap-1 mb-3">
-                  {listing.amenities.map((amenity, index) => (
-                    <span key={index} className="feature-badge">{amenity}</span>
-                  ))}
-                </div>
-              </>
-            )}
-            <div className={`d-flex gap-2 mt-auto ${isMobile ? 'justify-content-center' : ''}`}>
-              <button
-                className={`btn btn-outline-primary ${isMobile ? 'btn-sm w-100' : 'btn-sm'}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleViewDetails(listing);
-                }}
-              >
-                {isMobile ? 'Details' : 'View Details'}
-              </button>
-              {!isMobile && (
-                <button
-                  className="rate-property-btn small"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleRateProperty(listing);
-                  }}
-                  title="Rate this Property"
-                >
-                  <i className="bi bi-star"></i>
-                  Rate
-                </button>
-              )}
-            </div>
           </div>
         </div>
       </div>
     </div>
-  );
-
-
+  </div>
+);
   if (isLoading) {
     return (
       <div className="d-flex justify-content-center align-items-center min-vh-100">
@@ -806,10 +889,8 @@ const filteredListings = useMemo(() => {
 
   return (
     <div className="app-container">
-      <div className="alert-banner" role="alert">
-        <strong>Welcome to  Student Housing!</strong> Find your perfect accommodation for this academic year.
-        <button type="button" className="btn-close" aria-label="Close" onClick={() => { }}></button>
-      </div>
+      
+      
 
       <nav className={`navbar navbar-expand-lg navbar-light ${isScrolled ? 'scrolled' : ''}`}>
         <div className="container">
@@ -881,8 +962,16 @@ const filteredListings = useMemo(() => {
                   <li>
                     <hr className="dropdown-divider" />
                   </li>
+
                   <li>
-                    <a className="dropdown-item" href="#" onClick={() => handleNavigation('logout')}>
+                    <a
+                      className="dropdown-item"
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleLogout();
+                      }}
+                    >
                       <i className="bi bi-box-arrow-right me-2"></i>Logout
                     </a>
                   </li>
@@ -899,7 +988,7 @@ const filteredListings = useMemo(() => {
       </nav>
 
       <div className="container py-5" style={{ paddingTop: 'calc(var(--navbar-height) + 2rem)' }}>
-       
+
 
 
         <div className="filter-card mb-4">
@@ -1001,9 +1090,15 @@ const filteredListings = useMemo(() => {
                 <button
                   className="btn filter-btn dropdown-toggle w-100"
                   type="button"
+                  id="universityFilterDropdown"
                   data-bs-toggle="dropdown"
                   aria-expanded="false"
-                  id="universityFilterDropdown"
+                  onClick={(e) => {
+                    // Prevent default to handle programmatically
+                    e.preventDefault();
+                    const dropdown = new window.bootstrap.Dropdown(e.currentTarget);
+                    dropdown.toggle();
+                  }}
                 >
                   <i className="bi bi-building me-1"></i>
                   {universityOptions.find(u => u.value === universityFilter)?.label || 'University'}
@@ -1014,7 +1109,15 @@ const filteredListings = useMemo(() => {
                       <a
                         className="dropdown-item"
                         href="#"
-                        onClick={(e) => handleDropdownItemClick(e, () => setUniversityFilter(option.value))}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleUniversityChange(option.value);
+                          // Close dropdown after selection
+                          const dropdownElement = document.getElementById('universityFilterDropdown');
+                          if (dropdownElement && (dropdownElement as any)._dropdown) {
+                            (dropdownElement as any)._dropdown.hide();
+                          }
+                        }}
                       >
                         {option.label}
                       </a>
@@ -1180,6 +1283,37 @@ const filteredListings = useMemo(() => {
           onSubmit={submitRating}
         />
       </div>
+
+      {/* Success Message Toast */}
+{ratingSuccess.show && (
+  <div 
+    className="toast-container position-fixed top-0 end-0 p-3" 
+    style={{zIndex: 9999}}
+  >
+    <div 
+      className={`toast show ${ratingSuccess.message.includes('Failed') || ratingSuccess.message.includes('error') ? 'bg-danger' : 'bg-success'} text-white`}
+      role="alert" 
+      aria-live="assertive" 
+      aria-atomic="true"
+    >
+      <div className="toast-header">
+        <i className={`bi ${ratingSuccess.message.includes('Failed') || ratingSuccess.message.includes('error') ? 'bi-x-circle-fill' : 'bi-check-circle-fill'} me-2`}></i>
+        <strong className="me-auto">
+          {ratingSuccess.message.includes('Failed') || ratingSuccess.message.includes('error') ? 'Error' : 'Success'}
+        </strong>
+        <button 
+          type="button" 
+          className="btn-close btn-close-white" 
+          aria-label="Close"
+          onClick={() => setRatingSuccess({show: false, message: ''})}
+        ></button>
+      </div>
+      <div className="toast-body">
+        {ratingSuccess.message}
+      </div>
+    </div>
+  </div>
+)}
 
       <footer className="mt-auto">
         <div className="container">
