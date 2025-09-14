@@ -7,12 +7,10 @@
     "@types/bun": "latest",
     "@types/node": "^22.13.5"
   },
-  
   "scripts": {
-  "build": "bun install",
-  "dev": "bun server/index.ts --watch"
-},
-
+    "build": "bun install",
+    "dev": "bun server/index.ts --watch"
+  },
   "peerDependencies": {
     "typescript": "^5.0.0"
   },
@@ -29,6 +27,7 @@
     "axios": "^1.8.4",
     "bcrypt": "^5.1.1",
     "cloudinary": "^2.5.1",
+    "combined-stream": "^1.0.8",
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",
     "drizzle-kit": "^0.25.0",

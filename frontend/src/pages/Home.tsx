@@ -107,15 +107,34 @@ const HomePage = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Close mobile menu when clicking outside
+  // Close mobile menu when clicking outside or on window resize
   useEffect(() => {
     const handleClickOutside = (event: any) => {
-      if (menuOpen && !event.target.closest('.navbar')) {
+      if (menuOpen && !event.target.closest('.navbar-collapse') && !event.target.closest('.navbar-toggler')) {
         setMenuOpen(false);
       }
     };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
+
+    const handleResize = () => {
+      if (window.innerWidth >= 992) {
+        setMenuOpen(false);
+      }
+    };
+
+    if (menuOpen) {
+      document.addEventListener('click', handleClickOutside);
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+      window.removeEventListener('resize', handleResize);
+      document.body.style.overflow = '';
+    };
   }, [menuOpen]);
 
   const handleNavigation = (path: string) => {
@@ -144,82 +163,202 @@ const HomePage = () => {
     setMenuOpen(false);
   };
 
-  // Common nav items so we don't duplicate text
-  const navItems = [
-    { key: 'home', label: 'Home' },
-    { key: 'services', label: 'Services' },
-    { key: 'community', label: 'Community' },
-    { key: 'contact', label: 'Contact' }
-  ];
-
   return (
     <div className="app-container w-100 min-vh-100">
+      <style>{`
+        @media (max-width: 991.98px) {
+          .navbar-collapse {
+            position: absolute !important;
+            top: 100% !important;
+            left: 0 !important;
+            right: 0 !important;
+            background: white !important;
+            border-radius: 0 0 12px 12px !important;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+            padding: 1.5rem 0 !important;
+            margin: 0 !important;
+            z-index: 1050 !important;
+            border-top: 1px solid #e9ecef !important;
+          }
+
+          .navbar-collapse.show {
+            animation: slideDown 0.3s ease-out !important;
+          }
+
+          .mobile-nav-link {
+            padding: 0.75rem 1.5rem !important;
+            margin: 0.25rem 0 !important;
+            border-radius: 8px !important;
+            transition: all 0.2s ease !important;
+            text-align: center !important;
+            font-weight: 500 !important;
+          }
+
+          .mobile-nav-link:hover {
+            background-color: #f8f9fa !important;
+            color: #0d6efd !important;
+            transform: translateX(5px) !important;
+          }
+
+          .mobile-buttons {
+            padding: 1rem 1.5rem 0.5rem !important;
+            border-top: 1px solid #e9ecef !important;
+            margin-top: 1rem !important;
+          }
+
+          .mobile-buttons .btn {
+            width: 100% !important;
+            margin-bottom: 0.5rem !important;
+            font-weight: 500 !important;
+          }
+        }
+
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .hamburger-icon {
+          width: 24px;
+          height: 18px;
+          position: relative;
+          cursor: pointer;
+        }
+
+        .hamburger-line {
+          width: 100%;
+          height: 2px;
+          background-color: #333;
+          position: absolute;
+          transition: all 0.3s ease;
+        }
+
+        .hamburger-line:nth-child(1) {
+          top: 0;
+        }
+
+        .hamburger-line:nth-child(2) {
+          top: 50%;
+          transform: translateY(-50%);
+        }
+
+        .hamburger-line:nth-child(3) {
+          bottom: 0;
+        }
+
+        .hamburger-active .hamburger-line:nth-child(1) {
+          transform: rotate(45deg) translateY(8px);
+        }
+
+        .hamburger-active .hamburger-line:nth-child(2) {
+          opacity: 0;
+        }
+
+        .hamburger-active .hamburger-line:nth-child(3) {
+          transform: rotate(-45deg) translateY(-8px);
+        }
+
+        .mobile-backdrop {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.5);
+          z-index: 1040;
+          opacity: 0;
+          animation: fadeIn 0.3s ease forwards;
+        }
+
+        @keyframes fadeIn {
+          to {
+            opacity: 1;
+          }
+        }
+      `}</style>
+
+      {/* Mobile backdrop */}
+      {menuOpen && <div className="mobile-backdrop d-lg-none" onClick={() => setMenuOpen(false)}></div>}
+
       {/* NAVBAR */}
       <nav className={`navbar navbar-expand-lg fixed-top navbar-light bg-white shadow-sm ${isScrolled ? 'scrolled' : ''}`}>
-  <div className="container-lg">
-    {/* Left: Brand */}
-    <a
-      className="navbar-brand fw-bold text-primary d-flex align-items-center"
-      href="#home"
-      onClick={(e) => {
-        e.preventDefault();
-        handleNavigation('home');
-      }}
-    >
-      <span className="me-1">🏠</span>
-      <span>CribConnect</span>
-    </a>
+        <div className="container-lg">
+          {/* Brand */}
+          <a
+            className="navbar-brand fw-bold text-primary d-flex align-items-center"
+            href="#home"
+            onClick={(e) => {
+              e.preventDefault();
+              handleNavigation('home');
+            }}
+          >
+            <span className="me-2">🏠</span>
+            <span>PlacesForLearners</span>
+          </a>
 
-    {/* Toggler for mobile */}
-    <button
-      className="navbar-toggler"
-      type="button"
-      onClick={() => setMenuOpen(!menuOpen)}
-      aria-controls="navbarNav"
-      aria-expanded={menuOpen}
-      aria-label="Toggle navigation"
-    >
-      <span className="navbar-toggler-icon"></span>
-    </button>
+          {/* Custom hamburger toggle */}
+          <button
+            className="navbar-toggler border-0 p-2"
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuOpen(!menuOpen);
+            }}
+            aria-controls="navbarNav"
+            aria-expanded={menuOpen}
+            aria-label="Toggle navigation"
+            style={{ boxShadow: 'none' }}
+          >
+            <div className={`hamburger-icon ${menuOpen ? 'hamburger-active' : ''}`}>
+              <div className="hamburger-line"></div>
+              <div className="hamburger-line"></div>
+              <div className="hamburger-line"></div>
+            </div>
+          </button>
 
-    {/* Nav Content */}
-    <div className={`collapse navbar-collapse ${menuOpen ? 'show' : ''}`} id="navbarNav">
-      {/* Centered nav links */}
-      <ul className="navbar-nav mx-auto mb-2 mb-lg-0">
-        {[
-          { key: 'home', label: 'Home' },
-          { key: 'services', label: 'Services' },
-          { key: 'community', label: 'Community' },
-          { key: 'contact', label: 'Contact' }
-        ].map((item) => (
-          <li className="nav-item" key={item.key}>
-            <a
-              className="nav-link"
-              href={`#${item.key}`}
-              onClick={(e) => {
-                e.preventDefault();
-                handleNavigation(item.key);
-              }}
-            >
-              {item.label}
-            </a>
-          </li>
-        ))}
-      </ul>
+          {/* Nav Content */}
+          <div className={`collapse navbar-collapse ${menuOpen ? 'show' : ''}`} id="navbarNav">
+            {/* Centered nav links */}
+            <ul className="navbar-nav mx-auto mb-2 mb-lg-0">
+              {[
+                { key: 'home', label: 'Home' },
+                { key: 'services', label: 'Services' },
+                { key: 'community', label: 'Community' },
+                { key: 'contact', label: 'Contact' }
+              ].map((item) => (
+                <li className="nav-item" key={item.key}>
+                  <a
+                    className="nav-link mobile-nav-link"
+                    href={`#${item.key}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleNavigation(item.key);
+                    }}
+                  >
+                    {item.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
 
-      {/* Right-side buttons */}
-      <div className="d-flex align-items-center gap-2">
-        <button className="btn btn-outline-primary btn-sm" onClick={() => handleNavigation('signin')}>
-          Sign In
-        </button>
-        <button className="btn btn-primary btn-sm" onClick={() => handleNavigation('register')}>
-          Register
-        </button>
-        
-      </div>
-    </div>
-  </div>
-</nav>
+            {/* Right-side buttons */}
+            <div className="d-flex align-items-center gap-2 mobile-buttons">
+              <button className="btn btn-outline-primary btn-sm" onClick={() => handleNavigation('signin')}>
+                Sign In
+              </button>
+              <button className="btn btn-primary btn-sm" onClick={() => handleNavigation('register')}>
+                Register
+              </button>
+            </div>
+          </div>
+        </div>
+      </nav>
 
       {/* HERO */}
       <section id="home" ref={homeRef} className="hero bg-gradient-to-br from-blue-50 to-white py-4 py-md-5">
@@ -227,23 +366,8 @@ const HomePage = () => {
           <div className="text-center mb-4" style={{ paddingTop: 80 }}>
             <h1 className="h2 fw-bold mb-3 text-dark">Find Your Perfect Student Home</h1>
             <p className="text-muted mb-4 mx-auto" style={{ maxWidth: '600px' }}>
-              Quality, affordable accommodation near CBU with verified landlords
+              Quality, affordable accommodation near your University with verified landlords
             </p>
-
-            <div className="search-container mb-4">
-              <div className="input-group shadow-sm" style={{ maxWidth: '600px', margin: '0 auto' }}>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Search by area, price..."
-                  aria-label="Search accommodations"
-                />
-                <button className="btn btn-primary px-3" type="button">
-                  <span className="d-none d-sm-inline">Search</span>
-                  <span className="d-sm-none">🔍</span>
-                </button>
-              </div>
-            </div>
 
             <div className="d-flex gap-2 justify-content-center flex-wrap">
               <button className="btn btn-primary btn-lg px-4" onClick={() => handleNavigation('viewall')}>
@@ -360,7 +484,7 @@ const HomePage = () => {
       {/* SERVICES */}
       <section id="services" ref={servicesRef} className="features py-4 py-md-5 bg-light">
         <div className="container-lg">
-          <h2 className="h4 text-center mb-4">Why Choose CribConnect</h2>
+          <h2 className="h4 text-center mb-4">Why Choose PlacesForLearners</h2>
           <div className="row g-3">
             {[
               { icon: '🏆', title: 'Trusted', description: '2,000+ CBU students served' },
@@ -390,7 +514,7 @@ const HomePage = () => {
         <div className="container-lg">
           <div className="text-center mb-4">
             <h2 className="h4 mb-3">Join Our Community</h2>
-            <p className="text-muted mb-4">Connect with CBU students, find roommates, get housing tips</p>
+            <p className="text-muted mb-4">Connect with Your University Mates, find roommates, get housing tips</p>
             <div className="d-flex justify-content-center gap-4 mb-4">
               <div className="text-center"><div className="text-primary fw-bold">100+</div><small className="text-muted">Members</small></div>
               <div className="text-center"><div className="text-success fw-bold">24/7</div><small className="text-muted">Support</small></div>
@@ -427,7 +551,7 @@ const HomePage = () => {
         <div className="container-lg">
           <div className="row g-4">
             <div className="col-12 col-md-6 text-center text-md-start">
-              <h5 className="fw-bold mb-2">🏠 CribConnect</h5>
+              <h5 className="fw-bold mb-2">🏠 PlacesForLearners</h5>
               <p className="small mb-0">Trusted student housing platform for CBU students in Kitwe</p>
             </div>
             <div className="col-12 col-md-6">
@@ -453,7 +577,7 @@ const HomePage = () => {
             <div className="col-12">
               <hr className="border-secondary my-3" />
               <div className="d-flex flex-column flex-sm-row justify-content-between align-items-center">
-                <p className="small text-white-50 mb-2 mb-sm-0">© {new Date().getFullYear()} CribConnect. All rights reserved.</p>
+                <p className="small text-white-50 mb-2 mb-sm-0">© {new Date().getFullYear()} PlacesForLearners. All rights reserved.</p>
                 <div className="d-flex gap-3 align-items-center">
                   <a href="#" className="text-white-50 text-decoration-none small">Privacy</a>
                   <a href="#" className="text-white-50 text-decoration-none small">Terms</a>

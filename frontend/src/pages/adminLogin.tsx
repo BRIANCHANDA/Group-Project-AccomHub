@@ -3,192 +3,175 @@ import { Eye, EyeOff, Lock, Mail, Home, Shield, AlertCircle, CheckCircle } from 
 import { useNavigate, useLocation } from 'react-router-dom';
 
 
-
 const styles = `
   .login-container {
     min-height: 100vh;
-    background: whitesmoke;
+    background: white;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 16px;
+    padding: 20px;
     position: relative;
     overflow: hidden;
-    color:rgb(4, 6, 8);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
   }
 
   .bg-decoration {
     position: absolute;
     inset: 0;
-    opacity: 0.1;
+    opacity: 0.3;
     pointer-events: none;
-    color:black;
+  }
+
+  .decoration-1,
+  .decoration-2,
+  .decoration-3 {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
   }
 
   .decoration-1 {
-    position: absolute;
-    top: 80px;
-    left: 80px;
-    width: 128px;
-    height: 128px;
-    background: white;
-    border-radius: 50%;
-    filter: blur(40px);
+    top: 10%;
+    left: 10%;
+    width: 200px;
+    height: 200px;
+    background: linear-gradient(45deg, #667eea, #764ba2);
   }
 
   .decoration-2 {
-    position: absolute;
-    bottom: 80px;
-    right: 80px;
-    width: 160px;
-    height: 160px;
-    background: #93c5fd;
-    border-radius: 50%;
-    filter: blur(40px);
+    bottom: 10%;
+    right: 10%;
+    width: 300px;
+    height: 300px;
+    background: linear-gradient(45deg, #f093fb, #f5576c);
   }
 
   .decoration-3 {
-    position: absolute;
     top: 50%;
-    left: 25%;
-    width: 96px;
-    height: 96px;
-    background: #a5b4fc;
-    border-radius: 50%;
-    filter: blur(40px);
+    left: 20%;
+    width: 150px;
+    height: 150px;
+    background: linear-gradient(45deg, #4facfe, #00f2fe);
   }
 
   .login-card {
     width: 100%;
-    max-width: 448px;
+    max-width: 450px;
     position: relative;
-    color:black;
+    z-index: 1;
   }
 
   .brand-section {
     text-align: center;
-    margin-bottom: 32px;
-    background: linear-gradient(135deg, #04132bff 0%, #181a8dff 100%);
-    color:rgb(4, 6, 8);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    margin-bottom: 30px;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    padding: 30px 20px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   }
 
   .logo-container {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 64px;
-    height: 64px;
-    background: white;
-    border-radius: 16px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-    margin-bottom: 16px;
+    width: 70px;
+    height: 70px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 18px;
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+    margin-bottom: 20px;
   }
 
   .brand-title {
-    font-size: 30px;
-    font-weight: 700;
-    color: white;
-    margin: 8px 0;
+    font-size: 32px;
+    font-weight: 800;
+    color: #2d3748;
+    margin: 15px 0 5px 0;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   .brand-subtitle {
-    color:rgb(50, 71, 95);
+    color: #4a5568;
     font-size: 16px;
+    font-weight: 500;
   }
 
   .form-card {
     background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    border-radius: 16px;
-    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
-    padding: 32px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(20px);
+    border-radius: 24px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    padding: 40px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
   }
 
   .form-header {
     text-align: center;
-    margin-bottom: 24px;
+    margin-bottom: 35px;
   }
 
   .form-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 48px;
-    height: 48px;
-    background: #dbeafe;
-    border-radius: 50%;
-    margin-bottom: 12px;
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 100%);
+    border-radius: 16px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);
   }
 
   .form-title {
-    font-size: 24px;
-    font-weight: 600;
-    color: #1f2937;
-    margin: 0;
+    font-size: 28px;
+    font-weight: 700;
+    color: #1a202c;
+    margin: 0 0 8px 0;
   }
 
   .form-subtitle {
-    color: #6b7280;
-    margin-top: 4px;
-    font-size: 14px;
+    color: #718096;
+    margin: 0;
+    font-size: 16px;
   }
 
   .notification {
-    margin-bottom: 16px;
-    padding: 12px;
-    border-radius: 8px;
+    margin-bottom: 25px;
+    padding: 15px 18px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     font-size: 14px;
+    font-weight: 500;
+    border: 1px solid transparent;
   }
 
   .notification.success {
-    background: #f0fdf4;
-    color: #166534;
-    border: 1px solid #bbf7d0;
+    background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%);
+    color: #22543d;
+    border-color: #9ae6b4;
   }
 
   .notification.error {
-    background: #fef2f2;
-    color: #dc2626;
-    border: 1px solid #fecaca;
-  }
-
-  .demo-info {
-    margin-bottom: 24px;
-    padding: 12px;
-    background: #eff6ff;
-    border-radius: 8px;
-    border: 1px solid #dbeafe;
-  }
-
-  .demo-title {
-    font-size: 12px;
-    color: #1d4ed8;
-    font-weight: 500;
-    margin-bottom: 4px;
-  }
-
-  .demo-text {
-    font-size: 12px;
-    color: #2563eb;
-    margin: 2px 0;
+    background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%);
+    color: #742a2a;
+    border-color: #fc8181;
   }
 
   .form-group {
-    margin-bottom: 24px;
+    margin-bottom: 25px;
   }
 
   .form-label {
     display: block;
-    font-size: 14px;
-    font-weight: 500;
-    color: #374151;
-    margin-bottom: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 10px;
   }
 
   .input-container {
@@ -197,74 +180,117 @@ const styles = `
 
   .input-icon {
     position: absolute;
-    left: 12px;
+    left: 18px;
     top: 50%;
     transform: translateY(-50%);
-    color: #9ca3af;
+    color: #a0aec0;
     pointer-events: none;
+    z-index: 2;
+    transition: color 0.3s ease;
   }
 
   .form-input {
     display: block;
     width: 100%;
-    padding: 12px 12px 12px 40px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
+    padding: 18px 18px 18px 52px;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
     font-size: 16px;
-    background: white;
-    transition: all 0.2s;
+    font-weight: 500;
+    background: #ffffff;
+    color: #1a202c;
+    transition: all 0.3s ease;
     box-sizing: border-box;
   }
 
+  .form-input::placeholder {
+    color: #a0aec0;
+    font-weight: 400;
+  }
+
   .form-input:hover {
-    border-color: #9ca3af;
+    border-color: #cbd5e0;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   }
 
   .form-input:focus {
     outline: none;
-    border: 2px solid #3b82f6;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+    background: #ffffff;
+  }
+
+  .form-input:focus ~ .input-icon,
+  .form-input:hover ~ .input-icon {
+    color: #3b82f6;
   }
 
   .form-input.error {
-    border-color: #fca5a5;
-    background: #fef2f2;
+    border-color: #e53e3e;
+    background: #fed7d7;
+  }
+
+  .form-input.error:focus {
+    border-color: #e53e3e;
+    box-shadow: 0 0 0 4px rgba(229, 62, 62, 0.15);
+  }
+
+  .form-input.error ~ .input-icon {
+    color: #e53e3e !important;
+  }
+
+  /* Force input text to be visible */
+  input[type="email"],
+  input[type="password"],
+  input[type="text"] {
+    color: #000000 !important;
+    background-color: #ffffff !important;
   }
 
   .form-input:disabled {
-    background: #f3f4f6;
+    background: #f7fafc;
+    border-color: #e2e8f0;
     cursor: not-allowed;
+    opacity: 0.6;
   }
 
   .password-toggle {
     position: absolute;
-    right: 12px;
+    right: 18px;
     top: 50%;
     transform: translateY(-50%);
     background: none;
     border: none;
     cursor: pointer;
-    color: #9ca3af;
-    padding: 4px;
+    color: #a0aec0;
+    padding: 8px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    z-index: 2;
   }
 
   .password-toggle:hover {
-    color: #6b7280;
+    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.1);
   }
 
   .error-message {
-    margin-top: 4px;
+    margin-top: 8px;
     font-size: 14px;
-    color: #dc2626;
+    color: #e53e3e;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
+    font-weight: 500;
   }
 
   .form-options {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 24px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+    gap: 15px;
   }
 
   .checkbox-container {
@@ -273,29 +299,37 @@ const styles = `
   }
 
   .checkbox {
-    width: 16px;
-    height: 16px;
-    margin-right: 8px;
+    width: 18px;
+    height: 18px;
+    margin-right: 10px;
     accent-color: #3b82f6;
+    cursor: pointer;
   }
 
   .checkbox-label {
     font-size: 14px;
-    color: #374151;
+    color: #2d3748;
+    font-weight: 500;
+    cursor: pointer;
+    user-select: none;
   }
 
   .forgot-link {
     font-size: 14px;
     color: #3b82f6;
     text-decoration: none;
-    font-weight: 500;
+    font-weight: 600;
     background: none;
     border: none;
     cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
   }
 
   .forgot-link:hover {
     color: #2563eb;
+    background: rgba(59, 130, 246, 0.1);
   }
 
   .login-button {
@@ -303,39 +337,60 @@ const styles = `
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 12px 16px;
+    padding: 18px 24px;
     border: none;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
     color: white;
-    font-weight: 500;
+    font-weight: 600;
     font-size: 16px;
     cursor: pointer;
-    transition: all 0.2s;
-    background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+    transition: all 0.3s ease;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .login-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.6s ease;
   }
 
   .login-button:hover:not(:disabled) {
-    background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
-    transform: translateY(-1px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(59, 130, 246, 0.5);
+  }
+
+  .login-button:hover:not(:disabled)::before {
+    left: 100%;
+  }
+
+  .login-button:active:not(:disabled) {
+    transform: translateY(0px);
   }
 
   .login-button:disabled {
-    background: #9ca3af;
+    background: #a0aec0;
     cursor: not-allowed;
     transform: none;
-    box-shadow: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   .loading-spinner {
-    width: 20px;
-    height: 20px;
-    border: 2px solid transparent;
+    width: 22px;
+    height: 22px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
     border-top: 2px solid white;
     border-radius: 50%;
     animation: spin 1s linear infinite;
-    margin-right: 8px;
+    margin-right: 10px;
   }
 
   @keyframes spin {
@@ -344,62 +399,88 @@ const styles = `
   }
 
   .form-footer {
-    margin-top: 24px;
-    padding-top: 24px;
-    border-top: 1px solid #e5e7eb;
+    margin-top: 30px;
+    padding-top: 25px;
+    border-top: 1px solid #e2e8f0;
     text-align: center;
   }
 
   .footer-text {
     font-size: 14px;
-    color: #6b7280;
+    color: #718096;
+    font-weight: 500;
   }
 
   .bottom-info {
     text-align: center;
-    margin-top: 24px;
+    margin-top: 25px;
   }
 
   .help-text {
-    color: #bfdbfe;
+    color: #4a5568;
     font-size: 14px;
+    font-weight: 500;
   }
 
   .success-dashboard {
-    margin-top: 24px;
-    padding: 20px;
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    border-radius: 8px;
+    margin-top: 25px;
+    padding: 30px;
+    background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%);
+    border: 2px solid #9ae6b4;
+    border-radius: 16px;
     text-align: center;
   }
 
   .success-title {
-    color: #166534;
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 8px;
+    color: #22543d;
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 15px;
   }
 
   .success-text {
-    color: #15803d;
-    font-size: 14px;
+    color: #276749;
+    font-size: 16px;
   }
 
   @media (max-width: 640px) {
     .login-container {
-      padding: 16px;
+      padding: 15px;
     }
     
     .form-card {
-      padding: 24px;
+      padding: 30px 25px;
     }
     
     .brand-title {
+      font-size: 26px;
+    }
+    
+    .form-title {
       font-size: 24px;
+    }
+    
+    .form-input {
+      padding: 16px 16px 16px 48px;
+      font-size: 16px;
+    }
+    
+    .input-icon {
+      left: 16px;
+    }
+    
+    .password-toggle {
+      right: 16px;
+    }
+    
+    .form-options {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
     }
   }
 `;
+
 
 const AdminLogin = () => {
   const [formData, setFormData] = useState({
@@ -507,16 +588,13 @@ const AdminLogin = () => {
         message: 'Login successful! Redirecting to dashboard...'
       });
 
-      // Store the token (you might want to use cookies or more secure storage)
+     
       localStorage.setItem('authToken', data.token);
 
       // Set login success state
       setLoginSuccess(true);
 
-      // Redirect to admin dashboard
-      // In a real app, you would use your router (e.g., react-router)
-      
-
+     
     } catch (err) {
       console.error('Login error:', err);
       setNotification({
@@ -559,7 +637,7 @@ const AdminLogin = () => {
               <div className="logo-container">
                 <Home size={32} style={{ color: '#3b82f6' }} />
               </div>
-              <h1 className="brand-title">NexNest Admin</h1>
+              <h1 className="brand-title">PlacesForLeaners Admin</h1>
               <p className="brand-subtitle">Login Successful!</p>
             </div>
             
@@ -603,7 +681,7 @@ const AdminLogin = () => {
             <div className="logo-container">
               <Home size={32} style={{ color: '#3b82f6' }} />
             </div>
-            <h1 className="brand-title ">NexNest Admin</h1>
+            <h1 className="brand-title ">PlacesForLeaners Admin</h1>
             <p className="brand-subtitle">Secure Administrator Access</p>
           </div>
 
@@ -746,7 +824,7 @@ const AdminLogin = () => {
             {/* Footer */}
             <div className="form-footer">
               <p className="footer-text">
-                Protected by NexNest Security
+                Protected by PlacesForLeaners Security
               </p>
             </div>
           </div>

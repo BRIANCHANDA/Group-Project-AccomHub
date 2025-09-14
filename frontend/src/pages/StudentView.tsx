@@ -64,6 +64,18 @@ interface FormattedProperty {
   createdAt?: string;
 }
 
+interface UserProfile {
+  id: number;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phoneNumber?: string;
+  university?: string;
+  yearOfStudy?: string;
+  profileImage?: string;
+  createdAt?: string;
+}
+
 const universityOptions = [
   { value: 'all', label: 'All Universities' },
   { value: 'University of Zambia (UNZA)', label: 'University of Zambia' },
@@ -90,11 +102,10 @@ const StudentDashboard: React.FC = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const [userName, setUserName] = useState('Student'); // State for user's name
-  //const [universityFilter, setUniversityFilter] = useState('all');
+  const [userName, setUserName] = useState('Student');
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   const [universityFilter, setUniversityFilter] = useState(() => {
-    // Get from session storage if available, otherwise default to 'all'
     return sessionStorage.getItem('selectedUniversity') || 'all';
   });
   const [showRateModal, setShowRateModal] = useState(false);
@@ -102,22 +113,51 @@ const StudentDashboard: React.FC = () => {
   const [studentId, setStudentId] = useState<number | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // Add this useEffect to check login status
+  // Check login status and fetch user profile
   useEffect(() => {
     const user = localStorage.getItem('user');
     if (user) {
       const parsedUser = JSON.parse(user);
       setIsLoggedIn(true);
       setStudentId(parsedUser.id || null);
+      setUserName(parsedUser.firstName || 'Student');
+      
+      // Fetch full user profile
+      if (parsedUser.id) {
+        fetchUserProfile(parsedUser.id);
+      }
     }
   }, []);
+
+  const fetchUserProfile = async (userId: number) => {
+    try {
+      const response = await fetch(`/api/users/users/${userId}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const profileData = await response.json();
+        setUserProfile(profileData);
+        // Update display name with full profile info
+        if (profileData.firstName) {
+          setUserName(profileData.firstName);
+        }
+      } else {
+        console.error('Failed to fetch user profile');
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
 
   useEffect(() => {
     if (location.state?.showRateModal && location.state?.propertyId) {
       const propertyToRate = propertiesData.find(p => p.id === location.state.propertyId);
       if (propertyToRate) {
         setRatingModal({ isOpen: true, property: propertyToRate });
-        // Clear the state to prevent reopening on refresh
         navigate(location.pathname, { replace: true, state: {} });
       }
     }
@@ -126,10 +166,9 @@ const StudentDashboard: React.FC = () => {
   const handleUniversityChange = (university: string) => {
     setUniversityFilter(university);
     sessionStorage.setItem('selectedUniversity', university);
-    setCurrentPage(1); // Reset to first page when filter changes
+    setCurrentPage(1);
   };
 
-  // Detect if the device is mobile
   const isMobile = window.innerWidth <= 768;
 
   useEffect(() => {
@@ -139,23 +178,14 @@ const StudentDashboard: React.FC = () => {
     }
   }, [location.state]);
 
-
-
   useEffect(() => {
     if (location.state?.showRateModal) {
       setShowRateModal(true);
-      // Clear the state to prevent reopening on refresh
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [location.state]);
 
-
-
-
-
-  // Replace the existing Bootstrap initialization code in the useEffect with this improved version
   useEffect(() => {
-    // Load Bootstrap if not already loaded
     const initBootstrap = async () => {
       if (!window.bootstrap) {
         await import('bootstrap/dist/js/bootstrap.bundle.min.js');
@@ -164,7 +194,6 @@ const StudentDashboard: React.FC = () => {
 
     const initDropdowns = () => {
       document.querySelectorAll('[data-bs-toggle="dropdown"]').forEach(dropdownElement => {
-        // Only initialize if not already initialized
         if (!(dropdownElement as any)._dropdown) {
           const dropdown = new window.bootstrap.Dropdown(dropdownElement);
           (dropdownElement as any)._dropdown = dropdown;
@@ -174,7 +203,6 @@ const StudentDashboard: React.FC = () => {
 
     initBootstrap().then(initDropdowns);
 
-    // Cleanup function
     return () => {
       document.querySelectorAll('[data-bs-toggle="dropdown"]').forEach(dropdownElement => {
         if ((dropdownElement as any)._dropdown) {
@@ -183,8 +211,8 @@ const StudentDashboard: React.FC = () => {
         }
       });
     };
-  }, []); // Empty dependency array to run only once on mount
-  // Add this helper function to handle dropdown menu item clicks properly
+  }, []);
+
   const handleDropdownItemClick = (
     e: React.MouseEvent<HTMLAnchorElement>,
     action: () => void,
@@ -194,7 +222,6 @@ const StudentDashboard: React.FC = () => {
     action();
 
     if (closeDropdown) {
-      // Close the dropdown after selection
       const parentDropdownToggle = (e.target as HTMLElement)
         .closest('.dropdown')
         ?.querySelector('[data-bs-toggle="dropdown"]') as HTMLElement;
@@ -334,17 +361,12 @@ const StudentDashboard: React.FC = () => {
     };
   }, []);
 
-
-
-
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      // Clear local storage
       localStorage.removeItem('user');
       localStorage.removeItem('token');
 
-      // Make API call to logout endpoint
       const response = await fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'include', 
@@ -354,26 +376,22 @@ const StudentDashboard: React.FC = () => {
         throw new Error('Logout failed');
       }
 
-      // Clear any remaining state
       setIsLoggedIn(false);
       setStudentId(null);
-
-      // Redirect to login page
+      setUserProfile(null);
       navigate('/studentdashboard', { replace: true });
     } catch (error) {
       console.error('Error during logout:', error);
-      // Still clear local storage and redirect even if API call fails
       localStorage.removeItem('user');
       localStorage.removeItem('token');
       setIsLoggedIn(false);
       setStudentId(null);
+      setUserProfile(null);
       navigate('/login', { replace: true });
+    } finally {
+      setIsLoggingOut(false);
     }
-     finally {
-    setIsLoggingOut(false);
-  }
   };
-
 
   useEffect(() => {
     const handleScroll = () => {
@@ -383,20 +401,16 @@ const StudentDashboard: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Replace this section in your filteredListings useMemo:
-
   const filteredListings = useMemo(() => {
     let filtered = propertiesData.filter(listing => {
       if (!listing) return false;
 
       if (typeFilter !== 'all' && listing.type !== typeFilter) return false;
 
-      // FIXED: University filter with better string matching
       if (universityFilter !== 'all') {
         const propertyUniversity = (listing.targetUniversity || '').trim().toLowerCase();
         const selectedUniversity = universityFilter.trim().toLowerCase();
 
-        // Debug logging to see what we're comparing
         console.log('Comparing:', {
           propertyUniversity,
           selectedUniversity,
@@ -417,14 +431,12 @@ const StudentDashboard: React.FC = () => {
         const searchLower = searchTerm.toLowerCase();
         const inTitle = listing.title?.toLowerCase().includes(searchLower);
         const inLocation = listing.location?.toLowerCase().includes(searchLower);
-        // ADDED: Also search in university field
         const inUniversity = listing.targetUniversity?.toLowerCase().includes(searchLower);
         if (!inTitle && !inLocation && !inUniversity) return false;
       }
       return true;
     });
 
-    // Rest of your sorting logic remains the same...
     if (sortOption === 'default') return filtered;
 
     return [...filtered].sort((a, b) => {
@@ -449,7 +461,7 @@ const StudentDashboard: React.FC = () => {
       }
       return 0;
     });
-  }, [propertiesData, typeFilter, priceFilter, searchTerm, sortOption, universityFilter]); // Make sure universityFilter is in dependencies
+  }, [propertiesData, typeFilter, priceFilter, searchTerm, sortOption, universityFilter]);
 
   useEffect(() => {
     const calculatedTotalPages = Math.ceil(filteredListings.length / itemsPerPage) || 1;
@@ -473,25 +485,36 @@ const StudentDashboard: React.FC = () => {
   };
 
   const handleNavigation = (path: string) => {
-    const paths: { [key: string]: string } = {
-      signin: '/login',
-      register: '/register',
-      about: '/about',
-      viewall: '/studentdashboard',
-      profile: '/profile',
-      saved: '/saved-properties',
-      settings: '/settings',
-      logout: '/logout',
-    };
-    if (path === 'logout') {
-      handleLogout();
-    } else if (paths[path]) {
-      navigate(paths[path]);
-    } else {
-      navigate(`/${path}`);
-    }
-    setMenuOpen(false);
+  const paths: { [key: string]: string } = {
+    signin: '/login',
+    register: '/register',
+    about: '/about',
+    viewall: '/studentdashboard',
+    profile: '/profile',
+    settings: '/settings',
+    logout: '/logout',
+    home: '/',
   };
+
+  // For sections that exist on home page, navigate there with hash
+  const homeSections = ['services', 'community', 'contact'];
+  
+  if (homeSections.includes(path)) {
+    navigate(`/#${path}`);
+    return;
+  }
+  
+  if (path === 'logout') {
+    handleLogout();
+  } else if (path === 'profile' && userProfile) {
+    navigate('/profile', { state: { userProfile, studentId } });
+  } else if (paths[path]) {
+    navigate(paths[path]);
+  } else {
+    navigate(`/${path}`);
+  }
+  setMenuOpen(false);
+};
 
   const handleRateProperty = (listing: FormattedProperty) => {
     if (!isLoggedIn) {
@@ -508,64 +531,62 @@ const StudentDashboard: React.FC = () => {
   };
 
   const submitRating = async (rating: number, comment: string) => {
-  if (!ratingModal.property) {
-    console.error('Missing property information');
-    return;
-  }
+    if (!ratingModal.property) {
+      console.error('Missing property information');
+      return;
+    }
 
-  if (!studentId) {
-    console.error('Student ID is required to submit rating');
-    navigate('/login', {
-      state: {
-        redirectTo: 'rate',
-        propertyId: ratingModal.property.id,
-        from: location.pathname
-      }
-    });
-    return;
-  }
-
-  try {
-    const response = await fetch('/api/reviews/reviews', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        propertyId: ratingModal.property.id,
-        reviewerId: studentId,
-        rating: rating,
-        comment: comment,
-      }),
-    });
-
-    if (response.ok) {
-      console.log('Rating submitted successfully');
-      setRatingSuccess({
-        show: true, 
-        message: `Thank you! Your ${rating}-star rating for "${ratingModal.property.title}" has been submitted successfully.`
+    if (!studentId) {
+      console.error('Student ID is required to submit rating');
+      navigate('/login', {
+        state: {
+          redirectTo: 'rate',
+          propertyId: ratingModal.property.id,
+          from: location.pathname
+        }
       });
-      // Auto-hide success message after 5 seconds
-      setTimeout(() => {
-        setRatingSuccess({show: false, message: ''});
-      }, 5000);
-    } else {
-      console.error('Failed to submit rating');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/reviews/reviews', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          propertyId: ratingModal.property.id,
+          reviewerId: studentId,
+          rating: rating,
+          comment: comment,
+        }),
+      });
+
+      if (response.ok) {
+        console.log('Rating submitted successfully');
+        setRatingSuccess({
+          show: true, 
+          message: `Thank you! Your ${rating}-star rating for "${ratingModal.property.title}" has been submitted successfully.`
+        });
+        setTimeout(() => {
+          setRatingSuccess({show: false, message: ''});
+        }, 5000);
+      } else {
+        console.error('Failed to submit rating');
+        setRatingSuccess({
+          show: true, 
+          message: 'Failed to submit your rating. Please try again.'
+        });
+      }
+    } catch (error) {
+      console.error('Error submitting rating:', error);
       setRatingSuccess({
         show: true, 
-        message: 'Failed to submit your rating. Please try again.'
+        message: 'An error occurred while submitting your rating. Please try again.'
       });
     }
-  } catch (error) {
-    console.error('Error submitting rating:', error);
-    setRatingSuccess({
-      show: true, 
-      message: 'An error occurred while submitting your rating. Please try again.'
-    });
-  }
-};
+  };
 
-  //for rating
   const [ratingModal, setRatingModal] = useState<{
     isOpen: boolean;
     property: FormattedProperty | null;
@@ -587,7 +608,6 @@ const StudentDashboard: React.FC = () => {
     const [comment, setComment] = useState('');
     const [hoveredRating, setHoveredRating] = useState(0);
 
-    // Focus on rating when modal opens (especially after redirect)
     useEffect(() => {
       if (isOpen && location.state?.showRateModal) {
         document.getElementById('rating-input')?.focus();
@@ -664,10 +684,6 @@ const StudentDashboard: React.FC = () => {
                     Submit Rating
                   </button>
                 </div>
-
-
-
-
               </div>
             </form>
           </div>
@@ -675,8 +691,6 @@ const StudentDashboard: React.FC = () => {
       </div>
     );
   };
-
-
 
   const StarRating = ({ rating }: { rating: number }) => {
     const fullStars = Math.floor(rating);
@@ -739,144 +753,227 @@ const StudentDashboard: React.FC = () => {
       </nav>
     );
   };
-const renderGridCard = (listing: FormattedProperty) => (
-  <div className="property-card h-100">
-    <div className="property-image-container">
-      <img
-        src={listing.image}
-        className="card-img-top"
-        alt={listing.title}
-        style={isMobile ? { height: '140px', objectFit: 'cover' } : { height: '160px', objectFit: 'cover' }}
-      />
-      {listing.featured && <span className="property-tag">Featured</span>}
-    </div>
-    <div className="card-body d-flex flex-column p-3">
-      <div className="d-flex justify-content-between mb-2">
-        <h5 className="property-title mb-0" style={isMobile ? { fontSize: '1rem', lineHeight: '1.2' } : {}}>
-          {isMobile ? listing.title.substring(0, 30) + '...' : listing.title}
-        </h5>
-        {!isMobile && (
-          <button className="btn btn-sm btn-link p-0 border-0">
-            <i className="bi bi-bookmark"></i>
-          </button>
+
+   // Fixed Grid View Card Rendering
+  const renderGridCard = (listing: FormattedProperty) => (
+    <div className="property-card h-100">
+      <div className="property-image-container position-relative">
+        <img
+          src={listing.image}
+          className="card-img-top"
+          alt={listing.title}
+          style={{ height: isMobile ? '180px' : '200px', objectFit: 'cover' }}
+        />
+        {listing.featured && <span className="property-tag position-absolute top-0 start-0">Featured</span>}
+        {!listing.available && (
+          <div className="position-absolute top-0 end-0 bg-danger text-white px-2 py-1 small">
+            Unavailable
+          </div>
         )}
       </div>
-      <p className="property-location mb-2">
-        <i className="bi bi-geo-alt-fill me-1"></i>
-        {isMobile ? listing.location.substring(0, 25) + '...' : listing.location}
-      </p>
-      <p className="property-university mb-2 small text-muted">
-        <i className="bi bi-building me-1"></i>
-        {listing.targetUniversity}
-      </p>
-      {!isMobile && (
-        <div className="mb-2"><StarRating rating={listing.rating} /></div>
-      )}
-      <p className="property-price mb-3">{listing.price}</p>
-      {!isMobile && (
-        <div className="d-flex flex-wrap gap-1 mb-3">
-          {listing.amenities.slice(0, 3).map((amenity, index) => (
-            <span key={index} className="feature-badge">{amenity}</span>
-          ))}
-          {listing.amenities.length > 3 && <span className="feature-badge">+{listing.amenities.length - 3}</span>}
+      <div className="card-body d-flex flex-column p-3">
+        <div className="d-flex justify-content-between align-items-start mb-2">
+          <h5 className="property-title mb-0 flex-grow-1" 
+              style={{ fontSize: isMobile ? '0.95rem' : '1.1rem', lineHeight: '1.3' }}>
+            {listing.title}
+          </h5>
         </div>
-      )}
-      <div className={`d-flex ${isMobile ? 'flex-column align-items-center gap-2' : 'flex-row gap-2'} mt-auto`}>
-        <button
-          className={`btn btn-outline-primary ${isMobile ? 'btn-sm w-100' : 'btn-sm flex-grow-1'}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleViewDetails(listing);
-          }}
-        >
-          {isMobile ? 'Details' : 'View Details'}
-        </button>
-        <button
-          className={`rate-property-btn ${isMobile ? 'btn-sm w-100' : 'small'}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleRateProperty(listing);
-          }}
-          title="Rate Property"
-        >
-          <i className="bi bi-star"></i>
-          Rate
-        </button>
+        
+        <p className="property-location mb-2 text-muted small">
+          <i className="bi bi-geo-alt-fill me-1"></i>
+          {isMobile && listing.location.length > 30 
+            ? listing.location.substring(0, 30) + '...' 
+            : listing.location}
+        </p>
+        
+        <p className="property-university mb-2 small text-muted">
+          <i className="bi bi-building me-1"></i>
+          {listing.targetUniversity}
+        </p>
+        
+        {!isMobile && (
+          <div className="mb-2">
+            <StarRating rating={listing.rating} />
+          </div>
+        )}
+        
+        <p className="property-price mb-3 fw-bold text-primary" 
+           style={{ fontSize: isMobile ? '1rem' : '1.1rem' }}>
+          {listing.price}
+        </p>
+        
+        {/* Property Details */}
+        {!isMobile && (listing.bedrooms || listing.bathrooms || listing.size) && (
+          <div className="d-flex gap-3 mb-3 small text-muted">
+            {listing.bedrooms && (
+              <span><i className="bi bi-bed me-1"></i>{listing.bedrooms} bed{listing.bedrooms > 1 ? 's' : ''}</span>
+            )}
+            {listing.bathrooms && (
+              <span><i className="bi bi-droplet me-1"></i>{listing.bathrooms} bath</span>
+            )}
+            {listing.size && (
+              <span><i className="bi bi-arrows-move me-1"></i>{listing.size}m²</span>
+            )}
+          </div>
+        )}
+        
+        {/* Amenities */}
+        {!isMobile && listing.amenities.length > 0 && (
+          <div className="d-flex flex-wrap gap-1 mb-3">
+            {listing.amenities.slice(0, 3).map((amenity, index) => (
+              <span key={index} className="badge bg-light text-dark border small">{amenity}</span>
+            ))}
+            {listing.amenities.length > 3 && (
+              <span className="badge bg-primary small">+{listing.amenities.length - 3} more</span>
+            )}
+          </div>
+        )}
+        
+        <div className="d-flex gap-2 mt-auto">
+          <button
+            className={`btn btn-outline-primary ${isMobile ? 'btn-sm flex-grow-1' : 'flex-grow-1'}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleViewDetails(listing);
+            }}
+          >
+            {isMobile ? 'View' : 'View Details'}
+          </button>
+          <button
+            className={`btn btn-outline-warning ${isMobile ? 'btn-sm' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleRateProperty(listing);
+            }}
+            title="Rate Property"
+            style={{ minWidth: isMobile ? 'auto' : '70px' }}
+          >
+            <i className="bi bi-star"></i>
+            {!isMobile && ' Rate'}
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+
+  // Fixed List View Card Rendering
   const renderListCard = (listing: FormattedProperty) => (
-  <div className="property-card mb-3">
-    
-    <div className="row g-0">
-      {!isMobile && (
-        <div className="col-md-4 col-lg-3">
-          <div className="property-image-container">
-            <img src={listing.image} className="card-img-top" alt={listing.title} />
-            {listing.featured && <span className="property-tag">Featured</span>}
-             style={isMobile ? { height: '140px', objectFit: 'cover' } : { height: '160px', objectFit: 'cover' }}
-          </div>
-        </div>
-      )}
-      <div className={isMobile ? "col-12" : "col-md-8 col-lg-9"}>
-        <div className="card-body d-flex flex-column p-3">
-          <div className="d-flex justify-content-between mb-2">
-            <div>
-              <h5 className="property-title mb-1" style={isMobile ? { fontSize: '1rem' } : {}}>
-                {isMobile ? listing.title.substring(0, 40) + '...' : listing.title}
-              </h5>
-              <p className="property-location mb-1">
-                <i className="bi bi-geo-alt-fill me-1"></i>
-                {isMobile ? listing.location.substring(0, 30) + '...' : listing.location}
-              </p>
-              <p className="property-university mb-1 small text-muted">
-                <i className="bi bi-building me-1"></i>
-                {listing.targetUniversity}
-              </p>
-              {!isMobile && (
-                <div className="mb-2"><StarRating rating={listing.rating} /></div>
+    <div className="card property-card mb-3 border-0 shadow-sm">
+      <div className="row g-0">
+        {!isMobile && (
+          <div className="col-md-4">
+            <div className="property-image-container position-relative h-100">
+              <img 
+                src={listing.image} 
+                className="img-fluid w-100 h-100" 
+                alt={listing.title}
+                style={{ objectFit: 'cover', minHeight: '200px' }}
+              />
+              {listing.featured && <span className="property-tag position-absolute top-0 start-0">Featured</span>}
+              {!listing.available && (
+                <div className="position-absolute top-0 end-0 bg-danger text-white px-2 py-1 small">
+                  Unavailable
+                </div>
               )}
             </div>
-            <p className={`property-price ${isMobile ? 'fs-6' : 'fs-5'}`}>{listing.price}</p>
           </div>
-          {!isMobile && (
-            <>
-              <p className="card-text small mb-2 d-none d-lg-block">{listing.description.substring(0, 100)}...</p>
-              <div className="d-flex flex-wrap gap-1 mb-3">
-                {listing.amenities.map((amenity, index) => (
-                  <span key={index} className="feature-badge">{amenity}</span>
-                ))}
+        )}
+        <div className={`${isMobile ? 'col-12' : 'col-md-8'}`}>
+          <div className="card-body p-4">
+            <div className="row">
+              <div className="col-md-8">
+                <div className="d-flex justify-content-between align-items-start mb-2">
+                  <h5 className="property-title mb-1" style={{ fontSize: isMobile ? '1.1rem' : '1.25rem' }}>
+                    {listing.title}
+                  </h5>
+                </div>
+                
+                <p className="property-location mb-2 text-muted">
+                  <i className="bi bi-geo-alt-fill me-2"></i>
+                  {listing.location}
+                </p>
+                
+                <p className="property-university mb-2 text-muted small">
+                  <i className="bi bi-building me-2"></i>
+                  {listing.targetUniversity}
+                </p>
+                
+                {!isMobile && (
+                  <div className="mb-3">
+                    <StarRating rating={listing.rating} />
+                  </div>
+                )}
+                
+                {/* Property Details */}
+                {(listing.bedrooms || listing.bathrooms || listing.size) && (
+                  <div className="d-flex flex-wrap gap-3 mb-3 text-muted small">
+                    {listing.bedrooms && (
+                      <span><i className="bi bi-bed me-1"></i>{listing.bedrooms} bedroom{listing.bedrooms > 1 ? 's' : ''}</span>
+                    )}
+                    {listing.bathrooms && (
+                      <span><i className="bi bi-droplet me-1"></i>{listing.bathrooms} bathroom{listing.bathrooms > 1 ? 's' : ''}</span>
+                    )}
+                    {listing.size && (
+                      <span><i className="bi bi-arrows-move me-1"></i>{listing.size} m²</span>
+                    )}
+                  </div>
+                )}
+                
+                {!isMobile && listing.description && (
+                  <p className="card-text text-muted mb-3">
+                    {listing.description.length > 120 
+                      ? listing.description.substring(0, 120) + '...' 
+                      : listing.description}
+                  </p>
+                )}
+                
+                {!isMobile && listing.amenities.length > 0 && (
+                  <div className="d-flex flex-wrap gap-1 mb-3">
+                    {listing.amenities.slice(0, 4).map((amenity, index) => (
+                      <span key={index} className="badge bg-light text-dark border small">{amenity}</span>
+                    ))}
+                    {listing.amenities.length > 4 && (
+                      <span className="badge bg-primary small">+{listing.amenities.length - 4} more</span>
+                    )}
+                  </div>
+                )}
               </div>
-            </>
-          )}
-          <div className={`d-flex ${isMobile ? 'flex-column align-items-center gap-2' : 'flex-row gap-2'} mt-auto`}>
-            <button
-              className={`btn btn-outline-primary ${isMobile ? 'btn-sm w-100' : 'btn-sm'}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleViewDetails(listing);
-              }}
-            >
-              {isMobile ? 'Details' : 'View Details'}
-            </button>
-            <button
-              className={`rate-property-btn ${isMobile ? 'btn-sm w-100' : 'small'}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleRateProperty(listing);
-              }}
-              title="Rate this Property"
-            >
-              <i className="bi bi-star"></i>
-              Rate
-            </button>
+              
+              <div className="col-md-4 text-md-end">
+                <p className="property-price mb-3 fw-bold text-primary fs-4">
+                  {listing.price}
+                </p>
+                
+                <div className="d-flex flex-column gap-2">
+                  <button
+                    className="btn btn-outline-primary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleViewDetails(listing);
+                    }}
+                  >
+                    <i className="bi bi-eye me-1"></i>
+                    View Details
+                  </button>
+                  <button
+                    className="btn btn-outline-warning"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRateProperty(listing);
+                    }}
+                  >
+                    <i className="bi bi-star me-1"></i>
+                    Rate Property
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
+
   if (isLoading) {
     return (
       <div className="d-flex justify-content-center align-items-center min-vh-100">
@@ -889,9 +986,6 @@ const renderGridCard = (listing: FormattedProperty) => (
 
   return (
     <div className="app-container">
-      
-      
-
       <nav className={`navbar navbar-expand-lg navbar-light ${isScrolled ? 'scrolled' : ''}`}>
         <div className="container">
           <a
@@ -903,7 +997,7 @@ const renderGridCard = (listing: FormattedProperty) => (
             }}
           >
             <span className="logo-icon me-2">🏠</span>
-            <span className="logo-text">CribConnect</span>
+            <span className="logo-text">PlacesForLearners</span>
           </a>
           <button
             className="navbar-toggler"
@@ -933,64 +1027,77 @@ const renderGridCard = (listing: FormattedProperty) => (
                   </a>
                 </li>
               ))}
-              <li className="nav-item dropdown ms-lg-2">
-                <button
-                  className="btn btn-outline-primary dropdown-toggle"
-                  type="button"
-                  data-bs-toggle="dropdown"
-                  aria-expanded="false"
-                  id="userDropdown"
-                >
-                  <i className="bi bi-person me-1"></i>{userName} {/* Use dynamic name */}
-                </button>
-                <ul className="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
-                  <li>
-                    <a className="dropdown-item" href="#" onClick={() => handleNavigation('profile')}>
-                      <i className="bi bi-person me-2"></i>Profile
-                    </a>
-                  </li>
-                  <li>
-                    <a className="dropdown-item" href="#" onClick={() => handleNavigation('saved')}>
-                      <i className="bi bi-bookmark me-2"></i>Saved Properties
-                    </a>
-                  </li>
-                  <li>
-                    <a className="dropdown-item" href="#" onClick={() => handleNavigation('settings')}>
-                      <i className="bi bi-gear me-2"></i>Settings
-                    </a>
-                  </li>
-                  <li>
-                    <hr className="dropdown-divider" />
-                  </li>
-
-                  <li>
-                    <a
-                      className="dropdown-item"
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleLogout();
-                      }}
+              
+              {isLoggedIn ? (
+                <li className="nav-item dropdown ms-lg-2">
+                  <button
+                    className="btn btn-outline-primary dropdown-toggle"
+                    type="button"
+                    data-bs-toggle="dropdown"
+                    aria-expanded="false"
+                    id="userDropdown"
+                  >
+                    <i className="bi bi-person me-1"></i>
+                    {userProfile?.firstName || userName}
+                  </button>
+                  <ul className="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                    <li>
+                      <h6 className="dropdown-header">
+                        <div className="d-flex align-items-center">
+                          <i className="bi bi-person-circle me-2"></i>
+                          <div>
+                            <div className="fw-bold">{userProfile?.firstName} {userProfile?.lastName}</div>
+                            <small className="text-muted">{userProfile?.email}</small>
+                          </div>
+                        </div>
+                      </h6>
+                    </li>
+                    <li><hr className="dropdown-divider" /></li>
+                   
+                    
+                    <li><hr className="dropdown-divider" /></li>
+                    <li>
+                      <a
+                        className="dropdown-item"
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleLogout();
+                        }}
+                        disabled={isLoggingOut}
+                      >
+                        <i className="bi bi-box-arrow-right me-2"></i>
+                        {isLoggingOut ? 'Logging out...' : 'Logout'}
+                      </a>
+                    </li>
+                  </ul>
+                </li>
+              ) : (
+                <>
+                  <li className="nav-item ms-lg-2">
+                    <button 
+                      className="btn btn-outline-primary me-2" 
+                      onClick={() => handleNavigation('signin')}
                     >
-                      <i className="bi bi-box-arrow-right me-2"></i>Logout
-                    </a>
+                      Sign In
+                    </button>
                   </li>
-                </ul>
-              </li>
-              <li className="nav-item ms-lg-2 mt-2 mt-lg-0">
-                <button className="btn btn-primary" onClick={() => handleNavigation('register')}>
-                  Register
-                </button>
-              </li>
+                  <li className="nav-item">
+                    <button 
+                      className="btn btn-primary" 
+                      onClick={() => handleNavigation('register')}
+                    >
+                      Register
+                    </button>
+                  </li>
+                </>
+              )}
             </ul>
           </div>
         </div>
       </nav>
 
       <div className="container py-5" style={{ paddingTop: 'calc(var(--navbar-height) + 2rem)' }}>
-
-
-
         <div className="filter-card mb-4">
           <div className="row g-2 align-items-center">
             <div className={isMobile ? "col-12 mb-2" : "col-12 col-md-6 col-lg-3"}>
@@ -1084,7 +1191,6 @@ const renderGridCard = (listing: FormattedProperty) => (
               </div>
             </div>
 
-            {/* University Filter Dropdown - Now properly integrated */}
             <div className={isMobile ? "col-6" : "col-12 col-md-6 col-lg-3"}>
               <div className="dropdown">
                 <button
@@ -1094,7 +1200,6 @@ const renderGridCard = (listing: FormattedProperty) => (
                   data-bs-toggle="dropdown"
                   aria-expanded="false"
                   onClick={(e) => {
-                    // Prevent default to handle programmatically
                     e.preventDefault();
                     const dropdown = new window.bootstrap.Dropdown(e.currentTarget);
                     dropdown.toggle();
@@ -1112,7 +1217,6 @@ const renderGridCard = (listing: FormattedProperty) => (
                         onClick={(e) => {
                           e.preventDefault();
                           handleUniversityChange(option.value);
-                          // Close dropdown after selection
                           const dropdownElement = document.getElementById('universityFilterDropdown');
                           if (dropdownElement && (dropdownElement as any)._dropdown) {
                             (dropdownElement as any)._dropdown.hide();
@@ -1128,7 +1232,6 @@ const renderGridCard = (listing: FormattedProperty) => (
             </div>
           </div>
 
-          {/* Second row for view toggle and items per page on mobile */}
           <div className="row g-2 align-items-center mt-2">
             <div className="col-12 col-md-6 col-lg-3 d-flex align-items-center">
               <div className="btn-group me-2">
@@ -1257,7 +1360,6 @@ const renderGridCard = (listing: FormattedProperty) => (
                 </div>
               </div>
             ) : (
-
               <div className="col-12 col-lg-10 mx-auto">
                 {currentItems.map((listing) => (
                   <div key={listing.id} className="col-12 mb-3">
@@ -1271,11 +1373,12 @@ const renderGridCard = (listing: FormattedProperty) => (
 
         {filteredListings.length > 0 && (
           <div className="row mb-3">
-            <div className="col-12" >
+            <div className="col-12">
               <Pagination />
             </div>
           </div>
         )}
+
         <RatingModal
           property={ratingModal.property}
           isOpen={ratingModal.isOpen}
@@ -1284,36 +1387,35 @@ const renderGridCard = (listing: FormattedProperty) => (
         />
       </div>
 
-      {/* Success Message Toast */}
-{ratingSuccess.show && (
-  <div 
-    className="toast-container position-fixed top-0 end-0 p-3" 
-    style={{zIndex: 9999}}
-  >
-    <div 
-      className={`toast show ${ratingSuccess.message.includes('Failed') || ratingSuccess.message.includes('error') ? 'bg-danger' : 'bg-success'} text-white`}
-      role="alert" 
-      aria-live="assertive" 
-      aria-atomic="true"
-    >
-      <div className="toast-header">
-        <i className={`bi ${ratingSuccess.message.includes('Failed') || ratingSuccess.message.includes('error') ? 'bi-x-circle-fill' : 'bi-check-circle-fill'} me-2`}></i>
-        <strong className="me-auto">
-          {ratingSuccess.message.includes('Failed') || ratingSuccess.message.includes('error') ? 'Error' : 'Success'}
-        </strong>
-        <button 
-          type="button" 
-          className="btn-close btn-close-white" 
-          aria-label="Close"
-          onClick={() => setRatingSuccess({show: false, message: ''})}
-        ></button>
-      </div>
-      <div className="toast-body">
-        {ratingSuccess.message}
-      </div>
-    </div>
-  </div>
-)}
+      {ratingSuccess.show && (
+        <div 
+          className="toast-container position-fixed top-0 end-0 p-3" 
+          style={{zIndex: 9999}}
+        >
+          <div 
+            className={`toast show ${ratingSuccess.message.includes('Failed') || ratingSuccess.message.includes('error') ? 'bg-danger' : 'bg-success'} text-white`}
+            role="alert" 
+            aria-live="assertive" 
+            aria-atomic="true"
+          >
+            <div className="toast-header">
+              <i className={`bi ${ratingSuccess.message.includes('Failed') || ratingSuccess.message.includes('error') ? 'bi-x-circle-fill' : 'bi-check-circle-fill'} me-2`}></i>
+              <strong className="me-auto">
+                {ratingSuccess.message.includes('Failed') || ratingSuccess.message.includes('error') ? 'Error' : 'Success'}
+              </strong>
+              <button 
+                type="button" 
+                className="btn-close btn-close-white" 
+                aria-label="Close"
+                onClick={() => setRatingSuccess({show: false, message: ''})}
+              ></button>
+            </div>
+            <div className="toast-body">
+              {ratingSuccess.message}
+            </div>
+          </div>
+        </div>
+      )}
 
       <footer className="mt-auto">
         <div className="container">
@@ -1321,7 +1423,7 @@ const renderGridCard = (listing: FormattedProperty) => (
             <div className="col-md-4">
               <h5 className="fw-bold mb-3 d-flex align-items-center">
                 <i className="bi bi-building-fill me-2"></i>
-                🏠 CribConnect
+                🏠 PlacesForLearners
               </h5>
               <p className="mb-3">Your trusted partner for finding safe and affordable student housing at Copperbelt University.</p>
               <div className="d-flex gap-3">
@@ -1337,7 +1439,7 @@ const renderGridCard = (listing: FormattedProperty) => (
                 <div className="col-sm-4">
                   <h6 className="fw-bold mb-3">Quick Links</h6>
                   <ul className="list-unstyled mb-0">
-                    {['Home', 'Browse Listings', 'Saved Properties', 'My Account'].map((link) => (
+                    {['Home', 'Browse Listings', 'My Account'].map((link) => (
                       <li className="mb-2" key={link}>
                         <a href="#" className="text-decoration-none text-white-50 hover-white">{link}</a>
                       </li>
@@ -1363,7 +1465,7 @@ const renderGridCard = (listing: FormattedProperty) => (
                     </li>
                     <li className="mb-2 d-flex align-items-center">
                       <i className="bi bi-envelope me-2"></i>
-                      <span className="text-white-50">supportCribConnect.ac.zm</span>
+                      <span className="text-white-50">support@PlacesForLearners.ac.zm</span>
                     </li>
                     <li className="mb-2 d-flex align-items-center">
                       <i className="bi bi-telephone me-2"></i>
@@ -1376,7 +1478,7 @@ const renderGridCard = (listing: FormattedProperty) => (
             <div className="col-12 mt-4">
               <hr className="border-secondary" />
               <div className="d-flex flex-column flex-sm-row justify-content-between align-items-center mt-3">
-                <p className="mb-0 text-white-50">© {new Date().getFullYear()} CribConnect. All rights reserved.</p>
+                <p className="mb-0 text-white-50">© {new Date().getFullYear()} PlacesForLearners. All rights reserved.</p>
                 <div className="mt-3 mt-sm-0">
                   {['Privacy Policy', 'Terms of Service', 'Sitemap'].map((link) => (
                     <a href="#" className="text-decoration-none me-3 text-white-50 hover-white" key={link}>{link}</a>

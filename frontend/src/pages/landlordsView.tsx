@@ -1,40 +1,60 @@
 import React, { useState, useEffect } from "react";
-import { Bell, PlusCircle, Trash, Home, Users, Bed, Bath, Square, Settings, Moon, Sun, MessageSquare, Edit } from "lucide-react";
+import { Bell, PlusCircle, Trash, Home, Bed, Bath, Square, Settings, Moon, Sun, Edit } from "lucide-react";
 import PropertyCreationForm from "./PropertyCraeationForm";
-import NotificationPanel from "./NotificationPannel";
-import { useLocation, useNavigate, Link } from 'react-router-dom';
+
+import { useLocation, useNavigate } from 'react-router-dom';
 import "./landlord.css";
 import PropertyEditForm from "./propertyEditForm";
 
+// Theme colors object
+const THEME = {
+  light: {
+    PRIMARY_COLOR: "rgb(29, 78, 216)",
+    PRIMARY_LIGHT: "rgba(29, 78, 216, 0.15)",
+    PRIMARY_MEDIUM: "rgba(33, 56, 119, 0.5)",
+    BACKGROUND: "#f9fafb",
+    CARD_BACKGROUND: "white",
+    TEXT_PRIMARY: "black",
+    TEXT_SECONDARY: "#4b5563",
+    TEXT_TERTIARY: "#6b7280",
+    BORDER: "#e5e7eb"
+  },
+  dark: {
+    PRIMARY_COLOR: "rgb(59, 130, 246)",
+    PRIMARY_LIGHT: "rgba(59, 130, 246, 0.15)",
+    PRIMARY_MEDIUM: "rgba(59, 130, 246, 0.5)",
+    BACKGROUND: "#111827",
+    CARD_BACKGROUND: "#1f2937",
+    TEXT_PRIMARY: "white",
+    TEXT_SECONDARY: "#d1d5db",
+    TEXT_TERTIARY: "#9ca3af",
+    BORDER: "#374151"
+  }
+};
+
+// User interface matching the Details page
+interface User {
+  id: number;
+  email: string;
+  phoneNumber?: string;
+  token?: string;
+  userType: 'student' | 'landlord' | 'admin';
+  firstName?: string;
+  lastName?: string;
+}
+
+// User profile interface
+interface UserProfile {
+  id: number;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phoneNumber?: string;
+  profileImage?: string;
+  createdAt?: string;
+}
 
 const Dashboard = () => {
-  // Theme colors object (keep for components that need it)
-  const THEME = {
-    light: {
-      PRIMARY_COLOR: "rgb(29, 78, 216)",
-      PRIMARY_LIGHT: "rgba(29, 78, 216, 0.15)",
-      PRIMARY_MEDIUM: "rgba(29, 78, 216, 0.5)",
-      BACKGROUND: "#f9fafb",
-      CARD_BACKGROUND: "white",
-      TEXT_PRIMARY: "black",
-      TEXT_SECONDARY: "#4b5563",
-      TEXT_TERTIARY: "#6b7280",
-      BORDER: "#e5e7eb"
-    },
-    dark: {
-      PRIMARY_COLOR: "rgb(59, 130, 246)",
-      PRIMARY_LIGHT: "rgba(59, 130, 246, 0.15)",
-      PRIMARY_MEDIUM: "rgba(59, 130, 246, 0.5)",
-      BACKGROUND: "#111827",
-      CARD_BACKGROUND: "#1f2937",
-      TEXT_PRIMARY: "white",
-      TEXT_SECONDARY: "#d1d5db",
-      TEXT_TERTIARY: "#9ca3af",
-      BORDER: "#374151"
-    }
-  };
-
-
   const navigate = useNavigate();
   const location = useLocation();
   const [showPropertyEditForm, setShowPropertyEditForm] = useState(false);
@@ -46,7 +66,12 @@ const Dashboard = () => {
 
   // Get landlordId from location state
   const landlordId = location.state?.landlordId;
+  
+  // Enhanced user state management like in Details page
   const [landlordName, setLandlordName] = useState("Landlord");
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isUserLoggedIn, setIsUserLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // Theme state - default to light
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -55,7 +80,7 @@ const Dashboard = () => {
   // Current theme colors
   const currentTheme = isDarkMode ? THEME.dark : THEME.light;
 
-  // Enhanced Property interface to match the API response
+  // Enhanced Property interface
   interface PropertyDetails {
     bedrooms?: number;
     bathrooms?: number;
@@ -72,17 +97,15 @@ const Dashboard = () => {
     location: string;
     price: string;
     status?: string;
-    inquiries?: number;
     imageUrl?: string | null;
     propertyType?: string;
     details?: PropertyDetails;
   }
 
   const [properties, setProperties] = useState<Property[]>([]);
-
   interface Notification {
     id: string;
-    [key: string]: any; // Add other properties as needed
+    [key: string]: any;
   }
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -90,6 +113,48 @@ const Dashboard = () => {
   const [showPropertyForm, setShowPropertyForm] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // User data parsing function from Details page
+  const parseUserData = React.useCallback((userData: string): User | null => {
+    try {
+      const parsedUser = JSON.parse(userData);
+      if (!parsedUser?.id || !parsedUser?.email || !parsedUser?.userType) {
+        console.warn('LandlordDashboard: Missing required user fields');
+        return null;
+      }
+      if (!['student', 'landlord', 'admin'].includes(parsedUser.userType)) {
+        console.warn('LandlordDashboard: Invalid user type');
+        return null;
+      }
+      const id = typeof parsedUser.id === 'string' ? parseInt(parsedUser.id, 10) : parsedUser.id;
+      if (isNaN(id)) {
+        console.warn('LandlordDashboard: Invalid user ID');
+        return null;
+      }
+      return {
+        id,
+        email: parsedUser.email,
+        phoneNumber: parsedUser.phoneNumber,
+        token: parsedUser.token,
+        userType: parsedUser.userType,
+        firstName: parsedUser.firstName,
+        lastName: parsedUser.lastName,
+      };
+    } catch (parseError) {
+      console.error('LandlordDashboard: Failed to parse user data:', parseError);
+      return null;
+    }
+  }, []);
+
+  // Clear user session function from Details page
+  const clearUserSession = React.useCallback(() => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('admin_token');
+    setIsUserLoggedIn(false);
+    setCurrentUser(null);
+    setUserProfile(null);
+    setLandlordName('Landlord');
+  }, []);
 
   // Load theme preference from localStorage on mount
   useEffect(() => {
@@ -114,6 +179,67 @@ const Dashboard = () => {
     localStorage.setItem('landlordDashboardTheme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
 
+  // Enhanced user validation similar to Details page
+  useEffect(() => {
+    const validateUser = async () => {
+      try {
+        const userData = localStorage.getItem('user');
+        if (!userData) {
+          setIsUserLoggedIn(false);
+          setLandlordName('Landlord');
+          return;
+        }
+        
+        const parsedUser = parseUserData(userData);
+        if (!parsedUser || parsedUser.userType !== 'landlord') {
+          clearUserSession();
+          return;
+        }
+        
+        setIsUserLoggedIn(true);
+        setCurrentUser(parsedUser);
+
+        // Fetch user profile using the same logic as Details page
+        try {
+          const response = await fetch(`/api/users/users/${parsedUser.id}`, {
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+            },
+          });
+          
+          if (response.ok) {
+            const profileData = await response.json();
+            setUserProfile(profileData);
+            setLandlordName(profileData.firstName ? 
+              `${profileData.firstName} ${profileData.lastName || ''}`.trim() : 
+              'Landlord'
+            );
+          } else {
+            console.error('Failed to fetch user profile');
+            // Fallback to parsed user data
+            setLandlordName(parsedUser.firstName ? 
+              `${parsedUser.firstName} ${parsedUser.lastName || ''}`.trim() : 
+              'Landlord'
+            );
+          }
+        } catch (error) {
+          console.error('Error fetching user profile:', error);
+          // Fallback to parsed user data
+          setLandlordName(parsedUser.firstName ? 
+            `${parsedUser.firstName} ${parsedUser.lastName || ''}`.trim() : 
+            'Landlord'
+          );
+        }
+      } catch (error) {
+        console.error('LandlordDashboard: Unexpected validation error:', error);
+        clearUserSession();
+      }
+    };
+    
+    validateUser();
+  }, [parseUserData, clearUserSession]);
+
   // Toggle theme function
   const toggleTheme = () => {
     setIsDarkMode(!isDarkMode);
@@ -123,51 +249,47 @@ const Dashboard = () => {
   // Handle settings icon click
   const handleSettingsClick = () => {
     setShowThemeMenu(!showThemeMenu);
-    // Close other panels if open
     if (showNotifications) setShowNotifications(false);
   };
 
-  // Handle navigation to inquiries page
-  const handleInquiriesClick = () => {
-    // Convert landlordId to number before passing
-    const landlordIdNumber = Number(landlordId);
-    
-    // Optional: Add validation to ensure it's a valid number
-    if (isNaN(landlordIdNumber)) {
-      console.error('Invalid landlordId:', landlordId);
-      return;
-    }
-    
-    navigate('/inquiries', { state: { landlordId: landlordIdNumber } });
+  // Navigation function
+  const handleNavigation = (path: string) => {
+    const paths: { [key: string]: string } = {
+      home: '/',
+      dashboard: '/landlord-dashboard',
+      profile: '/landlord-profile',
+      settings: '/landlord-settings',
+      logout: '/logout',
+    };
+    navigate(paths[path] || `/${path}`);
   };
 
   // Fetch data when component mounts
   useEffect(() => {
-    // Check if user is logged in
-    if (!landlordId) {
-      // Redirect to login if no landlordId
+    // Use currentUser.id if available, otherwise fall back to landlordId from location state
+    const effectiveLandlordId = currentUser?.id || landlordId;
+    
+    if (!effectiveLandlordId) {
       navigate('/login', { state: { message: "Please login to access your dashboard" } });
       return;
     }
 
-    // Fetch landlord properties
     fetchProperties();
-
-    // Fetch notifications
     fetchNotifications();
-  }, [landlordId, navigate]);
+  }, [currentUser?.id, landlordId, navigate]);
 
-  // Fetch properties from API using the route defined in paste-2.txt
+  // Fetch properties from API
   const fetchProperties = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/property-images/landlords/${landlordId}/properties`);
+      const effectiveLandlordId = currentUser?.id || landlordId;
+      const response = await fetch(`/api/property-images/landlords/${effectiveLandlordId}/properties`);
       if (!response.ok) {
         throw new Error('Failed to fetch properties');
       }
       const data = await response.json();
 
-      // Map API response to our Property interface
+      // Map API response to Property interface
       const mappedProperties = data.properties.map((prop: any) => ({
         id: prop.id.toString(),
         title: prop.title || '',
@@ -175,21 +297,14 @@ const Dashboard = () => {
         location: prop.location,
         price: prop.price,
         status: prop.status || 'Available',
-        inquiries: prop.inquiries || 0,
         imageUrl: prop.imageUrl,
         propertyType: prop.propertyType,
         details: prop.details
       }));
 
       setProperties(mappedProperties);
-
-      // If landlord info is included in response
-      if (data.landlordName) {
-        setLandlordName(data.landlordName);
-      }
     } catch (error) {
       console.error('Error fetching properties:', error);
-      // You could set an error state here
     } finally {
       setIsLoading(false);
     }
@@ -198,8 +313,8 @@ const Dashboard = () => {
   // Fetch notifications from API
   const fetchNotifications = async () => {
     try {
-      // Replace with your actual API endpoint
-      const response = await fetch(`/api/landlords/${landlordId}/notifications`);
+      const effectiveLandlordId = currentUser?.id || landlordId;
+      const response = await fetch(`/api/landlords/${effectiveLandlordId}/notifications`);
       if (!response.ok) {
         throw new Error('Failed to fetch notifications');
       }
@@ -210,16 +325,14 @@ const Dashboard = () => {
     }
   };
 
-  // Modified delete function - now shows confirmation dialog
+  // Delete functions
   const handleDeleteClick = (property: Property) => {
     setPropertyToDelete(property);
     setShowDeleteConfirmation(true);
   };
 
-  // Actual delete function
   const deleteProperty = async (id: string) => {
     try {
-      // API call to delete property
       const response = await fetch(`/api/properties/properties/${id}`, {
         method: 'DELETE',
         headers: {
@@ -231,21 +344,16 @@ const Dashboard = () => {
         throw new Error('Failed to delete property');
       }
 
-      // Update UI after successful deletion
       setProperties(properties.filter((property) => property.id !== id));
-      
-      // Close confirmation dialog and reset state
       setShowDeleteConfirmation(false);
       setPropertyToDelete(null);
     } catch (error) {
       console.error('Error deleting property:', error);
-      // You could show an error message to the user
       setShowDeleteConfirmation(false);
       setPropertyToDelete(null);
     }
   };
 
-  // Handle confirmation dialog actions
   const handleConfirmDelete = () => {
     if (propertyToDelete) {
       deleteProperty(propertyToDelete.id.toString());
@@ -257,38 +365,8 @@ const Dashboard = () => {
     setPropertyToDelete(null);
   };
 
-  const handleNotificationToggle = () => {
-    setShowNotifications(!showNotifications);
-    // Close property form and theme menu if open
-    if (showPropertyForm) setShowPropertyForm(false);
-    if (showThemeMenu) setShowThemeMenu(false);
-  };
-
-  const handleNotificationAction = async (id: any, action: any) => {
-    try {
-      // API call to handle notification action (e.g., mark as read, delete)
-      const response = await fetch(`/api/notifications/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ action }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to process notification');
-      }
-
-      // Update UI after successful action
-      setNotifications(notifications.filter((notification) => notification.id !== id));
-    } catch (error) {
-      console.error('Error handling notification:', error);
-    }
-  };
-
   const handleAddPropertyClick = () => {
     setShowPropertyForm(true);
-    // Close notifications and theme menu if open
     if (showNotifications) setShowNotifications(false);
     if (showThemeMenu) setShowThemeMenu(false);
   };
@@ -297,45 +375,32 @@ const Dashboard = () => {
     setShowPropertyForm(false);
   };
 
-  // Modified function to handle property form submission
   const handlePropertyFormSubmit = async (propertyId: string, propertyData?: any) => {
     setIsSubmitting(true);
-
     try {
-      // Use the property data directly if it's available from the form
       const tempProperty: Property = {
         id: propertyId || `temp-${Date.now()}`,
         location: propertyData?.address || propertyData?.location || "New Property",
         price: propertyData?.price || `K${propertyData?.monthlyRent}` || "Price not set",
         status: propertyData?.isAvailable ? "Available" : "Not Available",
-        inquiries: 0,
-        // Store the actual image URL if provided
         imageUrl: propertyData?.imageUrl || null,
         details: propertyData?.details || {}
       };
 
-      // Add the property to the UI
       setProperties(prevProperties => {
-        // Check if this property already exists (in case of update)
         const existingIndex = prevProperties.findIndex(p => p.id === propertyId);
-
         if (existingIndex >= 0) {
-          // Replace the existing property
           const updatedProperties = [...prevProperties];
           updatedProperties[existingIndex] = tempProperty;
           return updatedProperties;
         } else {
-          // Add as a new property
           return [...prevProperties, tempProperty];
         }
       });
 
-      // Close the form
       setShowPropertyForm(false);
 
-      // Only make the API call if we didn't get the data directly from the form
       if (!propertyData) {
-        // Your existing API call to create property
         const response = await fetch('/api/properties/properties', {
           method: 'POST',
           headers: {
@@ -343,20 +408,13 @@ const Dashboard = () => {
           },
           body: JSON.stringify(propertyData),
         });
-
-      } else {
-        // Property was already created and we're just updating the UI
-        console.log("Property was created successfully:", propertyId);
       }
 
-      // Refresh properties to get the complete data from the server
       setTimeout(() => {
         fetchProperties();
       }, 1000);
-
     } catch (error) {
       console.error('Error creating property:', error);
-      // Remove the temporary property if there was an error
       setProperties(prevProperties =>
         prevProperties.filter(property => property.id !== propertyId)
       );
@@ -365,16 +423,13 @@ const Dashboard = () => {
     }
   };
 
-  // Improved image upload handler
   const handleImageUpload = async (propertyId: string, imageFile: File) => {
     try {
-      // Create form data for image upload
       const formData = new FormData();
       formData.append('propertyId', propertyId);
       formData.append('image', imageFile);
       formData.append('isPrimary', 'true');
 
-      // Upload the image to your API
       const response = await fetch('/api/property-images/property-images', {
         method: 'POST',
         body: formData,
@@ -387,7 +442,6 @@ const Dashboard = () => {
       const result = await response.json();
       const uploadedImageUrl = result.imageUrl;
 
-      // Update the property with the new image URL
       setProperties(prevProperties =>
         prevProperties.map(property =>
           property.id === propertyId ? { ...property, imageUrl: uploadedImageUrl } : property
@@ -404,7 +458,6 @@ const Dashboard = () => {
   const handleEditProperty = (property) => {
     setEditingProperty(property);
     setShowPropertyEditForm(true);
-    // Close other panels if open
     if (showNotifications) setShowNotifications(false);
     if (showThemeMenu) setShowThemeMenu(false);
     if (showPropertyForm) setShowPropertyForm(false);
@@ -415,7 +468,6 @@ const Dashboard = () => {
     setEditingProperty(null);
   };
 
-  // Handle property update
   const handlePropertyUpdate = async (updatedProperty: { id: string | number; }) => {
     try {
       const response = await fetch(`/api/properties/properties/${updatedProperty.id}`, {
@@ -430,7 +482,6 @@ const Dashboard = () => {
         throw new Error('Failed to update property');
       }
 
-      // Update the property in the local state
       setProperties(prevProperties =>
         prevProperties.map(property =>
           property.id === updatedProperty.id
@@ -439,18 +490,14 @@ const Dashboard = () => {
         )
       );
 
-      // Refresh properties to get the latest data from server
       setTimeout(() => {
         fetchProperties();
       }, 1000);
-
     } catch (error) {
       console.error('Error updating property:', error);
-      // You could show an error message to the user
     }
   };
 
-  // Handle image deletion for edit form
   const handleEditImageDelete = async (propertyId: any, imageId: any) => {
     try {
       const response = await fetch(`/api/property-images/property-images/${imageId}`, {
@@ -471,19 +518,35 @@ const Dashboard = () => {
     }
   };
 
-  // Calculate total inquiries across all properties
-  const totalInquiries = properties.reduce((sum, property) => sum + (property.inquiries || 0), 0);
-
   return (
     <div className="dashboard-container">
-      {/* Header */}
+      {/* Enhanced Header */}
       <header className="dashboard-header">
         <div className="header-container">
           <div className="header-content">
-            <div className="logo-section">
+            {/* Brand Logo Section */}
+            <div className="brand-section">
+              <a
+                href="#"
+                className="brand-link"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleNavigation('home');
+                }}
+              >
+                <span className="brand-icon">🏠</span>
+                <span className="brand-text">PlacesForLeaners</span>
+              </a>
+              <div className="dashboard-separator">|</div>
               <h1 className="dashboard-title">Landlord Dashboard</h1>
             </div>
 
+            {/* Welcome Section */}
+            <div className="welcome-section">
+             
+            </div>
+
+            {/* Search Container */}
             <div className="search-container">
               <div className="search-wrapper">
                 <input
@@ -494,31 +557,41 @@ const Dashboard = () => {
               </div>
             </div>
 
+            {/* User Actions */}
             <div className="user-actions">
-              <span className="user-greeting">Hi, {landlordName}!</span>
+              
+              
 
-              {/* Theme Settings Button */}
+              {/* Settings */}
               <div className="settings-container" onClick={handleSettingsClick}>
                 <button className="settings-button">
                   <Settings size={20} />
                 </button>
               </div>
 
-              <div className="notification-container" onClick={handleNotificationToggle}>
-                <button className="notification-button">
-                  <Bell size={20} />
-                  {notifications.length > 0 && (
-                    <span className="notification-badge">
-                      {notifications.length}
+              {/* User Profile */}
+              <div className="user-profile-section">
+                {userProfile?.profileImage ? (
+                  <img
+                    src={userProfile.profileImage}
+                    alt="User Avatar"
+                    className="user-avatar"
+                    onError={(e) => {
+                      e.currentTarget.src = "/api/placeholder/40/40";
+                    }}
+                  />
+                ) : (
+                  <div className="user-avatar-placeholder">
+                    <span className="avatar-initials">
+                      {landlordName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                     </span>
-                  )}
-                </button>
+                  </div>
+                )}
+                <div className="user-info">
+                   <span className="welcome-text">Welcome back, {landlordName}!</span>
+                  
+                </div>
               </div>
-              <img
-                src="/api/placeholder/40/40"
-                alt="User Avatar"
-                className="user-avatar"
-              />
             </div>
           </div>
         </div>
@@ -539,29 +612,29 @@ const Dashboard = () => {
                 </div>
               </div>
             </div>
+            <div className="menu-divider"></div>
+            <div className="theme-option" onClick={() => handleNavigation('profile')}>
+              
+            </div>
+            <div className="theme-option" onClick={() => handleNavigation('logout')}>
+              <div className="theme-option-content">
+                <span className="theme-label">Logout</span>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Notifications Panel */}
-        {showNotifications && (
-          <NotificationPanel
-            notifications={notifications}
-            onAction={handleNotificationAction}
-            primaryColor={currentTheme.PRIMARY_COLOR}
-            primaryLight={currentTheme.PRIMARY_LIGHT}
-          />
-        )}
       </header>
 
       {/* Main Content */}
       <main className="dashboard-main">
         {isLoading ? (
           <div className="loading-container">
+            <div className="loading-spinner"></div>
             <p>Loading your dashboard...</p>
           </div>
         ) : (
           <>
-            {/* Navigation Menu */}
             <div className="navigation-menu">
               <div className="nav-item active">
                 <Home size={18} />
@@ -569,7 +642,6 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Stats Cards */}
             <div className="stats-grid">
               <div className="stat-card">
                 <div className="stat-content">
@@ -582,9 +654,9 @@ const Dashboard = () => {
                   </div>
                 </div>
               </div>
+              
             </div>
 
-            {/* Properties Section */}
             <div className="properties-container">
               <div className="properties-header">
                 <h2 className="properties-title">Manage Properties</h2>
@@ -600,7 +672,18 @@ const Dashboard = () => {
 
               {properties.length === 0 ? (
                 <div className="empty-state">
+                  <div className="empty-state-icon">
+                    <Home size={48} />
+                  </div>
+                  <h3>No Properties Yet</h3>
                   <p>You don't have any properties yet. Add your first property to get started!</p>
+                  <button
+                    className="empty-state-button"
+                    onClick={handleAddPropertyClick}
+                  >
+                    <PlusCircle size={18} />
+                    Add Your First Property
+                  </button>
                 </div>
               ) : (
                 <div className="properties-grid">
@@ -608,21 +691,19 @@ const Dashboard = () => {
                     <div key={property.id} className="property-card">
                       <div className="property-image-container">
                         {property.imageUrl ? (
-                          // Display the actual property image if available
                           <img
                             src={property.imageUrl}
                             alt={property.location}
                             className="property-image"
                             onError={(e) => {
-                              // If image fails to load, use a fallback with the property name
                               const target = e.target as HTMLImageElement;
-                              target.onerror = null; // Prevent infinite loop
+                              target.onerror = null;
                               target.src = `/api/placeholder/280/180?text=${encodeURIComponent(property.location)}`;
                             }}
                           />
                         ) : (
-                          // Fallback image with property name
                           <div className="property-image-placeholder">
+                            <Home size={32} />
                             <p>No image available</p>
                           </div>
                         )}
@@ -635,7 +716,6 @@ const Dashboard = () => {
                         <p className="property-address">{property.location}</p>
                         <p className="property-price">{property.price} <span className="price-period">per month</span></p>
 
-                        {/* Display property details if available */}
                         {property.details && (
                           <div className="property-features">
                             {property.details.bedrooms !== undefined && (
@@ -664,16 +744,10 @@ const Dashboard = () => {
                           </div>
                         )}
 
-                        <p className="property-inquiries">
-                          <span className="inquiries-count">{property.inquiries || 0}</span> inquiries
-                        </p>
-
-                        {/* Property type if available */}
                         {property.propertyType && (
                           <p className="property-type">{property.propertyType}</p>
                         )}
 
-                        {/* Don't show delete button for properties currently being added */}
                         {!String(property.id).startsWith('temp-') && (
                           <div className="property-actions">
                             <button
@@ -695,9 +769,9 @@ const Dashboard = () => {
                           </div>
                         )}
 
-                        {/* Show indicator for properties being processed */}
                         {String(property.id).startsWith('temp-') && (
                           <div className="processing-indicator">
+                            <div className="processing-spinner"></div>
                             Processing...
                           </div>
                         )}
@@ -719,9 +793,7 @@ const Dashboard = () => {
               <h3>Confirm Deletion</h3>
             </div>
             <div className="modal-body">
-              <p>
-                Are you sure you want to delete the property:
-              </p>
+              <p>Are you sure you want to delete the property:</p>
               <p className="property-to-delete">
                 <strong>{propertyToDelete.title || propertyToDelete.location}</strong>
               </p>
@@ -748,6 +820,7 @@ const Dashboard = () => {
         </div>
       )}
 
+      {/* Property Edit Form */}
       {showPropertyEditForm && editingProperty && (
         <PropertyEditForm
           property={editingProperty}
@@ -761,87 +834,43 @@ const Dashboard = () => {
         />
       )}
 
-      {/* Property Creation Form Modal */}
+      {/* Property Creation Form */}
       {showPropertyForm && (
         <PropertyCreationForm
           isOpen={showPropertyForm}
           onClose={handlePropertyFormClose}
           onSubmit={handlePropertyFormSubmit}
           onImageUpload={handleImageUpload}
-          landlordId={landlordId}
+          landlordId={currentUser?.id || landlordId}
           isDarkMode={isDarkMode}
           themeColors={currentTheme}
         />
       )}
 
-      <footer className="mt-auto">
-        <div className="container">
-          <div className="row gy-4">
-            <div className="col-md-4">
-              <h5 className="fw-bold mb-3 d-flex align-items-center">
-                <i className="bi bi-building-fill me-2"></i>
-                NexNest
-              </h5>
-              <p className="mb-3">Your trusted partner for finding safe and affordable student housing at Copperbelt University.</p>
-              <div className="d-flex gap-3">
-                {['facebook', 'twitter-x', 'instagram', 'linkedin'].map((platform) => (
-                  <a href="#" className="text-white" key={platform}>
-                    <i className={`bi bi-${platform} fs-5`}></i>
-                  </a>
-                ))}
-              </div>
+      {/* Footer */}
+      <footer className="dashboard-footer">
+        <div className="footer-container">
+          <div className="footer-content">
+            <div className="footer-brand">
+              <span className="footer-logo">🏠 PlacesForLeaners</span>
+              <p className="footer-description">Your trusted partner for student housing management.</p>
             </div>
-            <div className="col-md-8">
-              <div className="row">
-                <div className="col-sm-4">
-                  <h6 className="fw-bold mb-3">Quick Links</h6>
-                  <ul className="list-unstyled mb-0">
-                    {['Home', 'Browse Listings', 'Saved Properties', 'My Account'].map((link) => (
-                      <li className="mb-2" key={link}>
-                        <a href="#" className="text-decoration-none text-white-50 hover-white">{link}</a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="col-sm-4">
-                  <h6 className="fw-bold mb-3">Resources</h6>
-                  <ul className="list-unstyled mb-0">
-                    {['FAQs', 'Student Guide', 'Safety Tips', 'Blog'].map((resource) => (
-                      <li className="mb-2" key={resource}>
-                        <a href="#" className="text-decoration-none text-white-50 hover-white">{resource}</a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="col-sm-4">
-                  <h6 className="fw-bold mb-3">Contact Us</h6>
-                  <ul className="list-unstyled mb-0">
-                    <li className="mb-2 d-flex align-items-center">
-                      <i className="bi bi-geo-alt me-2"></i>
-                      <span className="text-white-50">CBU Campus, Kitwe</span>
-                    </li>
-                    <li className="mb-2 d-flex align-items-center">
-                      <i className="bi bi-envelope me-2"></i>
-                      <span className="text-white-50">support@nexnest.ac.zm</span>
-                    </li>
-                    <li className="mb-2 d-flex align-items-center">
-                      <i className="bi bi-telephone me-2"></i>
-                      <span className="text-white-50">+260 972 526777</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
+            <div className="footer-links">
+              <a href="#" className="footer-link" onClick={(e) => { e.preventDefault(); handleNavigation('home'); }}>
+                Home
+              </a>
+              <a href="#" className="footer-link" onClick={(e) => { e.preventDefault(); handleNavigation('profile'); }}>
+                Profile
+              </a>
+              <a href="#" className="footer-link">
+                Support
+              </a>
+              <a href="#" className="footer-link">
+                Privacy
+              </a>
             </div>
-            <div className="col-12 mt-4">
-              <hr className="border-secondary" />
-              <div className="d-flex flex-column flex-sm-row justify-content-between align-items-center mt-3">
-                <p className="mb-0 text-white-50">© {new Date().getFullYear()} NexNest. All rights reserved.</p>
-                <div className="mt-3 mt-sm-0">
-                  {['Privacy Policy', 'Terms of Service', 'Sitemap'].map((link) => (
-                    <a href="#" className="text-decoration-none me-3 text-white-50 hover-white" key={link}>{link}</a>
-                  ))}
-                </div>
-              </div>
+            <div className="footer-copyright">
+              © {new Date().getFullYear()} PlacesForLeaners. All rights reserved.
             </div>
           </div>
         </div>

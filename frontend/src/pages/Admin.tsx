@@ -111,8 +111,7 @@ const Dashboard = () => {
   ];
 
 
-  // Authentication check - this should be the first useEffect
-  // Authentication and authorization check - this should be the first useEffect
+  
   useEffect(() => {
     const checkAuthenticationAndRole = async () => {
       try {
@@ -418,7 +417,7 @@ const Dashboard = () => {
               <Home size={20} />
             </span>
             <div className="logo-text">
-              <h1 className="sidebar-title" style={{ color: 'black' }}>🏠 CribConnect</h1>
+              <h1 className="sidebar-title" style={{ color: 'black' }}>🏠 PlacesForLeaners</h1>
               <p className="sidebar-subtitle">Admin Dashboard</p>
             </div>
           </div>
@@ -543,34 +542,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="activity-card">
-          <h3 className="card-title">Top Properties</h3>
-          <div className="space-y-4">
-            {topProperties.map((property) => (
-              <div key={property.id} className="property-item">
-                <img
-                  src={property.image}
-                  alt={property.name}
-                  className="property-image"
-                />
-                <div className="property-details">
-                  <p className="property-name">{property.name}</p>
-                  <div className="property-stats">
-                    <span className="flex items-center">
-                      <Star className="h-4 w-4 text-yellow-400 mr-1" />
-                      {property.rating}
-                    </span>
-                    <span>{property.inquiries} inquiries</span>
-                  </div>
-                </div>
-                <div className="property-revenue">
-                  <p className="revenue-amount">K{property.revenue.toLocaleString()}</p>
-                  <p className="revenue-label">monthly</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+       
       </div>
     </div>
   );
