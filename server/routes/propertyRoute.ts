@@ -1,6 +1,6 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
-import { properties, propertyImages, users } from "../db/schemas/mgh_db";
+import { properties, propertyDetails, propertyImages, users } from "../db/schemas/mgh_db";
 import { db } from "../db";
 import { createRouter } from "../libs/create-app";
 import * as HttpStatusCodes from "stoker/http-status-codes";

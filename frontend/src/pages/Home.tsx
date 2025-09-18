@@ -19,43 +19,8 @@ const HomePage = () => {
     tag?: string;
   }
 
-  // Mock data to show immediately while API loads
   const mockProperties: Property[] = [
-    {
-      id: 1,
-      image: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400',
-      title: 'Modern Studio Apartment',
-      location: 'Near CBU Main Campus',
-      price: 'K450/month',
-      features: ['WiFi', 'Furnished', 'Security'],
-      tag: 'Popular'
-    },
-    {
-      id: 2,
-      image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400',
-      title: 'Shared 2-Bedroom House',
-      location: 'CBU Student Area',
-      price: 'K350/month',
-      features: ['Kitchen', 'Parking', 'Garden'],
-      tag: 'Budget'
-    },
-    {
-      id: 3,
-      image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400',
-      title: 'Single Room with Bath',
-      location: '5 mins walk to CBU',
-      price: 'K300/month',
-      features: ['Private Bath', 'Desk', 'Wardrobe']
-    },
-    {
-      id: 4,
-      image: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=400',
-      title: 'Luxury Student Apartment',
-      location: 'Premium CBU Housing',
-      price: 'K650/month',
-      features: ['AC', 'Gym Access', 'Study Room'],
-      tag: 'Premium'
-    }
+   
   ];
 
   const [featuredProperties, setFeaturedProperties] = useState<Property[]>(mockProperties);
@@ -83,7 +48,7 @@ const HomePage = () => {
         }
       } catch (err) {
         console.error('Failed to fetch properties:', err);
-        // Keep mock data on error
+        
       }
     };
 

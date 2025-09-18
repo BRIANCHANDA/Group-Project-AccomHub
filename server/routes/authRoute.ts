@@ -59,7 +59,7 @@ const authMiddleware = jwt({
 });
 
 // Admin middleware
-const adminMiddleware = async (c, next) => {
+const adminMiddleware = async (c: { get: (arg0: string) => any; }, next: () => any) => {
   const payload = c.get('jwtPayload');
   if (payload.userType !== 'admin') {
     throw new HTTPException(HttpStatusCodes.FORBIDDEN, {
@@ -76,7 +76,7 @@ const generateToken = (userId: number, userType: "student" | "landlord" | "admin
   if (userType === "landlord" && !approved) {
     return null;
   }
-  return sign({ userId, userType }, JWT_SECRET, { expiresIn: "24h" });
+  return sign({ userId, userType }, JWT_SECRET, { expiresIn: "1h" });
 };
 
 const findUserByEmail = async (email: string) => {
@@ -290,158 +290,7 @@ authRouter
       }, HttpStatusCodes.CREATED);
     }
   )
-  .openapi(
-    createRoute({
-      tags: ["Auth"],
-      method: "patch",
-      path: "/admin/landlord-approval",
-      request: {
-        body: {
-          content: {
-            "application/json": {
-              schema: approvalSchema,
-            },
-          },
-        },
-      },
-      responses: {
-        [HttpStatusCodes.OK]: {
-          content: {
-            "application/json": {
-              schema: z.object({
-                message: z.string(),
-                user: z.object({
-                  id: z.number(),
-                  email: z.string(),
-                  firstName: z.string(),
-                  lastName: z.string(),
-                  userType: z.string(),
-                  approved: z.boolean(),
-                }),
-              }),
-            },
-          },
-          description: "Landlord approval status updated",
-        },
-        [HttpStatusCodes.NOT_FOUND]: {
-          content: {
-            "application/json": {
-              schema: z.object({
-                message: z.string(),
-              }),
-            },
-          },
-          description: "User not found",
-        },
-        [HttpStatusCodes.FORBIDDEN]: {
-          content: {
-            "application/json": {
-              schema: z.object({
-                message: z.string(),
-              }),
-            },
-          },
-          description: "Admin access required",
-        },
-      },
-    }),
-    {
-      beforeHandle: [authMiddleware, adminMiddleware],
-    },
-    async (c) => {
-      const { userId, approved } = c.req.valid("json");
-
-      const user = await findUserById(userId);
-      if (!user) {
-        throw new HTTPException(HttpStatusCodes.NOT_FOUND, {
-          message: "User not found",
-        });
-      }
-
-      if (user.userType !== "landlord") {
-        throw new HTTPException(HttpStatusCodes.BAD_REQUEST, {
-          message: "Only landlord accounts require approval",
-        });
-      }
-
-      const updatedUser = await updateUserApproval(userId, approved);
-
-      return c.json({
-        message: approved ? "Landlord account approved" : "Landlord account disapproved",
-        user: {
-          id: updatedUser.userId,
-          email: updatedUser.email,
-          firstName: updatedUser.firstName,
-          lastName: updatedUser.lastName,
-          userType: updatedUser.userType,
-          approved: updatedUser.approved,
-        },
-      }, HttpStatusCodes.OK);
-    }
-  )
-  .openapi(
-    createRoute({
-      tags: ["Auth"],
-      method: "get",
-      path: "/admin/pending-landlords",
-      responses: {
-        [HttpStatusCodes.OK]: {
-          content: {
-            "application/json": {
-              schema: z.object({
-                pendingLandlords: z.array(z.object({
-                  id: z.number(),
-                  email: z.string(),
-                  firstName: z.string(),
-                  lastName: z.string(),
-                  phoneNumber: z.string().nullable(),
-                  createdAt: z.string(),
-                })),
-                total: z.number(),
-              }),
-            },
-          },
-          description: "List of landlords pending approval",
-        },
-        [HttpStatusCodes.FORBIDDEN]: {
-          content: {
-            "application/json": {
-              schema: z.object({
-                message: z.string(),
-              }),
-            },
-          },
-          description: "Admin access required",
-        },
-      },
-    }),
-    {
-      beforeHandle: [authMiddleware, adminMiddleware],
-    },
-    async (c) => {
-      const pendingLandlords = await db
-        .select({
-          id: users.userId,
-          email: users.email,
-          firstName: users.firstName,
-          lastName: users.lastName,
-          phoneNumber: users.phoneNumber,
-          createdAt: users.createdAt,
-        })
-        .from(users)
-        .where(
-          and(
-            eq(users.userType, "landlord"),
-            eq(users.approved, false)
-          )
-        );
-
-      return c.json({
-        pendingLandlords,
-        total: pendingLandlords.length,
-      }, HttpStatusCodes.OK);
-    }
-  )
+  
   .openapi(
     createRoute({
       tags: ["Auth"],
@@ -501,7 +350,7 @@ authRouter
       }, HttpStatusCodes.OK);
     }
   )
-  // New route: Check authentication status
+  //Check authentication status
   .openapi(
     createRoute({
       tags: ["Auth"],
@@ -542,7 +391,7 @@ authRouter
       }
     }
   )
-  // New route: Get student details
+  //  Get student details
   .openapi(
     createRoute({
       tags: ["Student"],
@@ -550,7 +399,7 @@ authRouter
       path: "/students/{id}",
       request: {
         params: z.object({
-          id: z.string().regex(/^\d+$/).transform(Number), // Ensure ID is a number
+          id: z.string().regex(/^\d+$/).transform(Number), // To Ensure ID is a number
         }),
       },
       responses: {

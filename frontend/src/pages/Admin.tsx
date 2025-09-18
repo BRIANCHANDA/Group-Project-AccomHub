@@ -62,14 +62,12 @@ const Dashboard = () => {
   const [properties, setProperties] = useState<Property[]>([]);
   const [userData, setUserData] = useState<UserData[]>([]);
 
-  // Mock data based on schema
+  
   const dashboardStats = {
-    totalProperties: 247,
-    totalUsers: 1834,
-    totalInquiries: 432,
-    averageRating: 4.2,
-    monthlyRevenue: 125000,
-    occupancyRate: 87
+    totalProperties: 0,
+    totalUsers: 0,
+    
+    averageRating: 0
   };
 
   const [propertyStats, setPropertyStats] = useState({
@@ -100,16 +98,10 @@ const Dashboard = () => {
   ]);
 
   const notificationsData = [
-    { id: 1, message: 'New user registered: Chanda bRIAN', type: 'info', date: '2025-05-28 10:00' },
-    { id: 2, message: 'Property added: Team Kuno Boarding house', type: 'success', date: '2025-05-27 15:30' }
+{}
   ];
 
-  const topProperties = [
-    { id: 1, name: 'Sunset Apartments', rating: 4.8, revenue: 15000, image: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=300&h=200&fit=crop' },
-    { id: 2, name: 'Campus View House', rating: 4.6, revenue: 12500, image: 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=300&h=200&fit=crop' },
-    { id: 3, name: 'Student Plaza', rating: 4.5, revenue: 11000, image: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=300&h=200&fit=crop' }
-  ];
-
+  
 
   
   useEffect(() => {

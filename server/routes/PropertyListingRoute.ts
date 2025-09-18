@@ -123,8 +123,8 @@ propertyListing.openapi(
                         isAvailable: z.boolean(),
                         latitude: z.number().optional(),
                         longitude: z.number().optional(),
-                        targetUniversity: z.string(), // Added target university
-                        distanceToUniversity: z.number().optional(), // Added distance info
+                        targetUniversity: z.string(), 
+                        distanceToUniversity: z.number().optional(), 
                         details: z.object({
                           bedrooms: z.number().optional(),
                           bathrooms: z.number().optional(),
@@ -157,7 +157,7 @@ propertyListing.openapi(
                         monthlyRent: z.number(),
                         latitude: z.number(),
                         longitude: z.number(),
-                        targetUniversity: z.string(), // Added target university
+                        targetUniversity: z.string(), 
                         imageUrl: z.string().optional(),
                       })
                     ])
@@ -366,11 +366,10 @@ propertyListing.openapi(
             .where(eq(users.userId, property.landlordId))
             .limit(1);
           
-          // Calculate distance to university if coordinates are available
+          
           let distanceToUniversity: number | undefined;
           if (latitude && longitude) {
-            // This would be replaced with actual distance calculation logic
-            // For now using a placeholder calculation
+            
             distanceToUniversity = Math.sqrt(Math.pow(latitude, 2) + Math.pow(longitude, 2));
           }
           
@@ -400,8 +399,8 @@ propertyListing.openapi(
               name: landlord.name,
               email: landlord.email || undefined,
               phoneNumber: landlord.phoneNumber || undefined,
-              responseRate: 0, // Default value
-              responseTime: 'N/A', // Default value
+              responseRate: 0, 
+              responseTime: 'N/A', 
             },
           });
         }

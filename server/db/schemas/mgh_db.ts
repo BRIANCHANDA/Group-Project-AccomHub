@@ -40,7 +40,7 @@ export const properties = pgTable('properties', {
   longitude: decimal('longitude', { precision: 10, scale: 7 }),
   monthlyRent: decimal('monthly_rent', { precision: 10, scale: 2 }).notNull(),
   isAvailable: boolean('is_available').default(true).notNull(),
-  targetUniversity: varchar('target_university', { length: 255 }).notNull(), // Added target university
+  targetUniversity: varchar('target_university', { length: 255 }).notNull(), 
   createdAt: timestamp('created_at').defaultNow()
 }, (table) => ({
   landlordIdx: index('idx_properties_landlord_id').on(table.landlordId),

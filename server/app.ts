@@ -5,7 +5,7 @@ import authRouter from "./routes/authRoute";
 import propertiesRouter from "./routes/propertyRoute";
 
 import reviewsRouter from "./routes/reviewAuth";
-import messagesRouter from "./routes/messagesAuth";
+
 
 import userRouter from "./routes/userRoute";
 import propertyImageRouter from "./routes/propertyImagesRoute";
@@ -29,7 +29,7 @@ const routes = [
   { path: "/api/property-images", router: propertyImageRouter },
  
   { path: "/api/reviews", router: reviewsRouter },
-  { path: "/api/messages", router: messagesRouter },
+
  
 
   { path: "/api/PropertyListingRoute", router: propertyListing},

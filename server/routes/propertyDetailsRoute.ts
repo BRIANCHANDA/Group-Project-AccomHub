@@ -80,7 +80,7 @@ propertyDetailRouter.openapi(
       });
     }
 
-    return c.json(propertyDetail);
+    return c.json(propertyDetail, HttpStatusCodes.OK);
   }
 );
 

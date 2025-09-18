@@ -118,7 +118,7 @@ propertyImageRouter.openapi(
       const formData = await c.req.formData();
       console.log("Form data keys received:", Array.from(formData.entries()).map(([key]) => key));
       
-      // Detailed inspection of the raw request before any processing
+     
       console.log("Request content type:", c.req.header("content-type"));
       console.log("Request method:", c.req.method);
       
@@ -214,7 +214,7 @@ propertyImageRouter.openapi(
       });
       
       // Upload to Cloudinary
-      console.log("Uploading to Cloudinary...");
+      
       const result = await cloudinary.uploader.upload(base64Image, {
         folder: "property_images",
       });
